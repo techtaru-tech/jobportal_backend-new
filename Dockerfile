@@ -100,9 +100,23 @@ COPY --chown=www-data:www-data . .
 COPY --from=vendor --chown=www-data:www-data /app/vendor ./vendor
 COPY --from=assets --chown=www-data:www-data /app/public/build ./public/build
 
-# Now that source + vendor are both present, run the discovery that stage 2
-# deliberately skipped.
-RUN composer dump-autoload --no-dev --optimize --no-interaction \
+# Now that source + vendor are both present, redo the autoloader and run the
+# discovery that stage 2 deliberately skipped.
+#
+# The re-dump matters: stage 2 ran `--optimize` with only composer.json in the
+# tree, so the classmap it built has no entry for anything under app/ — those
+# classes would fall back to a PSR-4 filesystem lookup on every resolve.
+#
+# Composer is bind-mounted for this one command rather than installed. The
+# runtime image has no use for it afterwards, and `COPY` + a later `rm` would
+# still leave the binary sitting in an intermediate layer.
+#
+# Needs BuildKit (guaranteed by the `# syntax` line at the top). On a builder
+# old enough to reject `--mount`, swap this for a plain
+# `COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer` above the
+# RUN and drop the mount flag — same result, ~3MB heavier.
+RUN --mount=type=bind,from=composer:2,source=/usr/bin/composer,target=/usr/local/bin/composer \
+    composer dump-autoload --no-dev --optimize --no-interaction \
     && php artisan package:discover --ansi
 
 # Laravel writes to both trees at runtime.
