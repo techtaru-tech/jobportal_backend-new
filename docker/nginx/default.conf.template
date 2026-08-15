@@ -1,5 +1,12 @@
+# Rendered by the entrypoint (envsubst) into /etc/nginx/conf.d/default.conf.
+#
+# ${PORT} is a template variable, not a literal: Render (and most container
+# platforms) assign the port at runtime and expect the process to listen on it.
+# A hardcoded 80 gets the container marked unhealthy and killed.
+
 server {
-    listen 80;
+    listen ${PORT};
+    listen [::]:${PORT};
     server_name _;
 
     root /var/www/html/public;
@@ -8,7 +15,7 @@ server {
     charset utf-8;
 
     # Must clear the app's 50MB intro-video cap. nginx enforces this before the
-    # request ever reaches PHP, and its rejection is an HTML 413 — not the JSON
+    # request reaches PHP, and its rejection is an HTML 413 — not the JSON
     # envelope the API promises — so it is set above the cap rather than at it.
     client_max_body_size 64m;
 
@@ -27,8 +34,8 @@ server {
     error_page 404 /index.php;
 
     location ~ \.php$ {
-        # `app` is the compose service name; Docker's embedded DNS resolves it.
-        fastcgi_pass app:9000;
+        # Loopback, not a service name: php-fpm runs in this same container.
+        fastcgi_pass 127.0.0.1:9000;
         fastcgi_index index.php;
         include fastcgi_params;
 
@@ -45,20 +52,6 @@ server {
         fastcgi_buffers 8 16k;
     }
 
-    # php-fpm's health endpoint, for the compose healthcheck. Restricted to
-    # private ranges so it is not reachable from outside the compose network.
-    location = /fpm-ping {
-        access_log off;
-        allow 127.0.0.1;
-        allow 10.0.0.0/8;
-        allow 172.16.0.0/12;
-        allow 192.168.0.0/16;
-        deny all;
-        fastcgi_pass app:9000;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $fastcgi_script_name;
-    }
-
     # Never serve the dotfiles that end up under the web root.
     location ~ /\.(?!well-known).* {
         deny all;
@@ -71,6 +64,10 @@ server {
         access_log off;
         try_files $uri =404;
     }
+
+    # Access log to stdout so the platform's log collector picks it up.
+    access_log /dev/stdout;
+    error_log /dev/stderr warn;
 
     gzip on;
     gzip_vary on;

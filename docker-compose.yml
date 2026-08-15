@@ -1,50 +1,46 @@
-# Inthes API — local/staging stack.
+# Inthes API — local stack.
 #
 #   docker compose up -d --build
 #   → http://localhost:8000/api/v1/jobs
 #
-# Four services: nginx (public port), app (php-fpm), queue (worker on the same
-# image), mysql. Config lives in .env.docker; copy it and edit before first run.
+# The app image is self-contained (nginx + php-fpm under supervisord), which is
+# what lets the exact same image run on a single-container platform like
+# Render. There is deliberately no separate nginx service: a compose-only
+# split would mean the thing deployed to production is not the thing tested
+# here.
 
 services:
-  nginx:
-    build:
-      context: .
-      target: web
-    restart: unless-stopped
-    ports:
-      - "${APP_PORT:-8000}:80"
-    volumes:
-      # Only storage/ is shared. public/ is baked into the image so a rebuild
-      # always ships the current assets — see the `web` stage in the Dockerfile.
-      # Read-only: nginx serves uploads, it never writes them.
-      - storage_data:/var/www/html/storage:ro
-    depends_on:
-      app:
-        condition: service_started
-    networks: [inthes]
-
   app:
     build:
       context: .
       target: runtime
     restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8080"
     env_file: [.env.docker]
     environment:
       CONTAINER_ROLE: app
       DB_HOST: mysql
-      REDIS_HOST: redis
+      PORT: 8080
     volumes:
+      # Uploads (resumes, photos, intro videos) and logs must survive a rebuild.
       - storage_data:/var/www/html/storage
     depends_on:
       mysql:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "php -r 'exit(0);'"]
+      # PHP rather than curl — curl is not in the base image, and adding it
+      # just for a healthcheck is a package the runtime never otherwise needs.
+      # Hits a real route, so it fails if PHP is up but the app is broken.
+      test:
+        - CMD
+        - php
+        - -r
+        - "exit(@file_get_contents('http://127.0.0.1:8080/api/v1/config/options') === false ? 1 : 0);"
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     networks: [inthes]
 
   queue:
@@ -59,18 +55,20 @@ services:
       # The app container owns migrations and cache warming; this one only
       # consumes. Running them here too would race it on every start.
       RUN_MIGRATIONS: "false"
+      RUN_SEEDERS: "false"
       CACHE_CONFIG: "false"
     volumes:
       - storage_data:/var/www/html/storage
-    # --tries=3 so a transient failure retries; --max-time recycles the worker
-    # hourly, which drops any memory a long-lived PHP process has accumulated.
+    # Overrides the image's supervisord CMD — no web server in a worker.
+    # --max-time recycles the process hourly, dropping whatever memory a
+    # long-lived PHP process has accumulated.
     command: php artisan queue:work --tries=3 --sleep=3 --max-time=3600
     depends_on:
       mysql:
         condition: service_healthy
       app:
         condition: service_started
-    # SIGTERM reaches PHP (pcntl is installed), so the current job finishes
+    # SIGTERM reaches PHP (pcntl is installed), so the job in flight finishes
     # before the container exits. The default 10s is not always enough.
     stop_grace_period: 60s
     networks: [inthes]
@@ -83,20 +81,20 @@ services:
       MYSQL_USER: "${DB_USERNAME:-inthes}"
       MYSQL_PASSWORD: "${DB_PASSWORD:-secret}"
       MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-root}"
-    # Matches the migrations' utf8mb4 tables — the emoji and ₹ in seeded
-    # salary strings need it.
+    # Matches the migrations' utf8mb4 tables — the ₹ in seeded salary strings
+    # needs it.
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
-      # Host-side access for a GUI client. Exposed on 3307 so it does not
-      # collide with a MySQL already running on the host (Laragon's is on 3306).
+      # Host-side access for a GUI client. 3307 so it does not collide with the
+      # MySQL Laragon already runs on 3306.
       - "${DB_HOST_PORT:-3307}:3306"
     healthcheck:
-      # Everything else waits on this: starting the app against a database
-      # still initialising is the most common first-run failure.
+      # Everything waits on this: starting the app against a database still
+      # initialising is the most common first-run failure.
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-root}"]
       interval: 5s
       timeout: 5s

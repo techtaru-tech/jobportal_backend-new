@@ -11,6 +11,21 @@ ROLE="${CONTAINER_ROLE:-app}"
 
 log() { echo "[entrypoint] $*"; }
 
+# ── nginx port ──────────────────────────────────────────────────────────────
+# The platform assigns the port (Render sets $PORT; locally compose leaves the
+# image default). Rendered here rather than hardcoded because a container that
+# listens on the wrong port is marked unhealthy and killed, with no error that
+# points at the port.
+export PORT="${PORT:-8080}"
+if [ -f /etc/nginx/templates/default.conf.template ]; then
+    log "rendering nginx config on port ${PORT}"
+    # Only $PORT is substituted — nginx configs are full of $uri, $document_root
+    # and friends, and an unrestricted envsubst would blank every one of them.
+    envsubst '${PORT}' \
+        < /etc/nginx/templates/default.conf.template \
+        > /etc/nginx/conf.d/default.conf
+fi
+
 # ── .env ────────────────────────────────────────────────────────────────────
 # Config is normally passed as compose environment variables. A file is still
 # created because `artisan key:generate` and a few packages expect one to

@@ -6,10 +6,16 @@
 #  Three stages so the runtime image carries neither Node nor Composer:
 #    assets  — builds the Vite bundle (the welcome page uses @vite)
 #    vendor  — resolves Composer deps against a Linux platform
-#    runtime — php-fpm + the two build outputs
+#    runtime — nginx + php-fpm + the two build outputs
 #
-#  Serving is php-fpm behind the nginx container in docker-compose.yml, not
-#  `artisan serve`: that is a single-process dev server and blocks on one
+#  The runtime image is self-contained: nginx and php-fpm run side by side
+#  under supervisord rather than as two containers on a compose network.
+#  Single-container platforms (Render, Fly, Cloud Run, App Runner) run one
+#  image per service and never read docker-compose.yml — an nginx-only image
+#  there fails at boot with `host not found in upstream "app"`, because the
+#  service name it wants to reach does not exist outside compose.
+#
+#  Not `artisan serve`: that is a single-process dev server and blocks on one
 #  request at a time, which stalls the app the moment a 50MB intro video is
 #  uploading.
 # =============================================================================
@@ -83,6 +89,11 @@ RUN install-php-extensions \
         zip \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
+        nginx \
+        supervisor \
+        # gettext-base provides envsubst, which renders $PORT into the nginx
+        # config at start — the platform picks the port, not the image.
+        gettext-base \
         # mysqladmin, for the entrypoint's readiness probe
         default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
@@ -94,6 +105,14 @@ WORKDIR /var/www/html
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/www.conf /usr/local/etc/php-fpm.d/zz-www.conf
+# Replaces Debian's own supervisord.conf rather than dropping a file into
+# conf.d/: this file carries its own [supervisord] section, and having two of
+# them in one config tree makes which settings win depend on include order.
+COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
+COPY docker/nginx/default.conf.template /etc/nginx/templates/default.conf.template
+
+# The distro's default site would otherwise also bind a port and shadow ours.
+RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf
 
 # Application source, then the two build outputs on top.
 COPY --chown=www-data:www-data . .
@@ -131,35 +150,21 @@ RUN mkdir -p \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R ug+rwX storage bootstrap/cache
 
-# Baked in rather than left to the entrypoint so it is present in the copy the
-# `web` stage takes below — nginx serves profile photos and org logos through
-# this link, and it has no entrypoint of its own to create one.
+# Relative symlink, so it stays correct whether storage/ is the image's own
+# directory or a mounted volume. nginx serves profile photos and org logos
+# through it.
 RUN rm -rf public/storage \
     && ln -s ../storage/app/public public/storage
 
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-EXPOSE 9000
+# Documentation only — the actual port is whatever $PORT says at runtime.
+# 8080 is the default the entrypoint falls back to.
+ENV PORT=8080
+EXPOSE 8080
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["php-fpm"]
 
-
-# -----------------------------------------------------------------------------
-# Stage 4 — nginx
-#
-# Carries its own copy of public/ instead of sharing a named volume with the
-# app container. A named volume is seeded from the image only when it is first
-# created, so after a rebuild it would keep serving the *previous* build's
-# assets until someone deleted the volume by hand — a stale-asset bug that
-# looks like a caching problem and isn't.
-#
-# storage/ is still a volume (it holds uploads, which must survive a rebuild)
-# and is mounted read-only here so the public/storage symlink resolves.
-# -----------------------------------------------------------------------------
-FROM nginx:1.27-alpine AS web
-
-COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY --from=runtime /var/www/html/public /var/www/html/public
-
-EXPOSE 80
+# Supervisord runs nginx + php-fpm. Override for a worker:
+#   command: php artisan queue:work
+CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]

@@ -1,0 +1,114 @@
+# Render blueprint. Optional — you can configure the same things in Render's
+# dashboard — but keeping it here means the deploy is reviewable in git.
+#
+# Render runs ONE container per service and never reads docker-compose.yml,
+# which is why the app image bundles nginx + php-fpm rather than expecting a
+# sidecar. See DOCKER.md.
+#
+# ⚠️ Render has no managed MySQL (it offers PostgreSQL and Redis). This app is
+#    MySQL-only — the migrations use MySQL-specific column types. Point
+#    DB_HOST/DB_* at an external provider (PlanetScale, Aiven, Railway, RDS…)
+#    before deploying, or the container starts, fails its readiness probe
+#    against the database, and exits.
+
+services:
+  - type: web
+    name: inthes-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # Must match the Dockerfile's final stage. Without it Render builds the
+    # LAST stage in the file, which is how an nginx-only image ends up
+    # deployed and dies with `host not found in upstream "app"`.
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /api/v1/config/options
+    envVars:
+      # Render injects PORT; the entrypoint renders it into the nginx config.
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      # Generate once (`php artisan key:generate --show`) and paste it in.
+      # A key that changes per deploy invalidates every signed file URL and
+      # encrypted value already issued.
+      - key: APP_KEY
+        sync: false
+      # Must be the public URL of THIS service. Signed resume / intro-video /
+      # document links are generated against it — a mismatch serves the API
+      # fine and then 404s every file.
+      - key: APP_URL
+        sync: false
+
+      - key: LOG_CHANNEL
+        value: stderr
+
+      # ── database — external MySQL, see the warning above ────────────────
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+
+      # ── entrypoint behaviour ────────────────────────────────────────────
+      - key: RUN_MIGRATIONS
+        value: "true"
+      # Demo data. Leave false in production — it would insert 8 fake jobs and
+      # 6 fake accounts into a real database, and re-insert them every deploy.
+      - key: RUN_SEEDERS
+        value: "false"
+      - key: CACHE_CONFIG
+        value: "true"
+
+      # NOTE: the OTP_* dev flags from .env.docker are deliberately absent.
+      # OTP_DEBUG_CODE would let anyone sign in as any account knowing only
+      # the phone number. Do not add them here.
+
+  # Optional. Only needed if you actually dispatch queued jobs; without it
+  # anything queued sits in the jobs table unprocessed.
+  - type: worker
+    name: inthes-queue
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    dockerCommand: php artisan queue:work --tries=3 --sleep=3 --max-time=3600
+    envVars:
+      - key: CONTAINER_ROLE
+        value: queue
+      # The web service owns migrations; running them here too races it.
+      - key: RUN_MIGRATIONS
+        value: "false"
+      - key: RUN_SEEDERS
+        value: "false"
+      - key: CACHE_CONFIG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: QUEUE_CONNECTION
+        value: database

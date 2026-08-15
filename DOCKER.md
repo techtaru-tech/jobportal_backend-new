@@ -15,13 +15,16 @@ runs migrations and the demo seeder). Subsequent starts are seconds.
 
 | Service | Image | Port | Role |
 |---|---|---|---|
-| `nginx` | built (`web` stage) | `8000` → 80 | Public entrypoint; serves `public/` and uploads directly |
-| `app` | built (`runtime` stage) | 9000 (internal) | php-fpm; runs migrations and cache warming on start |
-| `queue` | same image as `app` | — | `queue:work`; `QUEUE_CONNECTION=database` |
+| `app` | built (`runtime` stage) | `8000` → 8080 | nginx + php-fpm under supervisord; runs migrations on start |
+| `queue` | same image, different command | — | `queue:work`; `QUEUE_CONNECTION=database` |
 | `mysql` | `mysql:8.4` | `3307` → 3306 | Data; `3307` on the host so it doesn't clash with Laragon |
 
 Two named volumes survive `docker compose down`: `mysql_data` (the database) and
 `storage_data` (uploaded resumes, photos, intro videos, logs).
+
+**There is no separate nginx service on purpose.** The app image bundles nginx
+and php-fpm so the exact same image runs unchanged on a single-container
+platform — see [Deploying to Render](#deploying-to-render).
 
 ---
 
