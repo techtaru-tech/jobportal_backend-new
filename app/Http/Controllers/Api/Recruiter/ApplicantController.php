@@ -142,7 +142,9 @@ class ApplicantController extends ApiController
     /** @return Builder<Application> */
     private function filtered(Request $request, JobPosting $job): Builder
     {
-        $query = Application::query()->where('job_posting_id', $job->id);
+        // ApplicantResource renders the interview inline (§9.1); without this
+        // the list lazy-loads one query per row.
+        $query = Application::query()->with('interview')->where('job_posting_id', $job->id);
 
         if ($status = $request->string('status')->trim()->value()) {
             if (ApplicationStatus::tryFrom($status)) {

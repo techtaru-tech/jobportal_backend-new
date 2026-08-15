@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\ChatMessageStatus;
 use App\Enums\ChatSender;
 use App\Http\Resources\ChatMessageResource;
+use App\Http\Resources\ConversationResource;
 use App\Models\Application;
 use App\Models\Conversation;
 use App\Services\Notifier;
@@ -23,6 +24,59 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class ChatController extends ApiController
 {
     public function __construct(private readonly Notifier $notifier) {}
+
+    /**
+     * GET /conversations (§12) — the Conversations screen, for either role.
+     *
+     * Every application is a thread, whether or not anyone has spoken yet, so
+     * the list matches what each side already sees elsewhere: a candidate's
+     * threads are their applications, a recruiter's are the applications
+     * against their own postings. Threads with traffic float to the top; the
+     * rest fall back to most-recently-applied.
+     *
+     * The preview line and unread badge come back with the row — building this
+     * screen from `GET /conversations/{id}/messages` would be one full thread
+     * fetch per row.
+     */
+    public function conversations(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $asRecruiter = $user->isRecruiter();
+        $otherSide = ChatSender::fromRole($user->role)->opposite();
+
+        $query = $asRecruiter
+            ? Application::query()->whereIn('job_posting_id', $user->jobPostings()->select('id'))
+            : Application::query()->where('user_id', $user->id);
+
+        $query
+            ->with([
+                'jobPosting.organisationRecord',
+                'conversation' => fn ($conversation) => $conversation
+                    ->with('latestMessage')
+                    ->withCount(['messages as unread_count' => fn ($message) => $message
+                        ->where('sender', $otherSide->value)
+                        ->where('status', '!=', ChatMessageStatus::Read->value)]),
+            ])
+            // Sorting on the child table without dragging every message back.
+            ->addSelect(['last_message_at' => Conversation::select('last_message_at')
+                ->whereColumn('conversations.application_id', 'applications.id')
+                ->limit(1)])
+            ->orderByRaw('last_message_at IS NULL')
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('applied_at');
+
+        $paginator = $query->paginate($this->perPage($request));
+
+        $paginator->setCollection(
+            $paginator->getCollection()->map(
+                fn (Application $application) => (new ConversationResource($application))
+                    ->forRecruiter($asRecruiter)
+                    ->resolve(),
+            ),
+        );
+
+        return ApiResponse::paginated($paginator);
+    }
 
     /** GET /conversations/{applicationId}/messages */
     public function index(Request $request, string $applicationId): JsonResponse

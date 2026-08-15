@@ -121,6 +121,7 @@ Route::prefix('v1')->group(function () {
         Route::post('notifications/read', [NotificationController::class, 'read']);
 
         /* §12 Chat — both parties to an application ------------------------ */
+        Route::get('conversations', [ChatController::class, 'conversations']);
         Route::get('conversations/{applicationId}/messages', [ChatController::class, 'index']);
         Route::post('conversations/{applicationId}/messages', [ChatController::class, 'store']);
         Route::match(['get', 'post'], 'conversations/{applicationId}/typing', [ChatController::class, 'typing']);

@@ -32,5 +32,15 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!--
+            Pin the OTP knobs to the §2.1 defaults. A developer's local .env
+            loosens these to re-test login without tripping the cap, and
+            without these lines that leaks in and the rate-limit tests fail.
+        -->
+        <env name="OTP_DEBUG_CODE" value=""/>
+        <env name="OTP_EXPOSE_CODE" value="false"/>
+        <env name="OTP_MAX_SENDS" value="3"/>
+        <env name="OTP_SEND_WINDOW_MINUTES" value="10"/>
+        <env name="OTP_MAX_ATTEMPTS" value="5"/>
     </php>
 </phpunit>

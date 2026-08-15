@@ -37,7 +37,7 @@ class Notifier
         $this->create(
             $job->recruiter,
             NotificationAudience::Recruiter,
-            "{$application->candidate->name} applied for {$job->title}.",
+            "{$application->candidateName()} applied for {$job->title}.",
             NotificationType::ApplicationUpdate,
             ['application_id' => $application->id, 'job_posting_id' => $job->id],
         );
@@ -88,7 +88,7 @@ class Notifier
     public function newMessage(Application $application, ChatMessage $message, User $recipient): void
     {
         $job = $application->jobPosting;
-        $from = $message->sender->value === 'recruiter' ? $job->organisation : ($application->candidate->name ?? 'A candidate');
+        $from = $message->sender->value === 'recruiter' ? $job->organisation : $application->candidateName();
 
         $this->create(
             $recipient,

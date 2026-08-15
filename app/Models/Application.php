@@ -128,6 +128,22 @@ class Application extends Model
         ]);
     }
 
+    /**
+     * The applicant's name as the recruiter already knows it.
+     *
+     * The frozen snapshot wins over the live profile so a notification and the
+     * applicant card it links to never disagree; the live profile is only a
+     * fallback for rows written before the snapshot was indexed.
+     */
+    public function candidateName(string $fallback = 'A candidate'): string
+    {
+        $name = filled($this->snapshot_name)
+            ? $this->snapshot_name
+            : $this->candidate?->displayName();
+
+        return (string) (filled($name) ? $name : $fallback);
+    }
+
     /** The frozen `profile` shape §9.1 hands to the recruiter, links re-minted. */
     public function applicantProfile(): array
     {

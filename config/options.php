@@ -173,6 +173,146 @@ return [
         '1L',
     ],
 
+    /*
+    | Salary filter chips (browse filter sheet)
+    |
+    | Deliberately separate from `salary_steps`: those are Post-a-Job picker
+    | values and include '1L', which the client parses for a filter threshold
+    | by pulling the leading digits — '1L' would read as ₹1,000. These are the
+    | only values safe to filter on.
+    */
+    'salary_filters' => [
+        '₹10K+',
+        '₹20K+',
+        '₹30K+',
+        '₹50K+',
+        '₹75K+',
+    ],
+
+    /*
+    | Category → the skills a recruiter is offered once Post a Job's category
+    | is picked. A category absent from here falls back to the flat `skills`
+    | list above.
+    */
+    'skills_by_category' => [
+        'Nurse' => [
+            'Patient Care', 'ICU', 'Emergency Care', 'Ventilator Care',
+            'Wound Dressing', 'Vaccination', 'OT', 'Post-Op Care',
+        ],
+        'Doctor' => [
+            'OPD', 'Diagnosis', 'Emergency Care', 'Critical Care',
+            'Clinical Documentation', 'Surgery Assistance', 'Patient Management',
+        ],
+        'Pharmacist' => [
+            'Dispensing', 'Inventory Management', 'Prescription Review',
+            'Drug Interaction Checks', 'Billing', 'Cold Chain Handling',
+        ],
+        'Lab Technician' => [
+            'Phlebotomy', 'Sample Collection', 'Biochemistry', 'Haematology',
+            'Microbiology', 'Report Generation', 'Quality Control',
+        ],
+        'Radiology Technician' => [
+            'X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Radiation Safety',
+            'Patient Positioning',
+        ],
+        'Physiotherapist' => [
+            'Physiotherapy', 'Rehabilitation', 'Exercise Therapy',
+            'Electrotherapy', 'Post-Op Mobility', 'Pain Management',
+        ],
+        'Dietitian' => [
+            'Diet Planning', 'Nutrition Counselling', 'Clinical Nutrition',
+            'Patient Assessment', 'Therapeutic Diets',
+        ],
+        'Medical Officer' => [
+            'OPD', 'Emergency Care', 'Patient Management', 'Diagnosis',
+            'Clinical Documentation', 'Ward Rounds',
+        ],
+    ],
+
+    /*
+    | Clinical specialisations — the `specialization` Smart Apply field, which
+    | a job asks for only when its `required_fields` name it. Distinct from the
+    | specialisation attached to a single education entry.
+    */
+    'specializations' => [
+        'Critical Care',
+        'Emergency',
+        'Paediatrics',
+        'Cardiology',
+        'Oncology',
+        'Orthopaedics',
+        'Neurology',
+        'Obstetrics & Gynaecology',
+        'X-Ray',
+        'CT Scan',
+        'MRI',
+        'Ultrasound',
+    ],
+
+    /*
+    | Designation suggestions for the candidate's work-experience form.
+    | A suggestion shortlist, never a whitelist — the field accepts freeform.
+    */
+    'designations' => [
+        'Staff Nurse',
+        'Senior Staff Nurse',
+        'ICU Nurse',
+        'Nursing Supervisor',
+        'Head Nurse',
+        'Duty Doctor',
+        'Medical Officer',
+        'Resident Doctor',
+        'Pharmacist',
+        'Chief Pharmacist',
+        'Lab Technician',
+        'Senior Lab Technician',
+        'Radiology Technician',
+        'Physiotherapist',
+        'Dietitian',
+        'OT Technician',
+    ],
+
+    /*
+    | Employer / institute suggestions, shared by the work-experience
+    | ("organization") and education ("institute") forms. Freeform is accepted;
+    | this only saves typing for the common cases.
+    */
+    'institutes' => [
+        'Fortis Hospital',
+        'Fortis Escorts',
+        'Apollo Hospitals',
+        'SMS Hospital',
+        'AIIMS Jodhpur',
+        'Narayana Hospital',
+        'Manipal Hospital',
+        'Metro Diagnostics',
+        'Rajasthan University of Health Sciences',
+        'MedPlus',
+    ],
+
+    /*
+    | Approximate city-centre coordinates.
+    |
+    | Distance-based recommendation reads a job's own latitude/longitude when it
+    | has them, which only happens when the recruiter posted through the map
+    | picker. This is the fallback for every manually-entered location, so a job
+    | still participates in "near me" sorting instead of dropping out of it.
+    */
+    'city_coordinates' => [
+        'Jaipur' => ['lat' => 26.9124, 'lng' => 75.7873],
+        'Jodhpur' => ['lat' => 26.2389, 'lng' => 73.0243],
+        'Udaipur' => ['lat' => 24.5854, 'lng' => 73.7125],
+        'Kota' => ['lat' => 25.2138, 'lng' => 75.8648],
+        'Ajmer' => ['lat' => 26.4499, 'lng' => 74.6399],
+        'Bikaner' => ['lat' => 28.0229, 'lng' => 73.3119],
+        'Alwar' => ['lat' => 27.5530, 'lng' => 76.6346],
+        'Bharatpur' => ['lat' => 27.2152, 'lng' => 77.5030],
+        'Delhi' => ['lat' => 28.7041, 'lng' => 77.1025],
+        'Ahmedabad' => ['lat' => 23.0225, 'lng' => 72.5714],
+        'Mumbai' => ['lat' => 19.0760, 'lng' => 72.8777],
+        'Pune' => ['lat' => 18.5204, 'lng' => 73.8567],
+    ],
+
     // §4.4 Curated typeahead synonyms, merged with live job titles.
     'search_dictionary' => [
         'Staff Nurse',
@@ -228,10 +368,12 @@ return [
     'otp' => [
         'length' => 6,
         'ttl_minutes' => 10,
-        'max_attempts' => 5,
-        // Rate limit: 3 sends per phone per 10 minutes.
-        'max_sends' => 3,
-        'send_window_minutes' => 10,
+        'max_attempts' => (int) env('OTP_MAX_ATTEMPTS', 5),
+        // Rate limit: 3 sends per phone per 10 minutes. Overridable so local
+        // dev can raise the cap while re-testing a login flow — production
+        // keeps the §2.1 default by simply not setting the env vars.
+        'max_sends' => (int) env('OTP_MAX_SENDS', 3),
+        'send_window_minutes' => (int) env('OTP_SEND_WINDOW_MINUTES', 10),
         // When true, the verify endpoint also accepts this code. Dev only.
         'debug_code' => env('OTP_DEBUG_CODE'),
         'expose_code_in_response' => (bool) env('OTP_EXPOSE_CODE', false),

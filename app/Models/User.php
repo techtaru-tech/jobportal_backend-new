@@ -76,6 +76,23 @@ class User extends Authenticatable
         return $this->role === UserRole::Recruiter;
     }
 
+    /**
+     * The name to show this user by.
+     *
+     * `users.name` is only ever populated by the seeder — OTP signup (§2.2)
+     * asks for a phone and nothing else, so for every real account the name
+     * lives on the profile the user actually filled in. Anything rendering a
+     * person's name must go through here, or it renders an empty string.
+     */
+    public function displayName(string $fallback = ''): string
+    {
+        $name = $this->isRecruiter()
+            ? $this->recruiterProfile?->contact_person_name
+            : $this->candidateProfile?->name;
+
+        return (string) (filled($name) ? $name : (filled($this->name) ? $this->name : $fallback));
+    }
+
     /** Candidates always have a profile row; create it lazily on first touch. */
     public function profile(): CandidateProfile
     {

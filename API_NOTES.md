@@ -4,6 +4,10 @@ Companion to `API_REQUIREMENTS.md`. That document is the spec; this one records
 what was built, where the build deviates from the spec and why, and the open
 questions worth resolving against the Flutter source before cutover.
 
+For an endpoint-by-endpoint audit against what the Flutter app *actually calls*
+— including the defects that audit found and what changed — see
+**`API_AUDIT.md`**.
+
 Every section number below refers to the **current** `API_REQUIREMENTS.md`
 (the one with §7 Recruiter Profile & Organisations and the collapsed
 `applied`/`shortlisted`/`selected`/`rejected` status set). An earlier revision

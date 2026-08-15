@@ -642,6 +642,10 @@ candidate, jobs additionally carry `is_saved`/`has_applied`.
 - `is_saved`/`has_applied` are **absent from the payload entirely** (not
   `null`) for a guest request or a recruiter token — check for key presence,
   don't assume `false` when missing.
+- `applicants_count` follows the same rule in the other direction: present
+  only on `GET /recruiter/jobs/mine`, absent from every candidate-facing job
+  payload — an applicant is never shown how many people they are competing
+  with, so read it as "not told", not "zero".
 - `required_fields` values are drawn from: `name`, `qualification`,
   `experience`, `skills`, `location`, `specialization`, `certificationBls`,
   `resume`.
@@ -1013,7 +1017,15 @@ public `/jobs` list, which only shows `active`).
 Query: `?status=active` — comma-separated/repeated to filter by
 `JobPostingStatus` (`active`/`paused`/`draft`/`closed`/`expired`).
 
-**Response 200:** paginated envelope of `JobModel`.
+**Response 200:** paginated envelope of `JobModel`, each additionally carrying
+
+```json
+"applicants_count": 3
+```
+
+so My Posted Jobs can render its per-row count without one `/stats` call per
+card. The key is **absent** on every candidate-facing job payload — an
+applicant never learns how many people they are competing with.
 
 ### PATCH `/recruiter/jobs/{jobId}`
 
@@ -1228,6 +1240,57 @@ recruiter who owns the job) may read/write; anyone else gets a **404**
 The conversation key is the application's `reference` string — the same id
 used everywhere else for that application.
 
+### GET `/conversations`
+
+The Conversations screen, for either role. **Every application is a thread**,
+whether or not anyone has spoken yet — a candidate's threads are their own
+applications, a recruiter's are the applications against their own postings.
+
+The two sides read the row from opposite ends, so `title`/`subtitle` are
+already resolved for the caller's role rather than shipping both:
+
+| | `title` | `subtitle` |
+|---|---|---|
+| candidate | job title | organisation |
+| recruiter | candidate name | job title |
+
+Ordering: threads with messages first (most recent first), then silent ones by
+most-recently-applied.
+
+Query: `?page=`, `?per_page=`.
+
+**Response 200:** paginated envelope of
+
+```json
+{
+  "conversation_id": "MC-73035-ws4722gzrr",
+  "application_id": "MC-73035-ws4722gzrr",
+  "job_id": "j_2",
+  "status": "shortlisted",
+  "title": "ICU Nurse",
+  "subtitle": "Fortis Hospital",
+  "unread_count": 0,
+  "last_message": {
+    "id": "m_3",
+    "sender": "recruiter",
+    "text": "Could you join a short video call this week?",
+    "sent_at": "2026-08-13T05:19:42Z",
+    "status": "read"
+  },
+  "last_message_at": "2026-08-13T05:19:42Z"
+}
+```
+
+`last_message` is `null` and `last_message_at` is `null` until someone sends
+the first message — the row still appears.
+
+`unread_count` counts messages the **other** party sent that this caller has
+not opened; fetching the thread (below) clears it.
+
+Build the list from this endpoint rather than from
+`/conversations/{id}/messages` — the latter would be one full thread fetch per
+row.
+
 ### GET `/conversations/{applicationId}/messages`
 
 **Response 200**
@@ -1297,6 +1360,12 @@ startup and cache it.
     "organisation_industries": ["Hospital", "Clinic", "Diagnostic Lab", "Pharmacy", "Nursing Home", "Home Healthcare", "Medical College", "Staffing Agency", "Other"],
     "organisation_sizes": ["1–10", "11–50", "51–200", "201–500", "500+"],
     "salary_steps": ["10K", "15K", "20K", "25K", "30K", "35K", "40K", "50K", "60K", "75K", "1L"],
+    "salary_filters": ["₹10K+", "₹20K+", "₹30K+", "₹50K+", "₹75K+"],
+    "specializations": ["Critical Care", "Emergency", "…"],
+    "designations": ["Staff Nurse", "ICU Nurse", "…"],
+    "institutes": ["Fortis Hospital", "AIIMS Jodhpur", "…"],
+    "skills_by_category": { "Nurse": ["Patient Care", "ICU", "…"] },
+    "city_coordinates": { "Jaipur": { "lat": 26.9124, "lng": 75.7873 } },
     "enums": {
       "application_status": ["applied", "shortlisted", "selected", "rejected"],
       "application_status_pipeline": ["applied", "shortlisted", "selected"],
@@ -1321,10 +1390,23 @@ startup and cache it.
   }
 }
 ```
-`salary_steps`, `cities`, `qualifications`, `skills`, `certifications` are
-**seed suggestions only** — never validated server-side as a closed set (see
-§1.6). Cities in particular are Rajasthan-first for launch but the field
-accepts any city name.
+`salary_steps`, `cities`, `qualifications`, `skills`, `certifications`,
+`specializations`, `designations` and `institutes` are **seed suggestions
+only** — never validated server-side as a closed set (see §1.6). Cities in
+particular are Rajasthan-first for launch but the field accepts any city name.
+
+Two of these need a word of warning:
+
+- **`salary_filters` vs `salary_steps`.** Filter on the former only.
+  `salary_steps` is the Post-a-Job picker and contains `1L`, whose leading
+  digits parse to a ₹1,000 threshold — the wrong end of the scale entirely.
+- **`city_coordinates`** is the fallback for distance sorting. A job carries
+  its own `latitude`/`longitude` only when the recruiter dropped a map pin;
+  for every typed-in location, look the city up here rather than dropping the
+  job out of "near me" ordering.
+
+The app treats this payload as the single source for every picker and chip row
+it renders — it ships no option lists of its own.
 
 ---
 
@@ -1387,6 +1469,7 @@ accepts any city name.
 | POST | `/recruiter/jobs/{jobId}/applicants/{id}/interview` | recruiter | replaces on repost |
 | GET | `/notifications` | any | `?audience=` required |
 | POST | `/notifications/read` | any | body `{audience}` |
+| GET | `/conversations` | any | thread list, paginated |
 | GET | `/conversations/{applicationId}/messages` | any | participant only |
 | POST | `/conversations/{applicationId}/messages` | any | participant only |
 | GET/POST | `/conversations/{applicationId}/typing` | any | participant only |

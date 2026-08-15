@@ -32,8 +32,9 @@ class VideoProbe
         }
 
         $command = sprintf(
-            'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s 2>/dev/null',
+            'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s 2>%s',
             escapeshellarg($path),
+            self::nullDevice(),
         );
 
         $output = @shell_exec($command);
@@ -164,8 +165,26 @@ class VideoProbe
 
     private static function binaryExists(string $binary): bool
     {
-        $which = @shell_exec('command -v '.escapeshellarg($binary).' 2>/dev/null');
+        // `command -v` is a POSIX shell builtin cmd.exe does not have, and the
+        // /dev/null redirect resolves to a literal \dev\null there — cmd prints
+        // "The system cannot find the path specified." to stderr before it even
+        // runs the lookup. `@` only suppresses PHP's own diagnostics, not a
+        // child process's stderr, so that line leaks to the console on Windows.
+        $which = self::isWindows()
+            ? @shell_exec('where '.escapeshellarg($binary).' 2>NUL')
+            : @shell_exec('command -v '.escapeshellarg($binary).' 2>/dev/null');
 
         return filled(trim((string) $which));
+    }
+
+    private static function isWindows(): bool
+    {
+        return PHP_OS_FAMILY === 'Windows';
+    }
+
+    /** The platform's null device, for discarding a child process's stderr. */
+    private static function nullDevice(): string
+    {
+        return self::isWindows() ? 'NUL' : '/dev/null';
     }
 }

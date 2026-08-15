@@ -64,6 +64,15 @@ class JobResource extends JsonResource
             // Present only where the caller's saved/applied state was eager-loaded.
             'is_saved' => $this->when($this->is_saved !== null, fn () => (bool) $this->is_saved),
             'has_applied' => $this->when($this->has_applied !== null, fn () => (bool) $this->has_applied),
+
+            // Recruiter lists only (§8.2) — My Posted Jobs shows a per-row
+            // applicant count, and fetching it from /stats per card would be
+            // one request per row. Omitted everywhere it wasn't counted, so a
+            // candidate never learns how many people they are competing with.
+            'applicants_count' => $this->when(
+                $this->applications_count !== null,
+                fn () => (int) $this->applications_count,
+            ),
         ];
     }
 }

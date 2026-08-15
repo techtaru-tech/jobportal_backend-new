@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['application_id'])]
 class Conversation extends Model
@@ -33,6 +34,12 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(ChatMessage::class)->orderBy('sent_at');
+    }
+
+    /** Preview line for the conversations list — loaded without the thread. */
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(ChatMessage::class)->latestOfMany('sent_at');
     }
 
     public function setTyping(ChatSender $sender, bool $typing): void

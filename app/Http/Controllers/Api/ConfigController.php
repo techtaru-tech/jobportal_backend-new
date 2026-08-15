@@ -42,6 +42,15 @@ class ConfigController extends ApiController
             'organisation_sizes' => config('options.organisation_sizes'),
             'salary_steps' => config('options.salary_steps'),
 
+            // Everything below replaced a hardcoded list in the app's
+            // MockDataProvider — see API_AUDIT.md §7.
+            'salary_filters' => config('options.salary_filters'),
+            'specializations' => config('options.specializations'),
+            'designations' => config('options.designations'),
+            'institutes' => config('options.institutes'),
+            'skills_by_category' => (object) config('options.skills_by_category'),
+            'city_coordinates' => (object) config('options.city_coordinates'),
+
             // The closed enums the app's parsers switch on (§1.8).
             'enums' => [
                 'application_status' => ApplicationStatus::values(),
