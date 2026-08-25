@@ -28,6 +28,7 @@ class JobPosting extends Model
         return [
             'posted_at' => 'datetime',
             'expires_at' => 'datetime',
+            'reviewed_at' => 'datetime',
             'latitude' => 'float',
             'longitude' => 'float',
             'posting_status' => JobPostingStatus::class,
@@ -44,7 +45,11 @@ class JobPosting extends Model
         static::creating(function (self $job) {
             $job->code ??= self::generateCode();
             $job->posted_at ??= now();
-            $job->posting_status ??= JobPostingStatus::Active;
+            // Held for review, not published. `scopePubliclyVisible` already
+            // requires `Active`, so a pending job is invisible to candidates
+            // by the rule that was always there — nothing else had to learn
+            // about this status to keep it off the browse endpoints.
+            $job->posting_status ??= JobPostingStatus::PendingApproval;
         });
 
         static::saving(function (self $job) {
@@ -89,10 +94,56 @@ class JobPosting extends Model
         return Display::salary($this->salary_min, $this->salary_max);
     }
 
-    /** Only `active` postings are visible on the public browse endpoints (§4.1). */
+    /**
+     * The same rule as [scopePubliclyVisible], asked of a job already loaded.
+     *
+     * The share landing page needs this: it looks a job up by code so it can
+     * tell "no such job" from "that job has closed" and say so, which a scoped
+     * query cannot express — both come back as no rows.
+     *
+     * Reads `organisationRecord` if it isn't already loaded — callers that
+     * check this in a loop (the public browse endpoints) should eager-load it
+     * via `withOrganisation()` first, or this N+1s.
+     */
+    public function isPubliclyVisible(): bool
+    {
+        if ($this->posting_status !== JobPostingStatus::Active) {
+            return false;
+        }
+
+        // A job with no organisation on record is a pre-verification-era row
+        // (the column is nullable only for that reason — every posting made
+        // through the API today is required to name one) and is treated as
+        // visible rather than newly hidden by a rule it predates.
+        return $this->organisation_id === null || (bool) $this->organisationRecord?->verified;
+    }
+
+    /**
+     * Only `active` postings from a `verified` employer are visible on the
+     * public browse endpoints (§4.1).
+     *
+     * A brand-new organisation starts unverified (§8.1's own docblock) and
+     * stays that way until an admin calls `Organisation::markVerified()` —
+     * before this scope existed, that flag was cosmetic everywhere except the
+     * "Verified employer" badge, so a recruiter's very first posting under a
+     * freshly-created employer was exactly as discoverable as one from an
+     * employer somebody had actually checked. This is the gate that makes
+     * verification mean something: nothing a recruiter does client-side can
+     * put an unverified employer's job in front of a candidate.
+     *
+     * `organisation_id IS NULL` is let through for the same legacy reason as
+     * `isPubliclyVisible()` above — keep the two in lockstep, or the deep-link
+     * landing page (which calls the model method) and this scope (which the
+     * browse/search endpoints call) disagree about the same job.
+     */
     public function scopePubliclyVisible(Builder $query): Builder
     {
-        return $query->where('posting_status', JobPostingStatus::Active);
+        return $query
+            ->where('posting_status', JobPostingStatus::Active)
+            ->where(function (Builder $q) {
+                $q->whereNull('organisation_id')
+                    ->orWhereHas('organisationRecord', fn (Builder $org) => $org->where('verified', true));
+            });
     }
 
     /** Always eager-load the relation JobResource reads `organisation_verified` from. */
@@ -115,6 +166,49 @@ class JobPosting extends Model
                 ->orWhere('role', 'like', $like)
                 ->orWhere('skills', 'like', $like);
         });
+    }
+
+    /**
+     * The admin review queue: oldest waiting first, so a posting cannot be
+     * starved by newer ones arriving.
+     */
+    public function scopeAwaitingReview(Builder $query): Builder
+    {
+        return $query
+            ->where('posting_status', JobPostingStatus::PendingApproval)
+            ->orderBy('created_at');
+    }
+
+    /** Publishes a posting that was waiting on review. */
+    public function markApproved(int $adminId): void
+    {
+        $this->forceFill([
+            'posting_status' => JobPostingStatus::Active,
+            'reviewed_at' => now(),
+            'reviewed_by_admin_id' => $adminId,
+            'rejection_reason' => null,
+            // The clock on a listing starts when it goes live, not when it
+            // was submitted — otherwise a posting that sat in the queue for a
+            // week would reach candidates already a week stale.
+            'posted_at' => now(),
+        ])->save();
+    }
+
+    /**
+     * Turns a posting away with a reason the recruiter can act on.
+     *
+     * The reason is required by the controller rather than optional here: a
+     * bare "rejected" leaves a recruiter with nothing to fix and no way
+     * forward except guessing.
+     */
+    public function markRejected(int $adminId, string $reason): void
+    {
+        $this->forceFill([
+            'posting_status' => JobPostingStatus::Rejected,
+            'reviewed_at' => now(),
+            'reviewed_by_admin_id' => $adminId,
+            'rejection_reason' => $reason,
+        ])->save();
     }
 
     /** Marks postings past their expiry as `expired` (§7.3 — system-set). */

@@ -32,6 +32,18 @@ class WorkExperience extends Model
                 $experience->end_date = 'Present';
             }
         });
+
+        // An entry is part of the Experience section's completeness
+        // (`CandidateProfile::sectionParts`), but adding one does not touch
+        // the profile row — so without this the stored `profile_strength`
+        // would still describe a profile with no work history on it. Mirrors
+        // `Education::booted()`.
+        $touchProfile = function (self $experience) {
+            $experience->candidateProfile?->save();
+        };
+
+        static::created($touchProfile);
+        static::deleted($touchProfile);
     }
 
     public function candidateProfile(): BelongsTo

@@ -19,8 +19,8 @@ enum NotificationAudience: string
         return array_column(self::cases(), 'value');
     }
 
-    public static function fromRole(UserRole $role): self
-    {
-        return $role === UserRole::Recruiter ? self::Recruiter : self::JobSeeker;
-    }
+    // Deliberately no fromRole(): the inbox a notification belongs in follows
+    // the event that raised it, never the recipient's signup role — one
+    // account holds both sides, so "a recruiter replied to you" belongs in the
+    // job-seeking inbox even for an account that signed up to hire.
 }

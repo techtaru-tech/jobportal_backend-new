@@ -15,7 +15,12 @@ class JobPostingFactory extends Factory
 {
     public function definition(): array
     {
-        $organisation = Organisation::factory();
+        // Verified by default: a factory's `definition()` is the happy path,
+        // and "visible in the public listing" is what every test not
+        // specifically about the verification gate itself expects. A test
+        // that wants an unverified employer's job — to assert it's hidden —
+        // overrides this explicitly with `->for(Organisation::factory(), 'organisationRecord')`.
+        $organisation = Organisation::factory()->verified();
 
         return [
             // The job's recruiter must own the organisation it's posted for
@@ -60,6 +65,6 @@ class JobPostingFactory extends Factory
     public function forRecruiter(User $recruiter): static
     {
         return $this->for($recruiter, 'recruiter')
-            ->state(fn () => ['organisation_id' => Organisation::factory()->for($recruiter, 'recruiter')]);
+            ->state(fn () => ['organisation_id' => Organisation::factory()->verified()->for($recruiter, 'recruiter')]);
     }
 }

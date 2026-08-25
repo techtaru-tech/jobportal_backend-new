@@ -4,28 +4,37 @@ namespace App\Http\Controllers\Api\Recruiter;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\JobPostingStatus;
+use App\Enums\NotificationAudience;
 use App\Enums\ProfileField;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\JobResource;
 use App\Models\JobPosting;
 use App\Models\Organisation;
 use App\Services\Notifier;
+use App\Services\OptionListService;
+use App\Services\SubscriptionService;
 use App\Support\ApiResponse;
 use App\Support\Display;
 use App\Support\PublicId;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /** §8 Post a job (recruiter). */
 class JobController extends ApiController
 {
-    public function __construct(private readonly Notifier $notifier) {}
+    public function __construct(
+        private readonly Notifier $notifier,
+        private readonly SubscriptionService $subscriptions,
+    ) {}
 
     /** POST /recruiter/jobs (§8.1) */
     public function store(Request $request): JsonResponse
     {
+        $this->assertCanPostAnother($request);
+
         $validated = $this->validated($request);
         $organisation = $this->ownedOrganisation($request, $validated['organisation_id']);
         unset($validated['organisation_id']);
@@ -39,6 +48,52 @@ class JobController extends ApiController
         $this->notifier->jobPosted($job->load('organisationRecord'));
 
         return ApiResponse::data(new JobResource($job->load('organisationRecord')), 'Job posted.', 201);
+    }
+
+    /**
+     * The free plan allows one active posting at a time (`plans.php`).
+     *
+     * Enforced here and not only in the app: the limit is the whole difference
+     * between the free and paid recruiter tiers, and until now the only thing
+     * applying it was the client that benefits from ignoring it. The app still
+     * hides the button, so reaching this is either a stale screen or someone
+     * calling the API directly.
+     */
+    private function assertCanPostAnother(Request $request): void
+    {
+        JobPosting::expireOverdue();
+
+        $limit = $this->subscriptions->limitFor(
+            $request->user(),
+            NotificationAudience::Recruiter,
+            'active_jobs',
+        );
+
+        if ($limit === null) {
+            return;
+        }
+
+        // A posting waiting on review occupies a slot exactly as a live one
+        // does. Counting only `active` would let a free account submit an
+        // unlimited number of postings and have every one of them approved
+        // into existence — the limit would be enforced against a state the
+        // recruiter no longer controls, which is no limit at all.
+        $active = $request->user()->jobPostings()
+            ->whereIn('posting_status', [
+                JobPostingStatus::PendingApproval->value,
+                JobPostingStatus::Active->value,
+            ])
+            ->count();
+
+        if ($active >= $limit) {
+            throw ValidationException::withMessages([
+                'plan' => [
+                    $limit === 1
+                        ? 'The Free plan allows 1 active job post. Upgrade to Business to post more.'
+                        : "Your plan allows {$limit} active job posts. Upgrade to post more.",
+                ],
+            ])->status(422);
+        }
     }
 
     /** GET /recruiter/jobs/mine (§8.2) — every status, unlike the public list. */
@@ -142,8 +197,11 @@ class JobController extends ApiController
             'salary_max' => ['nullable', 'integer', 'min:0', 'max:100000000', 'gte:salary_min'],
             'experience' => ['nullable', 'string', 'max:40'],
 
-            'type' => [$required, Rule::in(config('options.job_types'))],
-            'shift' => [$required, Rule::in(config('options.shifts'))],
+            // Resolved lists, not `config()` directly — both are
+            // admin-editable, and validating against the config file would
+            // reject a value the Post-a-Job picker had just offered.
+            'type' => [$required, Rule::in(app(OptionListService::class)->list('job_types'))],
+            'shift' => [$required, Rule::in(app(OptionListService::class)->list('shifts'))],
 
             // Freeform allowed — recruiters type their own (§8.1).
             'qualifications' => ['nullable', 'array'],

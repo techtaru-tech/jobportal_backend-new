@@ -28,21 +28,37 @@ class CandidateProfile extends Model
      * Profile-strength weights (§3.1). A bucket's weight is added when that
      * bucket is non-empty. These sum to exactly 100.
      *
-     * The intro video is deliberately absent: it is pitched as a hiring-chance
-     * booster, not a completeness requirement, so it gets no bucket.
+     * The intro video carries real weight (10) and is not covered by any
+     * other bucket — a profile cannot reach 100 without recording one. Every
+     * other bucket gave up 1 point to fund it, so relative ranking is
+     * unchanged.
      */
     public const WEIGHTS = [
-        'name' => 10,
-        'qualification' => 15,
-        'experience' => 15,
-        'skills' => 10,
-        'location' => 10,
-        'resume' => 15,
-        'photo' => 5,
-        'certifications' => 5,
-        'languages' => 5,
-        'about' => 10,
+        'personal' => 9,
+        'qualification' => 14,
+        'experience' => 14,
+        'skills' => 9,
+        'location' => 9,
+        'resume' => 14,
+        'photo' => 4,
+        'certifications' => 4,
+        'languages' => 4,
+        'about' => 9,
+        'intro_video' => 10,
     ];
+
+    /**
+     * Every bucket is now scored by *how much* of it is filled rather than
+     * all-or-nothing — see [sectionParts].
+     *
+     * Each one used to be awarded in full off a single field standing in for
+     * a whole screen: `personal` off the name, `qualification` off the flat
+     * qualification string with no education entry on record, `location` off
+     * the preferred-city list with four other questions blank. A
+     * single-answer bucket has one part, so it still behaves exactly as the
+     * yes/no it always was.
+     */
+    public const PARTIAL_BUCKETS = ['personal', 'qualification', 'experience', 'location'];
 
     protected function casts(): array
     {
@@ -104,30 +120,110 @@ class CandidateProfile extends Model
             ?? $this->workExperiences->first();
     }
 
+    /**
+     * What each profile section is actually made of, keyed by weight bucket.
+     *
+     * Mirrors `CandidateProfile.sectionParts` in the app part for part — the
+     * two have to agree, or the tick the user sees and the score an admin
+     * sees describe different profiles.
+     *
+     * Notes on the non-obvious ones:
+     *  - The mobile number is absent from `personal`: it is verified at
+     *    signup and always present, so counting it would hand every account a
+     *    free fraction and make a blank profile look part-finished.
+     *  - Latitude and longitude are one answer, not two — half a coordinate
+     *    pair is not a location.
+     *  - `qualification.entry` and `experience.entry` are the Education and
+     *    Experience screens' own lists. The flat `qualification` column and
+     *    the `experience` band are the separate values Smart Apply gates on,
+     *    and one is not evidence of the other — picking a band used to earn
+     *    the whole 14-point bucket with no work history on record at all.
+     *    See [hasRelatedRows] for how they are counted without a query on
+     *    every save, and `Education::booted()` for what keeps them fresh.
+     *
+     * @return array<string, array<string, bool>>
+     */
+    public function sectionParts(): array
+    {
+        return [
+            'personal' => [
+                'name' => filled($this->name),
+                'email' => filled($this->email),
+                'gender' => filled($this->gender),
+                'dob' => filled($this->dob),
+                'address' => filled($this->address),
+                'home_location' => $this->home_latitude !== null && $this->home_longitude !== null,
+            ],
+            'qualification' => [
+                'entry' => $this->hasRelatedRows('educations'),
+                'qualification' => filled($this->qualification),
+                'specialization' => filled($this->specialization),
+            ],
+            'experience' => [
+                'entry' => $this->hasRelatedRows('workExperiences'),
+                'band' => filled($this->experience),
+            ],
+            'location' => [
+                'cities' => filled($this->location),
+                'roles' => filled($this->preferred_roles),
+                'job_types' => filled($this->preferred_job_types),
+                'shifts' => filled($this->preferred_shifts),
+                'expected_salary' => filled($this->expected_salary),
+            ],
+
+            // Single-answer sections, modelled the same way so every caller
+            // has one shape to read rather than two.
+            'skills' => ['skills' => filled($this->skills)],
+            'certifications' => ['certifications' => filled($this->certifications)],
+            'languages' => ['languages' => filled($this->languages)],
+            'resume' => ['resume' => filled($this->resume_name)],
+            'photo' => ['photo' => $this->hasPhoto()],
+            'about' => ['about' => filled($this->about)],
+            'intro_video' => ['intro_video' => filled($this->intro_video_path)],
+        ];
+    }
+
+    /**
+     * Whether [$relation] has any rows, as cheaply as the caller allows.
+     *
+     * Three cases, in order:
+     *  - already eager-loaded -> no query at all (what the list endpoints hit)
+     *  - not saved yet        -> cannot have children, so no query either.
+     *    This is also what keeps the `saving` hook on a *create* query-free,
+     *    and what lets the pure unit tests score an unsaved model.
+     *  - otherwise            -> one `exists()`, on a user-initiated save.
+     */
+    private function hasRelatedRows(string $relation): bool
+    {
+        if ($this->relationLoaded($relation)) {
+            return $this->getRelation($relation)->isNotEmpty();
+        }
+
+        if (! $this->exists) {
+            return false;
+        }
+
+        return $this->{$relation}()->exists();
+    }
+
     /** §3.1 — computed server-side so every client agrees on one number. */
     public function calculateStrength(): int
     {
-        $filled = [
-            'name' => filled($this->name),
-            'qualification' => filled($this->qualification),
-            'experience' => filled($this->experience),
-            'skills' => filled($this->skills),
-            'location' => filled($this->location),
-            'resume' => filled($this->resume_name),
-            'photo' => $this->hasPhoto(),
-            'certifications' => filled($this->certifications),
-            'languages' => filled($this->languages),
-            'about' => filled($this->about),
-        ];
-
-        $score = 0;
+        $parts = $this->sectionParts();
+        $score = 0.0;
 
         foreach (self::WEIGHTS as $bucket => $weight) {
-            if ($filled[$bucket] ?? false) {
-                $score += $weight;
+            $bucketParts = $parts[$bucket] ?? [];
+            if ($bucketParts === []) {
+                continue;
             }
+
+            $score += $weight * (count(array_filter($bucketParts)) / count($bucketParts));
         }
 
-        return min(100, $score);
+        // Rounded once at the end rather than per bucket, so a profile with
+        // every field filled lands on exactly 100 instead of drifting on
+        // accumulated rounding.
+        return min(100, (int) round($score));
     }
 }

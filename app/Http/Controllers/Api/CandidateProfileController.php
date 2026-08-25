@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\SkillLevel;
 use App\Http\Resources\CandidateProfileResource;
 use App\Models\CandidateProfile;
+use App\Services\OptionListService;
 use App\Support\ApiResponse;
 use App\Support\Display;
 use App\Support\FileRetention;
@@ -79,10 +80,13 @@ class CandidateProfileController extends ApiController
         $validated = $request->validate([
             'preferred_roles' => ['sometimes', 'nullable', 'array'],
             'preferred_roles.*' => ['string', 'max:80'],
+            // Validated against the resolved lists, not `config()` directly:
+            // these two are admin-editable, and reading the config file here
+            // would reject a job type the picker had just offered.
             'preferred_job_types' => ['sometimes', 'nullable', 'array'],
-            'preferred_job_types.*' => [Rule::in(config('options.job_types'))],
+            'preferred_job_types.*' => [Rule::in(app(OptionListService::class)->list('job_types'))],
             'preferred_shifts' => ['sometimes', 'nullable', 'array'],
-            'preferred_shifts.*' => [Rule::in(config('options.shifts'))],
+            'preferred_shifts.*' => [Rule::in(app(OptionListService::class)->list('shifts'))],
             'expected_salary' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
 

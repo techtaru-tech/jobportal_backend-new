@@ -291,6 +291,51 @@ return [
     ],
 
     /*
+    | Hospital departments, for the candidate's work-experience form.
+    | A suggestion shortlist like 'designations' — freeform is accepted.
+    |
+    | Served from here rather than from the app so a new department is a config
+    | change, not an app release.
+    */
+    'departments' => [
+        'ICU',
+        'Emergency',
+        'OPD',
+        'OT',
+        'Ward',
+        'Pharmacy',
+        'Lab',
+        'Radiology',
+        'Administration',
+    ],
+
+    /*
+    | Genders offered on the candidate's personal-information form.
+    |
+    | Unlike most lists here this one IS closed — CandidateProfileController
+    | validates `dob`'s sibling `gender` with Rule::in(). Keep the two in step:
+    | anything added here has to be added to that rule, or the app will offer a
+    | value the API then rejects.
+    */
+    'genders' => [
+        'Male',
+        'Female',
+        'Other',
+    ],
+
+    /*
+    | How far the education / certification year pickers reach.
+    |
+    | Rendered into a concrete list of years by ConfigController from the
+    | server's clock, so it never goes stale the way a literal list of years
+    | would every January. 'ahead' covers students graduating this session.
+    */
+    'passing_years' => [
+        'ahead' => 1,
+        'back' => 50,
+    ],
+
+    /*
     | Approximate city-centre coordinates.
     |
     | Distance-based recommendation reads a job's own latitude/longitude when it

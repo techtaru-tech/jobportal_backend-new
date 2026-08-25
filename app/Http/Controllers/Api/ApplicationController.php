@@ -29,18 +29,26 @@ class ApplicationController extends ApiController
     public function requirements(Request $request, string $jobId): JsonResponse
     {
         $job = $this->findJob($jobId);
-        $profile = $request->user()->profile();
+        $user = $request->user();
+        $profile = $user->profile();
 
         $missing = $this->applications->missingFields($job, $profile);
 
+        // Reported so the app can hide Apply on the user's own posting rather
+        // than let them fill in a Smart Apply queue and then hit a 422 —
+        // which is the only thing `own_posting` blocks, unlike
+        // `missing_fields`, which the candidate can act on.
+        $ownPosting = $this->applications->ownsPosting($user, $job);
+
         return ApiResponse::data([
             'job_id' => PublicId::encode('j', $job->id),
-            'required_fields' => $job->required_fields ?? [],
+            'required_fields' => $this->applications->requiredFields($job),
             'missing_fields' => $missing,
-            'can_apply' => $missing === [],
+            'own_posting' => $ownPosting,
+            'can_apply' => $missing === [] && ! $ownPosting,
             // §6.1 now allows re-applying to the same job, so this is
             // informational only — it never blocks a submit.
-            'already_applied' => $job->applications()->where('user_id', $request->user()->id)->exists(),
+            'already_applied' => $job->applications()->where('user_id', $user->id)->exists(),
         ]);
     }
 
@@ -104,11 +112,20 @@ class ApplicationController extends ApiController
         return ApiResponse::data((new ApplicationResource($application))->withDetail());
     }
 
+    /**
+     * Gated the same way the browse listing and the share landing page are
+     * (`isPubliclyVisible()`): a job that isn't active, or whose employer
+     * isn't verified yet, must not be reachable by posting its id directly
+     * either. Without this, hiding an unverified employer's posting from
+     * search was cosmetic — anyone who had the link (or the id, guessable
+     * from the sequential `MC-` code) could still apply to it, which is
+     * exactly the outcome verification exists to prevent.
+     */
     private function findJob(string $jobId): JobPosting
     {
-        $job = JobPosting::find(PublicId::decode('j', $jobId));
+        $job = JobPosting::with('organisationRecord')->find(PublicId::decode('j', $jobId));
 
-        if (! $job) {
+        if (! $job || ! $job->isPubliclyVisible()) {
             throw new NotFoundHttpException('That job is no longer available.');
         }
 

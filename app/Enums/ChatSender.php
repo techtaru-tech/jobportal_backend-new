@@ -12,10 +12,10 @@ enum ChatSender: string
         return array_column(self::cases(), 'value');
     }
 
-    public static function fromRole(UserRole $role): self
-    {
-        return $role === UserRole::Recruiter ? self::Recruiter : self::Candidate;
-    }
+    // Deliberately no fromRole(): which end of a conversation somebody is
+    // standing at follows the application (who owns the job, who owns the
+    // application), not `users.role` — one account holds both sides. See
+    // ChatController::sideFor.
 
     public function opposite(): self
     {

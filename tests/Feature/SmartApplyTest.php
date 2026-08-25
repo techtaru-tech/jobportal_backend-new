@@ -79,7 +79,36 @@ class SmartApplyTest extends TestCase
 
         $this->getJson("{$this->api}/applications/requirements/j_{$job->id}")
             ->assertJsonPath('data.can_apply', false)
-            ->assertJsonPath('data.missing_fields', ['qualification', 'skills', 'certificationBls', 'resume']);
+            // §3.2's baseline (name, gender, dob, address) always leads the
+            // list — `name` is satisfied here (`raw(['name' => 'Solo'])`), so
+            // only gender/dob/address survive from it — followed by this
+            // job's own configured fields.
+            ->assertJsonPath('data.missing_fields', [
+                'gender', 'dob', 'address', 'qualification', 'skills', 'certificationBls', 'resume',
+            ]);
+    }
+
+    /**
+     * §3.2 — a candidate must say who they are before Smart Apply starts
+     * asking what they can do, even for a job that configured no
+     * professional `required_fields` of its own.
+     */
+    public function test_personal_info_is_always_required_regardless_of_job_configuration(): void
+    {
+        $job = JobPosting::factory()->requiring([])->create();
+
+        $bare = CandidateProfile::factory()->empty()->raw(['name' => 'Solo']);
+        unset($bare['user_id']);
+        $this->actingAsCandidate($bare);
+
+        $this->getJson("{$this->api}/applications/requirements/j_{$job->id}")
+            ->assertJsonPath('data.required_fields', ['name', 'gender', 'dob', 'address'])
+            ->assertJsonPath('data.missing_fields', ['gender', 'dob', 'address'])
+            ->assertJsonPath('data.can_apply', false);
+
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])
+            ->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['profile']]);
     }
 
     public function test_the_bls_requirement_reads_the_certifications_list(): void
@@ -278,5 +307,75 @@ class SmartApplyTest extends TestCase
         $this->postJson("{$this->api}/applications", ['job_id' => 'j_9999'])
             ->assertStatus(404)
             ->assertJsonPath('message', 'That job is no longer available.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Your own posting
+    |--------------------------------------------------------------------------
+    |
+    | One account holds both sides of the marketplace, so a user's own jobs
+    | appear in their browse list. Everything works on them except applying —
+    | that would put the same person at both ends of their own applicant list
+    | and their own chat thread.
+    |
+    */
+
+    public function test_a_user_cannot_apply_to_their_own_posting(): void
+    {
+        $user = $this->actingAsCandidate();
+        $job = JobPosting::factory()->for($user, 'recruiter')->create();
+
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.job_id.0', "You can't apply to a job you posted yourself.");
+
+        $this->assertSame(0, Application::count());
+    }
+
+    public function test_the_requirements_call_reports_an_own_posting(): void
+    {
+        $user = $this->actingAsCandidate();
+        $job = JobPosting::factory()->for($user, 'recruiter')->create();
+
+        $this->getJson("{$this->api}/applications/requirements/j_{$job->id}")
+            ->assertOk()
+            ->assertJsonPath('data.own_posting', true)
+            // Reported false even with a complete profile: the reason is the
+            // ownership, not a missing field.
+            ->assertJsonPath('data.can_apply', false);
+    }
+
+    public function test_a_job_carries_own_posting_so_the_app_can_hide_apply(): void
+    {
+        $user = $this->actingAsCandidate();
+        $mine = JobPosting::factory()->for($user, 'recruiter')->create();
+        $theirs = JobPosting::factory()->create();
+
+        $this->getJson("{$this->api}/jobs/j_{$mine->id}")
+            ->assertOk()
+            ->assertJsonPath('data.own_posting', true);
+
+        $this->getJson("{$this->api}/jobs/j_{$theirs->id}")
+            ->assertOk()
+            ->assertJsonPath('data.own_posting', false);
+    }
+
+    public function test_a_guest_is_never_told_a_job_is_their_own(): void
+    {
+        $job = JobPosting::factory()->create();
+
+        $this->getJson("{$this->api}/jobs/j_{$job->id}")
+            ->assertOk()
+            ->assertJsonPath('data.own_posting', false);
+    }
+
+    public function test_applying_to_somebody_elses_posting_still_works(): void
+    {
+        $this->actingAsCandidate();
+        $job = JobPosting::factory()->create();
+
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])
+            ->assertCreated();
     }
 }

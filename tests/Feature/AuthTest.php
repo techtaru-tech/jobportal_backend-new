@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\OtpVerification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,7 +146,15 @@ class AuthTest extends TestCase
         $this->postJson("{$this->api}/auth/otp/verify", $payload)->assertStatus(422);
     }
 
-    public function test_a_code_issued_for_one_role_cannot_be_used_for_the_other(): void
+    /**
+     * The code belongs to the phone, not to a side of the app.
+     *
+     * Was the opposite assertion: a code issued for one role used to be
+     * rejected for the other. That only made sense while a phone held two
+     * accounts, and it broke the ordinary case of requesting the code from one
+     * tab and entering it after switching.
+     */
+    public function test_a_code_issued_from_one_tab_can_be_used_from_the_other(): void
     {
         $verification = $this->issueOtp('9876543210', 'candidate', '482913');
 
@@ -154,10 +163,11 @@ class AuthTest extends TestCase
             'otp' => '482913',
             'verification_id' => $verification->verification_id,
             'role' => 'recruiter',
-        ])->assertStatus(422);
+        ])->assertOk();
     }
 
-    public function test_the_same_phone_may_hold_a_candidate_and_a_recruiter_account(): void
+    /** One phone is one account, whichever side it signs in from. */
+    public function test_the_same_phone_always_resolves_to_one_account(): void
     {
         foreach (['candidate', 'recruiter'] as $role) {
             $verification = $this->issueOtp('9876543210', $role, '482913');
@@ -170,7 +180,31 @@ class AuthTest extends TestCase
             ])->assertOk();
         }
 
-        $this->assertSame(2, User::where('phone', '9876543210')->count());
+        $this->assertSame(1, User::where('phone', '9876543210')->count());
+    }
+
+    /**
+     * `role` records the side the account was created from and is never
+     * rewritten — signing in from the hiring tab must not change which tab a
+     * returning job seeker opens on.
+     */
+    public function test_signing_in_from_the_other_side_does_not_rewrite_the_signup_role(): void
+    {
+        foreach (['candidate', 'recruiter'] as $role) {
+            $verification = $this->issueOtp('9876543210', $role, '482913');
+
+            $this->postJson("{$this->api}/auth/otp/verify", [
+                'phone' => '9876543210',
+                'otp' => '482913',
+                'verification_id' => $verification->verification_id,
+                'role' => $role,
+            ])->assertOk();
+        }
+
+        $this->assertSame(
+            UserRole::Candidate,
+            User::where('phone', '9876543210')->sole()->signedUpAs(),
+        );
     }
 
     public function test_an_unauthenticated_request_returns_a_json_401(): void
@@ -239,22 +273,26 @@ class AuthTest extends TestCase
             ->assertOk();
     }
 
-    public function test_a_candidate_cannot_reach_a_recruiter_route(): void
+    /**
+     * Both of these used to assert a 403.
+     *
+     * The role gate is gone: the same person hires and looks for work, so
+     * every signed-in account reaches both sides. The rule that replaced it is
+     * narrower and lives in ApplicationService — you cannot apply to your own
+     * posting (see SmartApplyTest).
+     */
+    public function test_an_account_that_signed_up_to_job_seek_can_reach_the_hiring_side(): void
     {
         $this->actingAsCandidate();
 
-        $this->getJson("{$this->api}/recruiter/jobs/mine")
-            ->assertStatus(403)
-            ->assertJsonPath('message', 'This action is only available to recruiter accounts.');
+        $this->getJson("{$this->api}/recruiter/jobs/mine")->assertOk();
     }
 
-    public function test_a_recruiter_cannot_reach_a_candidate_route(): void
+    public function test_an_account_that_signed_up_to_hire_can_reach_the_job_seeking_side(): void
     {
         $this->actingAsRecruiter();
 
-        $this->getJson("{$this->api}/candidate/profile")
-            ->assertStatus(403)
-            ->assertJsonPath('message', 'This action is only available to candidate accounts.');
+        $this->getJson("{$this->api}/candidate/profile")->assertOk();
     }
 
     private function issueOtp(string $phone, string $role, string $code): OtpVerification

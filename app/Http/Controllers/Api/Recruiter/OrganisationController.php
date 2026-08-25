@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Recruiter;
 
+use App\Enums\JobPostingStatus;
 use App\Enums\OrganisationIndustry;
 use App\Enums\OrganisationSize;
 use App\Http\Controllers\Api\ApiController;
@@ -26,10 +27,25 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class OrganisationController extends ApiController
 {
+    /**
+     * Only the caller's own organisations, and only ever theirs — the query
+     * starts from `$request->user()`, so there is no id an operator could pass
+     * to see somebody else's. Every write below is scoped the same way through
+     * [findOwned].
+     */
     public function index(Request $request): JsonResponse
     {
         $organisations = $request->user()->organisations()
             ->withCount('jobPostings as job_count')
+            // Counted here rather than per row in the resource, so a recruiter
+            // with ten organisations still costs one query for the figure that
+            // drives "N of your postings are hidden".
+            ->withCount([
+                'jobPostings as active_job_count' => fn ($q) => $q->where(
+                    'posting_status',
+                    JobPostingStatus::Active->value,
+                ),
+            ])
             ->latest()
             ->get();
 
@@ -139,6 +155,12 @@ class OrganisationController extends ApiController
             'industry' => ['nullable', Rule::in(OrganisationIndustry::values())],
             'size' => ['nullable', Rule::in(OrganisationSize::values())],
             'address' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:80'],
+            'pincode' => ['nullable', 'string', 'max:12'],
+            // Bounded to real coordinates — a swapped pair or a stray zero
+            // would put the employer in the ocean rather than fail loudly.
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'website' => ['nullable', 'url', 'max:255'],
             'gst_number' => ['nullable', 'string', 'max:30'],
             'about' => ['nullable', 'string', 'max:2000'],

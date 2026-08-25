@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Enums\JobPostingStatus;
+use App\Enums\NotificationAudience;
 use App\Models\Application;
 use App\Models\JobPosting;
 use App\Models\Organisation;
+use App\Models\Subscription;
 use App\Models\User;
+use App\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -15,10 +18,18 @@ class RecruiterJobTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Verified by default: most of this file's tests are about posting and
+     * managing jobs, not about the verification gate itself, and an
+     * unverified organisation's job disappearing from `/jobs` would make
+     * `test_mine_lists_every_status_unlike_the_public_endpoint` (and others
+     * that read `/jobs` back) fail for a reason unrelated to what they're
+     * actually testing. `JobVisibilityTest` covers the unverified case.
+     */
     private function recruiterWithOrg(): array
     {
         $recruiter = $this->actingAsRecruiter();
-        $organisation = Organisation::factory()->for($recruiter, 'recruiter')->create(['name' => 'Fortis Hospital']);
+        $organisation = Organisation::factory()->verified()->for($recruiter, 'recruiter')->create(['name' => 'Fortis Hospital']);
 
         return [$recruiter, $organisation];
     }
@@ -52,7 +63,9 @@ class RecruiterJobTest extends TestCase
         $response = $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))
             ->assertCreated()
             ->assertJsonPath('data.title', 'Staff Nurse')
-            ->assertJsonPath('data.posting_status', 'active')
+            // Held for admin review, not published. Only
+            // `Admin\JobPostingController::approve` moves it to `active`.
+            ->assertJsonPath('data.posting_status', 'pending_approval')
             ->assertJsonPath('data.salary_display', '₹25K – ₹40K')
             // Denormalised so the card renders without a join (§8.1).
             ->assertJsonPath('data.organisation', 'Fortis Hospital')
@@ -81,13 +94,52 @@ class RecruiterJobTest extends TestCase
 
     public function test_job_codes_are_unique(): void
     {
-        [, $organisation] = $this->recruiterWithOrg();
+        [$recruiter, $organisation] = $this->recruiterWithOrg();
+
+        // Posting five jobs needs a plan that allows five active ones: the
+        // free tier caps it at one, enforced server-side since subscriptions
+        // moved onto the account.
+        $this->onBusinessPlan($recruiter);
 
         $codes = collect(range(1, 5))->map(
             fn () => $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))->json('data.code')
         );
 
         $this->assertCount(5, $codes->unique());
+    }
+
+    /** §13 — the free recruiter tier allows one active posting at a time. */
+    public function test_the_free_plan_allows_only_one_active_posting(): void
+    {
+        [, $organisation] = $this->recruiterWithOrg();
+
+        $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))
+            ->assertCreated();
+
+        $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.plan.0', 'The Free plan allows 1 active job post. Upgrade to Business to post more.');
+    }
+
+    public function test_the_business_plan_lifts_the_posting_limit(): void
+    {
+        [$recruiter, $organisation] = $this->recruiterWithOrg();
+
+        $this->onBusinessPlan($recruiter);
+
+        foreach (range(1, 3) as $ignored) {
+            $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))
+                ->assertCreated();
+        }
+    }
+
+    private function onBusinessPlan(User $recruiter): void
+    {
+        app(SubscriptionService::class)->subscribe(
+            $recruiter,
+            NotificationAudience::Recruiter,
+            Subscription::planById(NotificationAudience::Recruiter, 'recruiter_business'),
+        );
     }
 
     public function test_freeform_qualifications_and_skills_are_accepted(): void
@@ -143,8 +195,10 @@ class RecruiterJobTest extends TestCase
 
         $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))->assertCreated();
 
+        // `system`, not `job_match`: submitting is now "received, awaiting
+        // approval". `job_match` is what the approval itself sends.
         $this->getJson("{$this->api}/notifications?audience=recruiter")
-            ->assertJsonPath('data.0.type', 'job_match');
+            ->assertJsonPath('data.0.type', 'system');
     }
 
     public function test_mine_lists_every_status_unlike_the_public_endpoint(): void

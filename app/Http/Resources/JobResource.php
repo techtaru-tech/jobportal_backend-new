@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\JobPosting;
+use App\Support\JobShareLink;
 use App\Support\PublicId;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -31,6 +32,20 @@ class JobResource extends JsonResource
             // later verification never leaves stale postings behind (§8.1).
             'organisation_verified' => (bool) $this->organisationRecord?->verified,
             'organisation_note' => $this->organisation_note,
+
+            // Built here so neither client ever assembles a URL from a base it
+            // holds a copy of — see App\Support\JobShareLink. The same link is
+            // shared from either side of the marketplace.
+            'share_url' => JobShareLink::web($this->resource),
+
+            // Whether the caller posted this job themselves. One account holds
+            // both sides of the marketplace, so a user's own postings show up
+            // in their browse list like anyone else's — this is what lets the
+            // app hide Apply on them instead of starting a Smart Apply queue
+            // that ApplicationService then refuses. False for guests.
+            'own_posting' => $request->user() !== null
+                && $this->user_id === $request->user()->id,
+
             'city' => $this->city,
             'pincode' => $this->pincode,
             'latitude' => $this->latitude,
@@ -52,6 +67,15 @@ class JobResource extends JsonResource
 
             'posted_at' => $this->posted_at?->toIso8601ZuluString(),
             'posting_status' => $this->posting_status->value,
+
+            // Only the recruiter who posted it is told why it was turned
+            // away. A candidate never sees a rejected posting at all — this
+            // is scoped rather than always-present so an admin's wording can
+            // never leak onto a browse payload.
+            'rejection_reason' => $this->when(
+                $request->user() !== null && $this->user_id === $request->user()->id,
+                fn () => $this->rejection_reason,
+            ),
 
             'required_fields' => $this->required_fields ?? [],
 

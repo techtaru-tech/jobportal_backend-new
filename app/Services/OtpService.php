@@ -22,13 +22,17 @@ class OtpService
      */
     public function send(string $phone, UserRole $role, ?string $ip = null): array
     {
-        $this->assertWithinRateLimit($phone, $role);
+        $this->assertWithinRateLimit($phone);
 
         $code = $this->generateCode();
 
         $verification = OtpVerification::create([
             'verification_id' => 'vf_'.Str::lower(Str::random(6)),
             'phone' => $phone,
+            // Recorded for audit only. It used to be part of the lookup and
+            // of the rate-limit key, which stopped meaning anything once one
+            // phone became one account — and let a caller take two runs at the
+            // send limit just by alternating the value.
             'role' => $role->value,
             'code_hash' => Hash::make($code),
             'expires_at' => now()->addMinutes(config('options.otp.ttl_minutes')),
@@ -45,9 +49,10 @@ class OtpService
      */
     public function verify(string $verificationId, string $phone, UserRole $role, string $code): OtpVerification
     {
+        // Not matched on role: the code was issued to a phone, and the app can
+        // legitimately have switched tabs between requesting and entering it.
         $verification = OtpVerification::where('verification_id', $verificationId)
             ->where('phone', $phone)
-            ->where('role', $role->value)
             ->first();
 
         if (! $verification || ! $verification->isUsable()) {
@@ -81,10 +86,9 @@ class OtpService
     }
 
     /** 3 sends per phone per 10 minutes → 429 with a friendly message (§2.1). */
-    private function assertWithinRateLimit(string $phone, UserRole $role): void
+    private function assertWithinRateLimit(string $phone): void
     {
         $recent = OtpVerification::where('phone', $phone)
-            ->where('role', $role->value)
             ->where('created_at', '>=', now()->subMinutes(config('options.otp.send_window_minutes')))
             ->count();
 

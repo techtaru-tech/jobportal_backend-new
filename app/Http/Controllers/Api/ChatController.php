@@ -8,6 +8,7 @@ use App\Http\Resources\ChatMessageResource;
 use App\Http\Resources\ConversationResource;
 use App\Models\Application;
 use App\Models\Conversation;
+use App\Models\User;
 use App\Services\Notifier;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -41,8 +42,17 @@ class ChatController extends ApiController
     public function conversations(Request $request): JsonResponse
     {
         $user = $request->user();
-        $asRecruiter = $user->isRecruiter();
-        $otherSide = ChatSender::fromRole($user->role)->opposite();
+
+        // Which inbox to show, from the tab the app is on — not from
+        // `users.role`, which one account now holds both of. A person who
+        // hires and job-hunts has two sets of threads and only ever wants to
+        // see one of them at a time; without the parameter the server would
+        // have to guess, and would guess wrong for half the screens.
+        //
+        // Defaults to the job-seeking side: that is what an account with no
+        // postings has, and it is the tab the app opens on.
+        $asRecruiter = $request->query('as') === 'recruiter';
+        $otherSide = ($asRecruiter ? ChatSender::Recruiter : ChatSender::Candidate)->opposite();
 
         $query = $asRecruiter
             ? Application::query()->whereIn('job_posting_id', $user->jobPostings()->select('id'))
@@ -83,7 +93,7 @@ class ChatController extends ApiController
     {
         $application = $this->findApplication($request, $applicationId);
         $conversation = $this->conversation($application);
-        $me = ChatSender::fromRole($request->user()->role);
+        $me = $this->sideFor($application, $request->user());
 
         // Opening the thread marks everything the other party sent as read.
         $conversation->messages()
@@ -106,7 +116,7 @@ class ChatController extends ApiController
 
         $application = $this->findApplication($request, $applicationId);
         $conversation = $this->conversation($application);
-        $sender = ChatSender::fromRole($request->user()->role);
+        $sender = $this->sideFor($application, $request->user());
 
         $message = $conversation->messages()->create([
             'sender' => $sender->value,
@@ -139,7 +149,7 @@ class ChatController extends ApiController
     {
         $application = $this->findApplication($request, $applicationId);
         $conversation = $this->conversation($application);
-        $me = ChatSender::fromRole($request->user()->role);
+        $me = $this->sideFor($application, $request->user());
 
         if ($request->isMethod('post')) {
             $conversation->setTyping($me, $request->boolean('typing'));
@@ -151,9 +161,50 @@ class ChatController extends ApiController
         ]);
     }
 
+    /**
+     * POST /conversations/{applicationId}/viewing
+     *
+     * Tells the server this side currently has the thread open, so
+     * `Notifier::newMessage` can skip the push for whoever is already
+     * watching messages arrive live — the chat screen re-sends this on every
+     * poll tick while it's open and the flag expires on its own otherwise
+     * (see `Conversation::isViewing`), so there's nothing to explicitly turn
+     * off when a screen is killed rather than closed.
+     */
+    public function viewing(Request $request, string $applicationId): JsonResponse
+    {
+        $application = $this->findApplication($request, $applicationId);
+        $conversation = $this->conversation($application);
+        $me = $this->sideFor($application, $request->user());
+
+        $conversation->setViewing($me, $request->boolean('viewing'));
+
+        return ApiResponse::data(['ok' => true]);
+    }
+
     private function conversation(Application $application): Conversation
     {
         return $application->conversation()->firstOrCreate([]);
+    }
+
+    /**
+     * Which end of this thread the caller is standing at.
+     *
+     * Derived from the application, not from `users.role`: one account now
+     * holds both sides of the marketplace, so the account's signup role says
+     * nothing about which end of a given conversation this person is. A
+     * recruiter who also applies for work would otherwise have had every
+     * message they sent as a candidate filed as coming from the recruiter,
+     * and their own unread badge counting their own messages.
+     *
+     * Applying to your own posting is refused at submit time, so no thread
+     * has the same user at both ends.
+     */
+    private function sideFor(Application $application, User $user): ChatSender
+    {
+        return $application->user_id === $user->id
+            ? ChatSender::Candidate
+            : ChatSender::Recruiter;
     }
 
     /** Either party to the application may read and write; nobody else may. */

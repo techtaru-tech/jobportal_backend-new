@@ -13,6 +13,7 @@ use App\Enums\OrganisationIndustry;
 use App\Enums\OrganisationSize;
 use App\Enums\ProfileField;
 use App\Enums\SkillLevel;
+use App\Services\OptionListService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
@@ -21,35 +22,53 @@ use Illuminate\Http\JsonResponse;
  *
  * Everything the app currently hardcodes in MockDataProvider, in one payload,
  * so it can drop its local constants without any other change.
+ *
+ * The editable lists now come from [OptionListService] rather than straight
+ * from `config/options.php`, so an admin can add a qualification without a
+ * release. That service falls back to the config file per list, so this
+ * endpoint returns byte-identical values until somebody actually edits one.
  */
 class ConfigController extends ApiController
 {
+    public function __construct(private readonly OptionListService $options) {}
+
     public function __invoke(): JsonResponse
     {
+        $lists = $this->options->all();
+
         return ApiResponse::data([
-            'categories' => config('options.categories'),
-            'experience_bands' => config('options.experience_bands'),
-            'qualifications' => config('options.qualifications'),
-            'skills' => config('options.skills'),
-            'job_types' => config('options.job_types'),
-            'shifts' => config('options.shifts'),
-            'cities' => config('options.cities'),
-            'certifications' => config('options.certifications'),
-            'languages' => config('options.languages'),
+            'categories' => $lists['categories'],
+            'experience_bands' => $lists['experience_bands'],
+            'qualifications' => $lists['qualifications'],
+            'skills' => $lists['skills'],
+            'job_types' => $lists['job_types'],
+            'shifts' => $lists['shifts'],
+            'cities' => $lists['cities'],
+            'certifications' => $lists['certifications'],
+            'languages' => $lists['languages'],
+
+            // Closed enums, and `genders`, stay on the config file / enum: the
+            // API validates writes against them, so an admin-added value would
+            // be offered by the picker and then rejected on save. See
+            // OptionListService::EDITABLE_LISTS.
             'language_levels' => config('options.language_levels'),
             'skill_levels' => config('options.skill_levels'),
             'organisation_industries' => config('options.organisation_industries'),
             'organisation_sizes' => config('options.organisation_sizes'),
-            'salary_steps' => config('options.salary_steps'),
+
+            'salary_steps' => $lists['salary_steps'],
 
             // Everything below replaced a hardcoded list in the app's
             // MockDataProvider — see API_AUDIT.md §7.
-            'salary_filters' => config('options.salary_filters'),
-            'specializations' => config('options.specializations'),
-            'designations' => config('options.designations'),
-            'institutes' => config('options.institutes'),
-            'skills_by_category' => (object) config('options.skills_by_category'),
-            'city_coordinates' => (object) config('options.city_coordinates'),
+            'salary_filters' => $lists['salary_filters'],
+            'specializations' => $lists['specializations'],
+            'designations' => $lists['designations'],
+            'institutes' => $lists['institutes'],
+            'departments' => $lists['departments'],
+            'genders' => config('options.genders'),
+            'passing_years' => $this->passingYears(),
+            'skills_by_category' => (object) $this->options->skillsByCategory(),
+            'city_coordinates' => (object) $this->options->cityCoordinates(),
 
             // The closed enums the app's parsers switch on (§1.8).
             'enums' => [
@@ -72,5 +91,25 @@ class ConfigController extends ApiController
 
             'uploads' => config('options.uploads'),
         ]);
+    }
+
+    /**
+     * Passing/graduation years, newest first, spanning the window configured
+     * in `options.passing_years`.
+     *
+     * Built from the clock rather than stored as a literal list, which would
+     * need editing every January. Computed here rather than in the app so the
+     * window stays a server-side setting: the app renders whatever it is sent.
+     *
+     * @return list<string>
+     */
+    private function passingYears(): array
+    {
+        $ahead = (int) config('options.passing_years.ahead', 1);
+        $back = (int) config('options.passing_years.back', 50);
+
+        $newest = (int) date('Y') + $ahead;
+
+        return array_map('strval', range($newest, $newest - $back));
     }
 }

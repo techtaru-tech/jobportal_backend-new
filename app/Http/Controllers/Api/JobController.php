@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Resources\JobResource;
 use App\Models\JobPosting;
+use App\Services\OptionListService;
 use App\Support\ApiResponse;
 use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Builder;
@@ -60,7 +61,18 @@ class JobController extends ApiController
 
         $this->attachCandidateState($query, $request);
 
-        $job = $query->find(PublicId::decode('j', $jobId));
+        // Accepts either the `j_<id>` public id or the job's `code`.
+        //
+        // A shared link carries the code (`/j/MC-45530`) because that is what
+        // both sides of the app call the job and what reads sensibly in a
+        // WhatsApp message. Resolving it here means the deep-link handler can
+        // use the same endpoint every other screen does, instead of needing a
+        // lookup route of its own.
+        $id = PublicId::decode('j', $jobId);
+
+        $job = $id !== null
+            ? $query->find($id)
+            : $query->where('code', $jobId)->first();
 
         if (! $job) {
             throw new NotFoundHttpException('That job is no longer available.');
@@ -78,8 +90,10 @@ class JobController extends ApiController
             ->groupBy('role')
             ->pluck('aggregate', 'role');
 
-        // Seeded categories always appear, even at zero, so the chips are stable.
-        $names = collect(config('options.categories'))
+        // Seeded categories always appear, even at zero, so the chips are
+        // stable. Read through the resolved list so a category an admin adds
+        // shows up here too, not only in `/config/options`.
+        $names = collect(app(OptionListService::class)->list('categories'))
             ->merge($counts->keys())
             ->unique()
             ->values();
@@ -154,12 +168,16 @@ class JobController extends ApiController
         return JobPosting::query()->publiclyVisible()->search($term)->count();
     }
 
-    /** Adds is_saved / has_applied for a signed-in candidate; no-op for guests. */
+    /** Adds is_saved / has_applied for any signed-in user; no-op for guests. */
     private function attachCandidateState(Builder $query, Request $request): void
     {
         $user = $request->user();
 
-        if (! $user?->isCandidate()) {
+        // Was gated on the account being a candidate, which now means only
+        // "the side they signed up on" — a recruiter browsing for work would
+        // have seen every job unsaved and un-applied even after saving and
+        // applying to them.
+        if (! $user) {
             return;
         }
 

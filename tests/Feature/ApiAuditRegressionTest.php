@@ -42,11 +42,18 @@ class ApiAuditRegressionTest extends TestCase
         return $verify->json('data.token');
     }
 
-    /** @return array{0: User, 1: JobPosting} */
+    /**
+     * Verified by default — none of these tests are about the verification
+     * gate itself (see `JobVisibilityTest`), and an unverified employer's job
+     * being unreachable by a candidate would fail every one of them for a
+     * reason unrelated to what they're actually checking.
+     *
+     * @return array{0: User, 1: JobPosting}
+     */
     private function recruiterWithJob(?User $recruiter = null): array
     {
         $recruiter ??= User::factory()->recruiter()->create();
-        $organisation = Organisation::factory()->for($recruiter, 'recruiter')->create();
+        $organisation = Organisation::factory()->verified()->for($recruiter, 'recruiter')->create();
 
         $job = JobPosting::factory()->for($recruiter, 'recruiter')->create([
             'organisation_id' => $organisation->id,
@@ -70,7 +77,12 @@ class ApiAuditRegressionTest extends TestCase
         $this->registerViaOtp('9222222222', 'candidate');
         Sanctum::actingAs(User::where('phone', '9222222222')->firstOrFail());
 
-        $this->patchJson("{$this->api}/candidate/profile", ['name' => 'Yash Saraswat'])->assertOk();
+        $this->patchJson("{$this->api}/candidate/profile", [
+            'name' => 'Yash Saraswat',
+            'gender' => 'Male',
+            'dob' => '1998-04-12',
+            'address' => '204, Green Park, Jaipur',
+        ])->assertOk();
         $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])->assertCreated();
 
         $notification = AppNotification::where('user_id', $recruiter->id)
@@ -159,6 +171,14 @@ class ApiAuditRegressionTest extends TestCase
             ->assertJsonPath('meta.total', 1);
     }
 
+    /**
+     * The `?as=` parameter is what selects the inbox.
+     *
+     * One account holds both sides, so "which threads are mine" is no longer
+     * answerable from `users.role` — these three tests pass `as=recruiter`
+     * because they are reading the hiring inbox. Without it they get the
+     * job-seeking one, which for these fixtures is empty.
+     */
     public function test_a_recruiter_sees_the_candidate_as_the_thread_title(): void
     {
         [$recruiter, $job] = $this->recruiterWithJob();
@@ -175,7 +195,7 @@ class ApiAuditRegressionTest extends TestCase
 
         Sanctum::actingAs($recruiter);
 
-        $this->getJson("{$this->api}/conversations")
+        $this->getJson("{$this->api}/conversations?as=recruiter")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             // The two sides read the row from opposite ends.
@@ -198,11 +218,11 @@ class ApiAuditRegressionTest extends TestCase
         $this->postJson("{$this->api}/conversations/{$reference}/messages", ['text' => 'Hi']);
 
         Sanctum::actingAs($recruiter);
-        $this->getJson("{$this->api}/conversations")->assertJsonPath('data.0.unread_count', 1);
+        $this->getJson("{$this->api}/conversations?as=recruiter")->assertJsonPath('data.0.unread_count', 1);
 
         $this->getJson("{$this->api}/conversations/{$reference}/messages")->assertOk();
 
-        $this->getJson("{$this->api}/conversations")->assertJsonPath('data.0.unread_count', 0);
+        $this->getJson("{$this->api}/conversations?as=recruiter")->assertJsonPath('data.0.unread_count', 0);
     }
 
     public function test_threads_with_traffic_sort_above_silent_ones(): void
@@ -240,7 +260,7 @@ class ApiAuditRegressionTest extends TestCase
 
         Sanctum::actingAs($stranger);
 
-        $this->getJson("{$this->api}/conversations")
+        $this->getJson("{$this->api}/conversations?as=recruiter")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.job_id', "j_{$theirs->id}");

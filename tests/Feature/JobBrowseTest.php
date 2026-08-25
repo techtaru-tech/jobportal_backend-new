@@ -31,26 +31,26 @@ class JobBrowseTest extends TestCase
             ->assertJsonPath('meta.total', 3);
     }
 
-    /** §8.1 — must reflect the organisation's real state, never a hardcoded true. */
+    /**
+     * §8.1 — must reflect the organisation's real state, never a hardcoded
+     * true, and — since `JobVisibilityTest` added the gate — that state now
+     * decides more than a badge: unverifying an employer immediately pulls
+     * every one of its postings out of the public listing, not just its flag.
+     */
     public function test_organisation_verified_reflects_the_employers_live_state(): void
     {
         $verified = Organisation::factory()->verified()->create();
-        $unverified = Organisation::factory()->create();
-
         JobPosting::factory()->create(['organisation_id' => $verified->id, 'title' => 'Verified Role']);
-        JobPosting::factory()->create(['organisation_id' => $unverified->id, 'title' => 'Unverified Role']);
 
         $jobs = collect($this->getJson("{$this->api}/jobs")->json('data'))->keyBy('title');
-
         $this->assertTrue($jobs['Verified Role']['organisation_verified']);
-        $this->assertFalse($jobs['Unverified Role']['organisation_verified']);
 
         $verified->markUnverified();
 
         // Re-uploading a document (or any other reason) unverifying the
-        // organisation must immediately unverify every one of its live postings.
+        // organisation must immediately pull its posting from public view.
         $jobs = collect($this->getJson("{$this->api}/jobs")->json('data'))->keyBy('title');
-        $this->assertFalse($jobs['Verified Role']['organisation_verified']);
+        $this->assertArrayNotHasKey('Verified Role', $jobs);
     }
 
     public function test_only_active_postings_are_public(): void

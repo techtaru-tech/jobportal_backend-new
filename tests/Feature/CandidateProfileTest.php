@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CandidateProfile;
 use App\Models\JobPosting;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +14,34 @@ use Tests\TestCase;
 class CandidateProfileTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * One education entry and one work-history entry, which the Education and
+     * Experience sections need before they count as filled in.
+     *
+     * Creating them also exercises the model hooks that recompute
+     * `profile_strength` — adding an entry does not touch the profile row, so
+     * without those the stored number would ignore this.
+     */
+    private function giveHistoryTo(User $user): void
+    {
+        $profile = $user->candidateProfile;
+
+        $profile->educations()->create([
+            'qualification' => 'B.Sc Nursing',
+            'specialization' => 'Critical Care',
+            'institute' => 'RUHS',
+            'year' => '2020',
+        ]);
+
+        $profile->workExperiences()->create([
+            'designation' => 'Staff Nurse',
+            'organization' => 'Fortis Hospital',
+            'city' => 'Jaipur',
+            'start_date' => 'Mar 2021',
+            'currently_working' => true,
+        ]);
+    }
 
     public function test_it_returns_the_documented_profile_shape(): void
     {
@@ -97,15 +126,66 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('data.skills', ['ICU', 'Patient Care']);
     }
 
+    public function test_an_experience_band_alone_does_not_earn_the_whole_bucket(): void
+    {
+        // The reported bug: with Experience, Education, Personal information
+        // and Preferred jobs all part-filled, the score still read in the
+        // nineties — because picking a band earned the full 14-point
+        // Experience bucket with no work history on record at all.
+        $user = $this->actingAsCandidate();
+
+        $bandOnly = $user->candidateProfile->refresh()->profile_strength;
+
+        $user->candidateProfile->workExperiences()->create([
+            'designation' => 'Staff Nurse',
+            'organization' => 'Fortis Hospital',
+            'city' => 'Jaipur',
+            'start_date' => 'Mar 2021',
+            'currently_working' => true,
+        ]);
+
+        $withHistory = $user->candidateProfile->refresh()->profile_strength;
+
+        $this->assertGreaterThan(
+            $bandOnly,
+            $withHistory,
+            'Adding work history has to move the score, or the band was already scoring the whole section.',
+        );
+    }
+
+    public function test_adding_an_education_entry_refreshes_the_stored_strength(): void
+    {
+        // `calculateStrength` runs from the profile's `saving` hook, and
+        // creating an entry does not touch the profile row — the model hooks
+        // on Education/WorkExperience are what stop the stored number going
+        // stale the moment it matters.
+        $user = $this->actingAsCandidate();
+
+        $before = $user->candidateProfile->refresh()->profile_strength;
+
+        $user->candidateProfile->educations()->create([
+            'qualification' => 'B.Sc Nursing',
+            'specialization' => 'Critical Care',
+            'institute' => 'RUHS',
+            'year' => '2020',
+        ]);
+
+        $this->assertGreaterThan($before, $user->candidateProfile->refresh()->profile_strength);
+    }
+
     public function test_profile_strength_is_computed_from_the_documented_weights(): void
     {
-        $this->actingAsCandidate();
+        $user = $this->actingAsCandidate();
+        // The Education and Experience sections are their entry lists, so a
+        // profile with none of either is not "everything but the photo and
+        // the video" — see `CandidateProfile::sectionParts`.
+        $this->giveHistoryTo($user);
 
         $full = $this->getJson("{$this->api}/candidate/profile")->json('data.profile_strength');
 
-        // Everything but the photo (weight 5) — the one bucket the factory
-        // leaves empty — so 100 - 5 = 95.
-        $this->assertSame(95, $full);
+        // Everything but the photo (weight 4) and the intro video (weight
+        // 10) — the two buckets the factory leaves empty — so 100 - 4 - 10 = 86.
+        $this->assertSame(86, $full);
     }
 
     public function test_profile_strength_drops_as_buckets_empty(): void
@@ -126,8 +206,12 @@ class CandidateProfileTest extends TestCase
 
         $this->actingAsCandidate($bare);
 
+        // One of the `personal` bucket's six fields — 9 × 1/6, rounded. A
+        // name used to earn the whole bucket, which is what made a profile
+        // holding only a name and a phone number report its Personal
+        // information section complete.
         $this->getJson("{$this->api}/candidate/profile")
-            ->assertJsonPath('data.profile_strength', 10);
+            ->assertJsonPath('data.profile_strength', 2);
     }
 
     public function test_skills_are_a_full_replace_accepting_any_freeform_string(): void
@@ -450,8 +534,8 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('errors.file.0', 'Your intro video must be smaller than 50 MB.');
     }
 
-    /** §3.1 — deliberately excluded so it never contributes to the score. */
-    public function test_intro_video_does_not_affect_profile_strength(): void
+    /** §3.1 — the profile cannot reach 100 without one. */
+    public function test_intro_video_increases_profile_strength(): void
     {
         Storage::fake('local');
         $this->actingAsCandidate();
@@ -464,6 +548,13 @@ class CandidateProfileTest extends TestCase
 
         $after = $this->getJson("{$this->api}/candidate/profile")->json('data.profile_strength');
 
-        $this->assertSame($before, $after);
+        $this->assertSame($before + CandidateProfile::WEIGHTS['intro_video'], $after);
+
+        $this->deleteJson("{$this->api}/candidate/profile/intro-video")->assertOk();
+
+        $this->assertSame(
+            $before,
+            $this->getJson("{$this->api}/candidate/profile")->json('data.profile_strength'),
+        );
     }
 }

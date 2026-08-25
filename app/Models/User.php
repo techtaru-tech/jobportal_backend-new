@@ -66,27 +66,59 @@ class User extends Authenticatable
         return $this->hasMany(AppNotification::class)->latest();
     }
 
-    public function isCandidate(): bool
+    /**
+     * Every app install that has registered for push, on any platform.
+     * Cascade-deletes with the account (see the migration), so a closed
+     * account never leaves a token FCM would still try to reach.
+     */
+    public function deviceTokens(): HasMany
     {
-        return $this->role === UserRole::Candidate;
-    }
-
-    public function isRecruiter(): bool
-    {
-        return $this->role === UserRole::Recruiter;
+        return $this->hasMany(DeviceToken::class);
     }
 
     /**
-     * The name to show this user by.
+     * At most one row per audience (unique on `user_id, audience`), so this is
+     * a `hasMany` of at most two: one account can be a free job seeker and a
+     * paying recruiter at the same time, and neither says anything about the
+     * other. `SubscriptionService` reads a single side directly; this exists
+     * for the places that need both at once.
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * The side this account signed up on.
+     *
+     * A **default**, not a permission. One account holds both sides of the
+     * marketplace — the same person posts jobs and applies for them — so
+     * nothing gates on this; it only decides which tab the app opens on for a
+     * brand-new account. Anything that needs to know which side a user is
+     * acting as must read it from the thing being acted on (who owns the job,
+     * who owns the application) or from the mode the app passes in.
+     */
+    public function signedUpAs(): UserRole
+    {
+        return $this->role;
+    }
+
+    /**
+     * The name to show this user by, on the given side of the marketplace.
      *
      * `users.name` is only ever populated by the seeder — OTP signup (§2.2)
      * asks for a phone and nothing else, so for every real account the name
      * lives on the profile the user actually filled in. Anything rendering a
      * person's name must go through here, or it renders an empty string.
+     *
+     * The side is a parameter because it is no longer derivable from the
+     * account: the same user is "Dr. Yash Saraswat" to a recruiter reading
+     * their application and "Sunrise Multispecialty" to a candidate reading
+     * their job posting.
      */
-    public function displayName(string $fallback = ''): string
+    public function displayName(string $fallback = '', UserRole $as = UserRole::Candidate): string
     {
-        $name = $this->isRecruiter()
+        $name = $as === UserRole::Recruiter
             ? $this->recruiterProfile?->contact_person_name
             : $this->candidateProfile?->name;
 
