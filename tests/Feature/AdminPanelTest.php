@@ -487,6 +487,46 @@ class AdminPanelTest extends TestCase
         $this->assertNull($job->fresh()->expires_at);
     }
 
+    /**
+     * `days_since_applied` must be a whole number.
+     *
+     * Carbon's `diffIn*` methods return floats, so this reached the panel as
+     * `7.6651631748958335` and rendered as "7.6651631748958335d waiting".
+     * Pinned here rather than trusted to the display, because the field is
+     * named for a count and every consumer is entitled to treat it as one.
+     */
+    public function test_days_since_applied_is_a_whole_number(): void
+    {
+        $this->actingAsAdmin();
+
+        $candidate = User::factory()->candidate()->create();
+        CandidateProfile::factory()->for($candidate)->create();
+        $recruiter = User::factory()->recruiter()->create();
+        $job = JobPosting::factory()->for($recruiter, 'recruiter')->create();
+
+        Application::create([
+            'reference' => 'MC-00002-daysref01',
+            'job_posting_id' => $job->id,
+            'user_id' => $candidate->id,
+            'status' => ApplicationStatus::Applied->value,
+            // Deliberately not a whole number of days: a round figure would
+            // pass just as happily without the cast.
+            'applied_at' => now()->subDays(6)->subHours(16),
+            'profile_snapshot' => ['name' => 'Test Candidate'],
+        ]);
+
+        $row = collect($this->getJson("{$this->api}/admin/applications")->assertOk()->json('data'))
+            ->firstWhere('reference', 'MC-00002-daysref01');
+
+        $this->assertIsInt($row['days_since_applied']);
+
+        // Floored, not rounded — 6 days 16 hours is still short of the seven
+        // that `is_stuck` flips at, so it must not read as 7 beside an
+        // unflagged row.
+        $this->assertSame(6, $row['days_since_applied']);
+        $this->assertFalse($row['is_stuck']);
+    }
+
     // ── application status goes through the service ─────────────────────────
 
     public function test_changing_an_application_status_writes_the_candidates_timeline(): void

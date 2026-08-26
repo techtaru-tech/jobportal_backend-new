@@ -229,7 +229,21 @@ class ApplicationController extends ApiController
                 'city' => $application->jobPosting->city,
                 'recruiter_id' => PublicId::encode('u', $application->jobPosting->user_id),
             ],
-            'days_since_applied' => $application->applied_at->diffInDays(now()),
+            /*
+             * Whole days, floored.
+             *
+             * Cast because Carbon's `diffIn*` methods return **floats** — this
+             * was reaching the panel as `7.6651631748958335` and rendering as
+             * "7.6651631748958335d waiting". Fixed at the source rather than
+             * formatted at the display: the field is called *days*, so a
+             * consumer is entitled to treat it as a count, and every future
+             * reader would otherwise have to know to round it.
+             *
+             * Floored rather than rounded, to agree with `is_stuck` below: that
+             * flips at a full seven days, so an application at 6.9 days must
+             * read "6d waiting" and not "7d waiting" beside an un-flagged row.
+             */
+            'days_since_applied' => (int) $application->applied_at->diffInDays(now()),
             'is_stuck' => $application->status === ApplicationStatus::Applied
                 && $application->applied_at->lte(CarbonImmutable::now()->subDays(self::STUCK_AFTER_DAYS)),
         ];
