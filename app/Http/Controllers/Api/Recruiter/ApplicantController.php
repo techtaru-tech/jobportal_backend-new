@@ -11,6 +11,7 @@ use App\Models\JobPosting;
 use App\Services\ApplicationService;
 use App\Services\Notifier;
 use App\Support\ApiResponse;
+use App\Support\PrivateFiles;
 use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -241,6 +242,53 @@ class ApplicantController extends ApiController
         }
 
         return $job;
+    }
+
+    /**
+     * GET /recruiter/jobs/{jobId}/applicants/{applicationId}/resume
+     *
+     * Mints a **fresh** link to the applicant's resume, at the moment the
+     * recruiter asks for it.
+     *
+     * Exists because the link on the applicant payload is signed and lives ~15
+     * minutes, while the app reads that payload from a cache the recruiter may
+     * have loaded an hour ago. Opening it then handed the device an expired
+     * signature, and since the link opens in a browser, what the recruiter saw
+     * was the server's raw 403 page where a resume should have been.
+     *
+     * Resolving it here rather than lengthening the TTL keeps the link
+     * short-lived (it is a private document on a private disk) while making the
+     * one that gets opened seconds old. It also turns a failure into a JSON
+     * message the app can put in a toast, instead of an error page rendered by
+     * whatever browser the tap opened.
+     *
+     * Reads the **snapshot** path, never the candidate's current resume: a
+     * later upload must not change the document an employer already received
+     * (§9.1). `FileRetention` is what keeps that file on disk after a
+     * replacement, so the path stays resolvable.
+     */
+    public function resume(Request $request, string $jobId, string $applicationId): JsonResponse
+    {
+        $application = $this->findApplication($request, $jobId, $applicationId);
+
+        $path = $application->snapshot_files['resume_path'] ?? null;
+
+        // Distinguished from "the file went missing": an applicant who never
+        // attached one is the ordinary case, and the app offers its generated
+        // summary instead rather than reporting a fault.
+        if (blank($path)) {
+            return ApiResponse::error('This applicant did not attach a resume.', 404);
+        }
+
+        if (! PrivateFiles::disk()->exists($path)) {
+            return ApiResponse::error('That resume file is no longer available.', 404);
+        }
+
+        return ApiResponse::data([
+            'url' => PrivateFiles::url($path),
+            'name' => $application->profile_snapshot['resume'] ?? 'resume.pdf',
+            'expires_in_minutes' => PrivateFiles::TTL_MINUTES,
+        ]);
     }
 
     private function findApplication(Request $request, string $jobId, string $applicationId): Application

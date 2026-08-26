@@ -140,6 +140,10 @@ Route::prefix('v1')->group(function () {
             Route::get('jobs/{jobId}/applicants', [Recruiter\ApplicantController::class, 'index']);
             Route::get('jobs/{jobId}/applicants/facets', [Recruiter\ApplicantController::class, 'facets']);
             Route::get('jobs/{jobId}/applicants/{applicationId}', [Recruiter\ApplicantController::class, 'show']);
+            // Minted per tap. The link on the applicant payload is signed and
+            // short-lived, and the app opens it from a cache that may be an
+            // hour old — see the controller method.
+            Route::get('jobs/{jobId}/applicants/{applicationId}/resume', [Recruiter\ApplicantController::class, 'resume']);
             Route::patch('jobs/{jobId}/applicants/{applicationId}/status', [Recruiter\ApplicantController::class, 'updateStatus']);
             Route::post('jobs/{jobId}/applicants/{applicationId}/interview', [Recruiter\ApplicantController::class, 'scheduleInterview']);
         });

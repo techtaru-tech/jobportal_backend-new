@@ -7,7 +7,9 @@ use App\Http\Resources\CandidateProfileResource;
 use App\Models\Application;
 use App\Models\JobPosting;
 use App\Models\User;
+use App\Support\PrivateFiles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -354,5 +356,122 @@ class ApplicantManagementTest extends TestCase
         ])->assertStatus(404);
 
         $this->assertSame(ApplicationStatus::Applied, $application->fresh()->status);
+    }
+
+    /*
+     * The per-tap resume link.
+     *
+     * The link on the applicant payload is signed and lives ~15 minutes, while
+     * the app opens it from a cache that can be far older — so it was routinely
+     * expired by the time a recruiter tapped, and because it opens in a browser
+     * what they saw was the server's error page where a resume should have been.
+     */
+
+    public function test_a_recruiter_can_mint_a_fresh_link_to_an_applicants_resume(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+
+        // A real file on the private disk, and the snapshot pointing at it.
+        Storage::disk(PrivateFiles::DISK)->put('resumes/1/riya.pdf', '%PDF-1.4 test');
+        $application->forceFill([
+            'snapshot_files' => ['resume_path' => 'resumes/1/riya.pdf'],
+            'profile_snapshot' => array_merge($application->profile_snapshot, ['resume' => 'riya.pdf']),
+        ])->save();
+
+        $response = $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/resume",
+        )->assertOk()->assertJsonStructure(['data' => ['url', 'name', 'expires_in_minutes']]);
+
+        $this->assertSame('riya.pdf', $response->json('data.name'));
+        $this->assertStringContainsString('resumes/1/riya.pdf', $response->json('data.url'));
+
+        // Freshly signed, which is the entire point: a link minted a moment ago
+        // still has nearly its whole life ahead of it, where the stale one this
+        // endpoint replaces had none. A looser check on the URL's shape would
+        // pass just as happily for an already-expired signature.
+        $this->assertStringContainsString('signature=', $response->json('data.url'));
+        $this->assertGreaterThan(
+            now()->addMinutes(PrivateFiles::TTL_MINUTES - 1)->timestamp,
+            $this->expiryOf($response->json('data.url')),
+        );
+    }
+
+    /**
+     * The snapshot path, never the candidate's current resume — a later upload
+     * must not change the document an employer already received (§9.1).
+     */
+    public function test_the_link_points_at_the_snapshot_not_the_candidates_latest_resume(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+
+        Storage::disk(PrivateFiles::DISK)->put('resumes/1/as-applied.pdf', 'old');
+        Storage::disk(PrivateFiles::DISK)->put('resumes/1/rewritten.pdf', 'new');
+
+        $application->forceFill([
+            'snapshot_files' => ['resume_path' => 'resumes/1/as-applied.pdf'],
+        ])->save();
+
+        // The candidate has since replaced their resume.
+        $application->candidate->candidateProfile
+            ->forceFill(['resume_path' => 'resumes/1/rewritten.pdf'])->save();
+
+        $url = $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/resume",
+        )->assertOk()->json('data.url');
+
+        $this->assertStringContainsString('as-applied.pdf', $url);
+        $this->assertStringNotContainsString('rewritten.pdf', $url);
+    }
+
+    /** An applicant who attached nothing is ordinary, not a fault. */
+    public function test_an_applicant_without_a_resume_is_reported_as_such(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+        $application->forceFill(['snapshot_files' => []])->save();
+
+        $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/resume",
+        )
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'This applicant did not attach a resume.');
+    }
+
+    /** A path with nothing behind it is a different message, and a real fault. */
+    public function test_a_missing_resume_file_is_reported_separately(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+        $application->forceFill([
+            'snapshot_files' => ['resume_path' => 'resumes/1/vanished.pdf'],
+        ])->save();
+
+        $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/resume",
+        )
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'That resume file is no longer available.');
+    }
+
+    public function test_another_recruiter_cannot_mint_a_link_to_this_applicants_resume(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+
+        Storage::disk(PrivateFiles::DISK)->put('resumes/1/riya.pdf', '%PDF-1.4');
+        $application->forceFill([
+            'snapshot_files' => ['resume_path' => 'resumes/1/riya.pdf'],
+        ])->save();
+
+        $this->actingAs(User::factory()->recruiter()->create(), 'sanctum');
+
+        $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/resume",
+        )->assertStatus(404);
+    }
+
+    /** The `expires` query parameter off a signed URL, as an integer. */
+    private function expiryOf(string $url): int
+    {
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $params);
+
+        return (int) ($params['expires'] ?? 0);
     }
 }
