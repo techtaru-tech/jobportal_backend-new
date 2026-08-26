@@ -9,6 +9,21 @@ Route::get('/', function () {
 
 /*
 |--------------------------------------------------------------------------
+| Admin panel
+|--------------------------------------------------------------------------
+|
+| A single Blade view that boots an Alpine.js SPA (see resources/js/admin
+| bundled at public/js/admin.js). It talks to /api/v1/admin/* on the same
+| origin — no separate app, no CORS setup needed. The wildcard exists so a
+| refresh on any in-app "route" (e.g. /admin#jobs) still serves the shell
+| instead of a 404; the panel does its own client-side view switching.
+*/
+Route::get('/admin/{any?}', function () {
+    return view('admin.app');
+})->where('any', '.*');
+
+/*
+|--------------------------------------------------------------------------
 | Deep links
 |--------------------------------------------------------------------------
 |
