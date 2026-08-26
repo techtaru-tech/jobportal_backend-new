@@ -216,23 +216,30 @@ Route::prefix('v1')->group(function () {
             Route::get('organisations/{organisationId}', [Admin\OrganisationController::class, 'show']);
 
             /*
-             * The operator's own alert feed — the queue, plus aggregate
-             * push-delivery health.
+             * What has happened on the platform, newest first — registrations,
+             * new employers, new postings — plus aggregate push-delivery
+             * health. See `NotificationController`.
              *
-             * There is deliberately no `notifications` list here any more.
-             * `app_notifications` is the *users'* inbox, addressed to
-             * candidates and recruiters; an admin is not a recipient of any of
-             * it, and listing those rows put private per-person messages in
-             * front of staff while telling them nothing about their own work.
-             * See `AlertController`.
+             * This replaced an `alerts` queue that had grown into two unrelated
+             * screens at once: things that happened, and data-quality warnings
+             * about *applications* (stuck, selected-without-interview,
+             * no-applicants). The second half was the larger one and none of it
+             * was an admin's work — an application belongs to the recruiter who
+             * owns the posting.
              *
-             * There is also no `conversations` list. The panel does not read
+             * Still no per-user notification list. `app_notifications` is the
+             * *users'* inbox, addressed to candidates and recruiters; an admin
+             * is not a recipient of any of it, and listing those rows put
+             * private per-person messages in front of staff while telling them
+             * nothing about their own work. Only the aggregate counts appear,
+             * as `delivery`.
+             *
+             * Still no `conversations` list either: the panel does not read
              * message content (see `AdminPanelTest`), and a thread index
              * without content was a roster of who is talking to whom that no
-             * admin task needed — the one actionable part of it, "threads
-             * nobody has spoken in", survives as a count in the alert feed.
+             * admin task needed.
              */
-            Route::get('alerts', [Admin\AlertController::class, 'index']);
+            Route::get('notifications', Admin\NotificationController::class);
 
             Route::get('subscriptions', [Admin\SubscriptionController::class, 'index']);
             Route::get('subscriptions/plans', [Admin\SubscriptionController::class, 'plans']);

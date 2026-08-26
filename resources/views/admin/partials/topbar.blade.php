@@ -123,31 +123,37 @@
         <div x-show="bellOpen" x-cloak
              class="absolute right-0 top-[calc(100%+8px)] z-50 w-[340px] overflow-hidden rounded-card border-hair border-hairline bg-surface shadow-raised animate-pop-in">
           <div class="border-b border-hairline-divider px-lg py-md">
-            <span class="block text-kicker text-ink-secondary">NEEDS ATTENTION</span>
+            <span class="block text-kicker text-ink-secondary">NOTIFICATIONS</span>
             <p class="mt-[2px] text-bodysm font-semibold text-ink"
-               x-text="actionTotal === 0 ? 'Nothing waiting' : actionTotal + ' item' + (actionTotal === 1 ? '' : 's') + ' waiting'"></p>
+               x-text="actionTotal === 0 ? 'Nothing waiting on you' : actionTotal + ' item' + (actionTotal === 1 ? '' : 's') + ' waiting on you'"></p>
           </div>
 
-          <template x-if="(alerts.data?.groups || []).length === 0">
+          <template x-if="notifications.data.length === 0">
             <div class="flex items-center gap-md px-lg py-lg">
               @include('admin.partials.icon', ['name' => 'shieldCheck', 'class' => 'h-5 w-5 shrink-0 text-success'])
-              <p class="text-bodysm text-ink-secondary">Every queue is clear right now.</p>
+              <p class="text-bodysm text-ink-secondary">Nothing has happened recently.</p>
             </div>
           </template>
 
-          <template x-if="(alerts.data?.groups || []).length > 0">
+          {{-- The five most recent events, not the whole feed: this is a peek
+               that leads somewhere, and a dropdown long enough to scroll is
+               just the page in a worse container. --}}
+          <template x-if="notifications.data.length > 0">
             <div>
-              <template x-for="group in alerts.data.groups" :key="group.key">
-                <button type="button" @click="openAlertGroup(group); bellOpen = false"
-                        class="flex w-full items-center gap-md px-lg py-md text-left transition-colors hover:bg-surface-muted">
-                  <span :class="group.severity === 'action' ? 'bg-primary-light text-primary-dark' : 'bg-surface-muted text-ink-secondary'"
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-caption font-bold tabular-nums"
-                        x-text="group.count > 99 ? '99+' : group.count"></span>
-                  <span class="min-w-0 flex-1 text-bodysm text-ink" x-text="group.label"></span>
+              <template x-for="row in notifications.data.slice(0, 5)" :key="row.id">
+                <button type="button" @click="openNotification(row); bellOpen = false"
+                        class="flex w-full items-start gap-md px-lg py-md text-left transition-colors hover:bg-surface-muted">
+                  <span x-html="ICONS[notificationIcon(row.type)]"
+                        :class="row.severity === 'action' ? 'bg-primary-light text-primary-dark' : 'bg-surface-muted text-ink-secondary'"
+                        class="mt-[1px] flex h-8 w-8 shrink-0 items-center justify-center rounded-full [&>svg]:h-4 [&>svg]:w-4"></span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-bodysm text-ink" x-text="row.title"></span>
+                    <span class="block truncate text-caption text-ink-muted" x-text="timeAgo(row.at)"></span>
+                  </span>
                 </button>
               </template>
               <div class="border-t border-hairline-divider">
-                <button type="button" @click="go('alerts'); bellOpen = false"
+                <button type="button" @click="go('notifications'); bellOpen = false"
                         class="w-full px-lg py-md text-btnghost text-primary transition-colors hover:bg-primary-light">
                   See everything
                 </button>

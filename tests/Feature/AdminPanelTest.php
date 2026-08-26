@@ -779,7 +779,7 @@ class AdminPanelTest extends TestCase
         $this->getJson("{$this->api}/admin/conversations/{$reference}/transcript")->assertNotFound();
     }
 
-    // ── the alert feed — the operator's own notifications ───────────────────
+    // ── the notification feed ───────────────────────────────────────────────
 
     /**
      * The panel's notification surface must never be the users' inbox.
@@ -787,10 +787,11 @@ class AdminPanelTest extends TestCase
      * `app_notifications` rows are addressed to candidates and recruiters
      * ("Riya Sharma sent you a message"); an admin is not a recipient. This
      * asserts the text of a real user notification cannot reach an admin
-     * through the alert feed, checked against the whole response body rather
-     * than a named key.
+     * through the feed, checked against the whole response body rather than a
+     * named key — only the aggregate counts in `delivery` may come from that
+     * table.
      */
-    public function test_the_alert_feed_never_carries_a_users_notification_text(): void
+    public function test_the_notification_feed_never_carries_a_users_notification_text(): void
     {
         $recruiter = User::factory()->recruiter()->create();
         $organisation = Organisation::factory()->verified()->for($recruiter, 'recruiter')->create();
@@ -807,12 +808,16 @@ class AdminPanelTest extends TestCase
         $this->assertNotEmpty($notification->text);
 
         $this->actingAsAdmin();
-        $response = $this->getJson("{$this->api}/admin/alerts")->assertOk();
+        $response = $this->getJson("{$this->api}/admin/notifications")->assertOk();
 
         $this->assertStringNotContainsString($notification->text, $response->getContent());
     }
 
-    public function test_the_alert_feed_reports_the_verification_queue_with_named_items(): void
+    /**
+     * An employer registering is the event; one waiting on a document check is
+     * the actionable flavour of it.
+     */
+    public function test_a_registered_employer_appears_as_an_actionable_notification(): void
     {
         $recruiter = User::factory()->recruiter()->create();
         Organisation::factory()->for($recruiter, 'recruiter')->create([
@@ -823,53 +828,96 @@ class AdminPanelTest extends TestCase
 
         $this->actingAsAdmin();
 
-        $response = $this->getJson("{$this->api}/admin/alerts")
+        $response = $this->getJson("{$this->api}/admin/notifications")
             ->assertOk()
-            ->assertJsonStructure(['data' => [
-                'generated_at',
+            ->assertJsonStructure([
+                'data' => [['id', 'type', 'severity', 'title', 'detail', 'at', 'link']],
+                'meta' => ['page', 'per_page', 'total', 'total_pages'],
                 'action_total',
-                'groups' => [['key', 'label', 'severity', 'count', 'items']],
                 'delivery' => ['sent', 'read', 'read_rate', 'by_type'],
-            ]]);
+            ]);
 
-        $group = collect($response->json('data.groups'))
-            ->firstWhere('key', 'pending_verification');
+        $event = collect($response->json('data'))
+            ->firstWhere('type', 'organisation.registered');
 
-        $this->assertNotNull($group, 'The verification queue should surface as a group.');
-        $this->assertSame('action', $group['severity']);
-        $this->assertSame(1, $group['count']);
-        $this->assertStringContainsString('Fortis Hospital', $group['items'][0]['title']);
+        $this->assertNotNull($event, 'A registered employer should appear in the feed.');
+        $this->assertSame('action', $event['severity']);
+        $this->assertStringContainsString('Fortis Hospital', $event['title']);
+        $this->assertSame('organisations', $event['link']['view']);
     }
 
-    /** Only `action` groups feed the badge — a data-quality warning must not. */
-    public function test_only_actionable_groups_count_toward_the_alert_total(): void
+    /**
+     * A posting waiting for approval is actionable; one already live is only
+     * news. Both belong in the feed, and the badge must count just the first.
+     */
+    public function test_only_open_work_counts_toward_the_action_total(): void
     {
         $recruiter = User::factory()->recruiter()->create();
         $organisation = Organisation::factory()->verified()->for($recruiter, 'recruiter')->create();
 
-        // A `watch` item: live posting with no coordinates, and no applicants.
         JobPosting::factory()->for($recruiter, 'recruiter')->create([
             'organisation_id' => $organisation->id,
-            'latitude' => null,
-            'longitude' => null,
+            'posting_status' => JobPostingStatus::PendingApproval->value,
+        ]);
+        JobPosting::factory()->for($recruiter, 'recruiter')->create([
+            'organisation_id' => $organisation->id,
+            'posting_status' => JobPostingStatus::Active->value,
         ]);
 
         $this->actingAsAdmin();
+        $response = $this->getJson("{$this->api}/admin/notifications")->assertOk();
 
-        $response = $this->getJson("{$this->api}/admin/alerts")->assertOk();
+        $severities = collect($response->json('data'))
+            ->where('type', 'job.submitted')
+            ->pluck('severity');
 
-        $keys = collect($response->json('data.groups'))->pluck('key');
-        $this->assertTrue($keys->contains('jobs_without_coordinates'));
-        $this->assertSame(0, $response->json('data.action_total'));
+        $this->assertTrue($severities->contains('action'));
+        $this->assertTrue($severities->contains('info'));
+
+        // The employer is already verified, so the pending posting is the only
+        // thing still waiting on an operator.
+        $this->assertSame(1, $response->json('action_total'));
     }
 
-    public function test_a_healthy_install_reports_no_groups_at_all(): void
+    /**
+     * Applications are deliberately absent. The old alert queue reported stuck
+     * applications and ones selected without an interview; both belong to the
+     * recruiter who owns the posting, not to an operator, and putting them here
+     * made the badge a number nobody could ever clear.
+     */
+    public function test_the_feed_reports_nothing_about_applications(): void
+    {
+        $recruiter = User::factory()->recruiter()->create();
+        $organisation = Organisation::factory()->verified()->for($recruiter, 'recruiter')->create();
+        $job = JobPosting::factory()->for($recruiter, 'recruiter')->create([
+            'organisation_id' => $organisation->id,
+        ]);
+
+        $this->actingAsCandidate(['name' => 'Riya Sharma']);
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])->assertCreated();
+        $this->forgetResolvedUser();
+
+        $this->actingAsAdmin();
+        $types = collect($this->getJson("{$this->api}/admin/notifications")->assertOk()->json('data'))
+            ->pluck('type')
+            // `values()` because `unique()` keeps the original keys, and
+            // comparing arrays here compares keys as well as contents.
+            ->unique()
+            ->values();
+
+        $this->assertEqualsCanonicalizing(
+            ['user.registered', 'organisation.registered', 'job.submitted'],
+            $types->all(),
+        );
+    }
+
+    public function test_a_fresh_install_reports_an_empty_feed(): void
     {
         $this->actingAsAdmin();
 
-        $this->getJson("{$this->api}/admin/alerts")
+        $this->getJson("{$this->api}/admin/notifications")
             ->assertOk()
-            ->assertJsonPath('data.groups', [])
-            ->assertJsonPath('data.action_total', 0);
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('action_total', 0);
     }
 }

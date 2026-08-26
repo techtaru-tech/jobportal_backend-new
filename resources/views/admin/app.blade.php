@@ -271,7 +271,7 @@ input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus
           @include('admin.pages.subscriptions')
           @include('admin.pages.option-lists')
           @include('admin.pages.content')
-          @include('admin.pages.alerts')
+          @include('admin.pages.notifications')
         </div>
       </main>
     </div>

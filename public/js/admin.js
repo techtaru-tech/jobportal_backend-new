@@ -27,9 +27,9 @@
    * The panel's sections. The sidebar renders them as links and the top bar's
    * search matches against them, so a section added here shows up in both.
    *
-   * `badge` names a group key from `GET /admin/alerts`, surfacing work waiting
-   * to be done rather than only listing places to go — the verification queue
-   * in particular is invisible otherwise.
+   * `badge: true` puts the notification feed's open-work count beside the
+   * item, surfacing work waiting to be done rather than only listing places to
+   * go — the verification queue in particular is invisible otherwise.
    */
   const NAV = [
     { key: 'dashboard', label: 'Dashboard', icon: 'dashboard',
@@ -38,13 +38,13 @@
       keywords: ['users', 'candidates', 'recruiters', 'people', 'profiles'] },
     { key: 'jobs', label: 'Job postings', icon: 'briefcase',
       keywords: ['jobs', 'vacancies', 'listings', 'postings'] },
-    { key: 'applications', label: 'Applications', icon: 'clipboard', badge: 'stuck_applications',
+    { key: 'applications', label: 'Applications', icon: 'clipboard',
       keywords: ['applicants', 'pipeline', 'shortlist', 'applied'] },
     { key: 'organisations', label: 'Employers', icon: 'badgeCheck', badge: 'pending_verification',
       keywords: ['organisations', 'companies', 'hospitals', 'verification', 'verify', 'gst'] },
-    { key: 'alerts', label: 'Alerts', icon: 'bell', badge: 'pending_verification',
-      keywords: ['notifications', 'queue', 'needs attention', 'todo', 'push', 'delivery',
-                 'read rate', 'conversations', 'chats', 'messages'] },
+    { key: 'notifications', label: 'Notifications', icon: 'bell', badge: true,
+      keywords: ['alerts', 'notifications', 'registered', 'signups', 'new employer',
+                 'new job', 'approval', 'push', 'delivery', 'read rate'] },
     { key: 'subscriptions', label: 'Plans', icon: 'creditCard',
       keywords: ['subscriptions', 'billing', 'pricing', 'paid', 'free'] },
     { key: 'optionLists', label: 'Reference data', icon: 'sliders',
@@ -198,15 +198,17 @@
         { label: 'Unstick applications', hint: 'No movement in a while', icon: 'clipboard',
           view: 'applications', filter: { stuck: true } },
         { label: 'Review the queue', hint: 'Everything waiting on an operator', icon: 'bell',
-          view: 'alerts' },
+          view: 'notifications' },
         { label: 'Reference data', hint: 'Skills, cities, qualifications', icon: 'sliders',
           view: 'optionLists' },
       ],
 
       // ── page state ──────────────────────────────────────────────────
       dash: { days: 30, data: null, busy: false, error: false, tab: 'applications' },
-      alerts: { data: null, busy: false },
+      notifications: { data: [], meta: null, delivery: null, windowDays: 0, busy: false },
       actionTotal: 0,
+      /** Per-queue open counts from the feed, keyed as the NAV badges name them. */
+      openWork: {},
 
       users: { q: '', side: '', sort: '', data: [], meta: null, busy: false, error: false },
       userDetail: { data: null, busy: false },
@@ -270,7 +272,7 @@
           .then((res) => {
             this.admin = res.data.admin
             localStorage.setItem(ADMIN_KEY, JSON.stringify(this.admin))
-            this.loadAlerts()
+            this.loadNotifications()
           })
           .catch(() => { this.clearSession() })
           .finally(() => { this.isRestoring = false })
@@ -353,7 +355,7 @@
           localStorage.setItem(ADMIN_KEY, JSON.stringify(this.admin))
           this.loginForm = { email: '', password: '' }
           this.view = 'dashboard'
-          this.loadAlerts()
+          this.loadNotifications()
         } catch (e) {
           this.loginError = e.message
         }
@@ -400,10 +402,18 @@
         return item ? item.label : ''
       },
 
+      /**
+       * The count beside a nav item.
+       *
+       * `badge: true` shows everything still open (the Notifications item);
+       * a string names one queue from the feed's `open` breakdown, so the
+       * section that owns a queue badges just its own rather than a combined
+       * number repeated in three places.
+       */
       badgeCount(item) {
-        if (!item.badge || !this.alerts.data) return 0
-        const group = (this.alerts.data.groups || []).find((g) => g.key === item.badge)
-        return group ? group.count : 0
+        if (!item.badge) return 0
+        if (item.badge === true) return this.actionTotal
+        return this.openWork[item.badge] || 0
       },
 
       searchMatches() {
@@ -436,21 +446,26 @@
         return { organisations: 'orgs', applications: 'apps', jobs: 'jobs' }[view] || view
       },
 
-      openAlertGroup(group) {
-        // The feed's `href` is the React panel's route; map the ones that point to
-        // a filtered list onto this panel's own state.
-        const href = group.href || ''
-        if (href.startsWith('/organisations')) {
-          this.orgs.state = 'pending'
-          this.go('organisations')
-        } else if (href.startsWith('/applications')) {
-          this.apps.stuck = true
-          this.go('applications')
-        } else if (href.startsWith('/jobs')) {
-          this.go('jobs')
-        } else {
-          this.go('alerts')
-        }
+      /**
+       * Opens whatever a notification is about. The server names the target as
+       * `{view, id}` rather than a URL, so the panel does not have to parse
+       * routes belonging to a different frontend.
+       */
+      openNotification(row) {
+        const link = row.link || {}
+        if (link.view === 'organisations' && link.id) return this.openOrganisation(link.id)
+        if (link.view === 'jobs' && link.id) return this.openJob(link.id)
+        if (link.view === 'users' && link.id) return this.openUser(link.id)
+        if (link.view) return this.go(link.view)
+      },
+
+      /** Which glyph a feed row gets, by event type. */
+      notificationIcon(type) {
+        return {
+          'user.registered': 'users',
+          'organisation.registered': 'badgeCheck',
+          'job.submitted': 'briefcase',
+        }[type] || 'bell'
       },
 
       // ── shared display helpers ──────────────────────────────────────
@@ -535,23 +550,36 @@
         ]
       },
 
-      /** Only queues with something in them — an empty one is not a to-do. */
+      /**
+       * The operator's own to-do list, and only that.
+       *
+       * Nothing about applications is here any more. "Stuck applications",
+       * "no interview set" and "silent chats" all described somebody else's
+       * work — an application belongs to the recruiter who owns the posting,
+       * and an admin moving it is an intervention rather than routine. They
+       * also made up most of the row, so the numbers an operator can actually
+       * clear were the minority on their own dashboard.
+       *
+       * What is left either blocks a candidate from seeing something (an
+       * unverified employer, an unapproved posting) or is a data fault only an
+       * admin can see (a posting with no coordinates drops out of distance
+       * sorting silently).
+       *
+       * The dashboard endpoint still returns the dropped counts; they are
+       * simply not rendered, so nothing had to change server-side.
+       */
       attentionItems() {
         if (!this.dash.data) return []
         const a = this.dash.data.attention
         const defs = [
           { key: 'pending_verification', label: 'Awaiting verification', icon: 'badgeCheck',
             go: () => { this.orgs.state = 'pending'; this.go('organisations') } },
-          { key: 'stuck_applications', label: 'Stuck applications', icon: 'clipboard',
-            go: () => { this.apps.stuck = true; this.go('applications') } },
+          { key: 'unverified_no_document', label: 'No GST document', icon: 'fileText',
+            go: () => { this.orgs.state = 'no_document'; this.go('organisations') } },
           { key: 'zero_applicant_active_jobs', label: 'Zero applicants', icon: 'briefcase',
             go: () => { this.jobs.zero = true; this.go('jobs') } },
-          { key: 'selected_without_interview', label: 'No interview set', icon: 'userCheck',
-            go: () => { this.apps.missingInterview = true; this.go('applications') } },
           { key: 'jobs_without_coordinates', label: 'Missing location', icon: 'mapPinOff',
             go: () => { this.jobs.missingCoords = true; this.go('jobs') } },
-          { key: 'silent_conversations', label: 'Silent chats', icon: 'msgOff',
-            go: () => this.go('alerts') },
         ]
         return defs
           .filter((d) => (a[d.key] || 0) > 0)
@@ -803,7 +831,7 @@
       approveJob() {
         const id = this.jobDetail.data.job.id
         this.api('/admin/jobs/' + id + '/approve', { method: 'POST' })
-          .then((res) => { this.showToast(res.message || 'Approved.'); this.openJob(id); this.loadAlerts() })
+          .then((res) => { this.showToast(res.message || 'Approved.'); this.openJob(id); this.loadNotifications() })
           .catch((e) => this.showToast(e.message, true))
       },
 
@@ -812,7 +840,7 @@
         if (!reason || reason.trim().length < 4) return
         const id = this.jobDetail.data.job.id
         this.api('/admin/jobs/' + id + '/reject', { method: 'POST', body: { reason: reason.trim() } })
-          .then((res) => { this.showToast(res.message || 'Rejected.'); this.openJob(id); this.loadAlerts() })
+          .then((res) => { this.showToast(res.message || 'Rejected.'); this.openJob(id); this.loadNotifications() })
           .catch((e) => this.showToast(e.message, true))
       },
 
@@ -870,7 +898,7 @@
             this.appStatusPick = ''
             this.appStatusReason = ''
             this.openApplication(reference)
-            this.loadAlerts()
+            this.loadNotifications()
           })
           .catch((e) => this.showToast(e.message, true))
       },
@@ -895,7 +923,7 @@
       verifyOrg() {
         const id = this.orgDetail.data.organisation.id
         this.api('/admin/organisations/' + id + '/verify', { method: 'POST' })
-          .then((res) => { this.showToast(res.message || 'Verified.'); this.openOrganisation(id); this.loadAlerts() })
+          .then((res) => { this.showToast(res.message || 'Verified.'); this.openOrganisation(id); this.loadNotifications() })
           .catch((e) => this.showToast(e.message, true))
       },
 
@@ -909,7 +937,7 @@
             this.showToast(res.message || 'Verification withdrawn.')
             this.orgUnverifyReason = ''
             this.openOrganisation(id)
-            this.loadAlerts()
+            this.loadNotifications()
           })
           .catch((e) => this.showToast(e.message, true))
       },
@@ -1089,22 +1117,27 @@
           .catch((e) => { this.showToast(e.message, true); this.loadFaqs() })
       },
 
-      // ── alerts ──────────────────────────────────────────────────────
-      loadAlerts() {
-        this.alerts.busy = true
-        return this.api('/admin/alerts')
+      // ── notifications ───────────────────────────────────────────────
+      /**
+       * The event feed, and the numbers the sidebar badges read.
+       *
+       * Failures are swallowed: this also runs on sign-in purely to populate
+       * the badge, and a dropped request there should cost a count, not put an
+       * error in front of an operator who asked for the dashboard.
+       */
+      loadNotifications(page = 1) {
+        this.notifications.busy = true
+        return this.api(`/admin/notifications?page=${page}&per_page=30`)
           .then((res) => {
-            this.alerts.data = res.data
-            this.actionTotal = res.data.action_total || 0
+            this.notifications.data = res.data
+            this.notifications.meta = res.meta
+            this.notifications.delivery = res.delivery
+            this.notifications.windowDays = res.window_days
+            this.actionTotal = res.action_total || 0
+            this.openWork = res.open || {}
           })
-          .catch(() => { /* the bell simply shows nothing if this fails */ })
-          .finally(() => { this.alerts.busy = false })
-      },
-
-      alertSeverityClass(severity) {
-        return severity === 'action'
-          ? 'bg-primary-light text-primary-dark'
-          : 'bg-surface-muted text-ink-secondary'
+          .catch(() => { /* leave the last known counts in place */ })
+          .finally(() => { this.notifications.busy = false })
       },
     }
   }
