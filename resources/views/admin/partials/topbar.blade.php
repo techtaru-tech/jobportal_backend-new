@@ -128,6 +128,49 @@
                x-text="actionTotal === 0 ? 'Nothing waiting on you' : actionTotal + ' item' + (actionTotal === 1 ? '' : 's') + ' waiting on you'"></p>
           </div>
 
+          {{--
+            Desktop alerts. The permission prompt has to come from a click —
+            browsers ignore one raised on page load — so it lives here rather
+            than being asked for silently at startup.
+
+            `alertsTick` is read only to give Alpine something reactive to
+            depend on: `Notification.permission` is a plain browser value that
+            never notifies anybody when it changes.
+          --}}
+          <div class="border-b border-hairline-divider px-lg py-sm" x-show="alertsTick >= 0">
+            <template x-if="alertsState === 'default'">
+              <button type="button" @click="enableDesktopAlerts()"
+                      class="flex w-full items-center gap-md text-left">
+                <span x-html="ICONS.bell"
+                      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary-dark [&>svg]:h-4 [&>svg]:w-4"></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-bodysm font-semibold text-primary-dark">Turn on desktop alerts</span>
+                  <span class="block text-caption text-ink-muted">Be told about new registrations and postings while this tab is open.</span>
+                </span>
+              </button>
+            </template>
+
+            <template x-if="alertsState === 'granted'">
+              <p class="flex items-center gap-sm text-caption text-ink-muted">
+                <span x-html="ICONS.check" class="[&>svg]:h-[14px] [&>svg]:w-[14px] text-success"></span>
+                Desktop alerts are on. Checked every 45 seconds.
+              </p>
+            </template>
+
+            {{-- Said plainly rather than hidden: an operator who blocked this
+                 once should be able to tell that is why nothing arrives. --}}
+            <template x-if="alertsState === 'denied'">
+              <p class="text-caption text-ink-muted">
+                Desktop alerts are blocked for this site. Allow notifications in your
+                browser’s site settings to turn them back on.
+              </p>
+            </template>
+
+            <template x-if="alertsState === 'unsupported'">
+              <p class="text-caption text-ink-muted">This browser cannot show desktop alerts.</p>
+            </template>
+          </div>
+
           <template x-if="notifications.data.length === 0">
             <div class="flex items-center gap-md px-lg py-lg">
               @include('admin.partials.icon', ['name' => 'shieldCheck', 'class' => 'h-5 w-5 shrink-0 text-success'])

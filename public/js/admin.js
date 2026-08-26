@@ -273,6 +273,7 @@
             this.admin = res.data.admin
             localStorage.setItem(ADMIN_KEY, JSON.stringify(this.admin))
             this.loadNotifications()
+            this._startPolling()
           })
           .catch(() => { this.clearSession() })
           .finally(() => { this.isRestoring = false })
@@ -356,6 +357,7 @@
           this.loginForm = { email: '', password: '' }
           this.view = 'dashboard'
           this.loadNotifications()
+          this._startPolling()
         } catch (e) {
           this.loginError = e.message
         }
@@ -368,6 +370,11 @@
       },
 
       clearSession() {
+        clearInterval(this._poll)
+        this._poll = null
+        // Cleared so the next session announces from scratch rather than
+        // treating the previous operator's backlog as already-seen.
+        this._seen = null
         this.token = ''
         this.admin = null
         this.isRestoring = false
@@ -1125,11 +1132,21 @@
        * the badge, and a dropped request there should cost a count, not put an
        * error in front of an operator who asked for the dashboard.
        */
-      loadNotifications(page = 1) {
-        this.notifications.busy = true
+      loadNotifications(page = 1, { quiet = false } = {}) {
+        // `quiet` is for the background poll: flipping `busy` there would dim
+        // the page under an operator who did not ask for anything.
+        if (!quiet) this.notifications.busy = true
+
         return this.api(`/admin/notifications?page=${page}&per_page=30`)
           .then((res) => {
-            this.notifications.data = res.data
+            const rows = res.data || []
+
+            // Diffed before the assignment, against ids rather than a count:
+            // an employer getting verified while a job is posted leaves the
+            // total unchanged and would hide both.
+            if (page === 1) this._announce(rows)
+
+            this.notifications.data = rows
             this.notifications.meta = res.meta
             this.notifications.delivery = res.delivery
             this.notifications.windowDays = res.window_days
@@ -1137,8 +1154,122 @@
             this.openWork = res.open || {}
           })
           .catch(() => { /* leave the last known counts in place */ })
-          .finally(() => { this.notifications.busy = false })
+          .finally(() => { if (!quiet) this.notifications.busy = false })
       },
+
+      // ── desktop alerts ──────────────────────────────────────────────
+      //
+      // The panel is a page, not an app, so there is no OS-level push to
+      // receive. What there is: while a tab is open it can poll and raise a
+      // real system notification, which is what an operator with the panel
+      // open in another window actually needs.
+      //
+      // Deliberately not silent-failing into nothing: `alertsState` drives a
+      // control in the top bar, so "notifications are off" is visible rather
+      // than something an operator assumes is working.
+
+      /** 'unsupported' | 'default' | 'granted' | 'denied' */
+      get alertsState() {
+        if (typeof Notification === 'undefined') return 'unsupported'
+        return Notification.permission
+      },
+
+      /**
+       * Asks the browser for permission.
+       *
+       * Must be called from a click: browsers ignore (and Chrome penalises) a
+       * permission prompt raised on page load, so this is wired to a button
+       * rather than to `init`.
+       */
+      async enableDesktopAlerts() {
+        if (typeof Notification === 'undefined') return
+        try {
+          await Notification.requestPermission()
+          // `Notification.permission` is not reactive, so nudge Alpine.
+          this.alertsTick++
+        } catch (e) {
+          /* a refusal is an answer, not an error */
+        }
+      },
+
+      /** Bumped purely to re-render the top bar after a permission change. */
+      alertsTick: 0,
+
+      /** Ids already seen, so a poll only announces what actually arrived. */
+      _seen: null,
+
+      /**
+       * Raises a system notification for rows that were not in the last poll.
+       *
+       * The first pass only records what is already there. Announcing on the
+       * first load would fire a burst of notifications for a backlog the
+       * operator has very likely already dealt with — which is how people learn
+       * to dismiss these without reading them.
+       */
+      _announce(rows) {
+        const ids = rows.map((r) => r.id)
+
+        if (this._seen === null) {
+          this._seen = new Set(ids)
+          return
+        }
+
+        const fresh = rows.filter((r) => !this._seen.has(r.id))
+        ids.forEach((id) => this._seen.add(id))
+
+        if (fresh.length === 0) return
+        if (this.alertsState !== 'granted') return
+
+        // Three at most, then one line for the rest. A dozen at once is a
+        // notification centre nobody reads to the bottom of.
+        fresh.slice(0, 3).forEach((row) => this._systemNotify(row))
+
+        if (fresh.length > 3) {
+          this._systemNotify({
+            id: 'more-' + Date.now(),
+            title: `${fresh.length - 3} more updates`,
+            detail: 'Open Notifications to see everything.',
+            link: { view: 'notifications' },
+          })
+        }
+      },
+
+      _systemNotify(row) {
+        try {
+          const note = new Notification(row.title, {
+            body: row.detail || '',
+            // Keyed per row so the OS replaces rather than stacks a repeat.
+            tag: 'inthes-admin-' + row.id,
+            icon: '/brand/inthes-mark.png',
+          })
+
+          note.onclick = () => {
+            window.focus()
+            this.openNotification(row)
+            note.close()
+          }
+        } catch (e) {
+          /* the OS can refuse; the in-panel badge still updated */
+        }
+      },
+
+      /**
+       * Background poll, started once a session exists.
+       *
+       * Kept running while the tab is hidden on purpose — that is exactly when
+       * a system notification is worth anything. The interval is slack because
+       * the feed is derived from three table reads and nothing here is urgent
+       * to the second.
+       */
+      _startPolling() {
+        clearInterval(this._poll)
+        this._poll = setInterval(() => {
+          if (!this.token) return
+          this.loadNotifications(1, { quiet: true })
+        }, 45000)
+      },
+
+      _poll: null,
     }
   }
 
