@@ -129,16 +129,9 @@
               </p>
               <p class="mt-[2px] text-caption text-ink-secondary">Verifying grants the trust badge every candidate sees on their postings.</p>
             </div>
+            {{-- No document link here: the certificate has its own card below,
+                 which is reachable whatever the verification state. --}}
             <div class="flex flex-wrap items-center gap-sm">
-              <template x-if="orgDetail.data.organisation.document_url">
-                <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener"
-                   class="inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
-                          bg-surface text-ink border-btn border-hairline transition-[background-color,border-color,transform] duration-micro ease-out
-                          hover:border-hairline-strong hover:bg-surface-muted active:scale-[0.97]">
-                  <span x-html="ICONS.fileText" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
-                  <span>View GST document</span>
-                </a>
-              </template>
               <button @click="verifyOrg()"
                       class="inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
                              bg-primary text-ink-onPrimary shadow-button transition-[background-color,transform] duration-micro ease-out
@@ -168,6 +161,80 @@
 
         <div class="grid grid-cols-1 gap-md lg:grid-cols-3">
           <div class="lg:col-span-2 space-y-md">
+            {{--
+              The GST certificate itself — the thing the whole screen exists to
+              judge, so it is shown rather than linked to.
+
+              Deliberately outside the verify/unverify banners: it used to live
+              inside the "not verified" one, which meant an already-verified
+              employer's document could not be reached at all, and the review
+              history below had nothing to check against.
+
+              The URL is a signed, ~15-minute link minted per request off the
+              private disk. It must never be cached or persisted — by the time
+              a stored copy were reused it would already have expired.
+            --}}
+            <div class="rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card">
+              <div class="flex flex-wrap items-center justify-between gap-md border-b border-hairline-divider px-lg py-md">
+                <div class="min-w-0">
+                  <h2 class="text-h3 text-ink">Verification document</h2>
+                  <p class="mt-[2px] truncate text-caption text-ink-muted"
+                     x-text="orgDetail.data.organisation.document_name || 'GST certificate'"></p>
+                </div>
+                <template x-if="orgDetail.data.organisation.document_url">
+                  <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener"
+                     class="inline-flex h-9 shrink-0 items-center justify-center gap-sm rounded-button px-md text-btnghost font-semibold
+                            bg-surface text-primary border-btn border-primary transition-colors duration-micro hover:bg-primary-light">
+                    <span x-html="ICONS.fileText" class="[&>svg]:h-4 [&>svg]:w-4"></span>
+                    <span>Open full size</span>
+                  </a>
+                </template>
+              </div>
+
+              {{-- Nothing uploaded is a different conversation from a document
+                   that fails review, so it gets its own state rather than an
+                   empty frame. --}}
+              <template x-if="!orgDetail.data.organisation.document_url">
+                @include('admin.partials.empty-state', [
+                  'icon' => 'fileText', 'title' => 'No document on file',
+                  'message' => 'This employer registered without uploading a GST certificate, so there is nothing to verify against. Ask them to upload one before deciding.',
+                ])
+              </template>
+
+              <template x-if="orgDetail.data.organisation.document_url && docKind(orgDetail.data.organisation) === 'image'">
+                {{-- Checkered-neutral ground, since scans are usually white on
+                     white and would otherwise dissolve into the card. --}}
+                <div class="bg-canvas-alt p-lg">
+                  <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener" class="block">
+                    <img :src="orgDetail.data.organisation.document_url" alt="GST certificate"
+                         class="mx-auto max-h-[520px] w-auto max-w-full rounded-field border-hair border-hairline bg-surface object-contain shadow-card">
+                  </a>
+                </div>
+              </template>
+
+              {{-- PDFs get an inline viewer rather than a forced download: most
+                   certificates are one page and opening a tab per employer is
+                   the slowest part of working this queue. --}}
+              <template x-if="orgDetail.data.organisation.document_url && docKind(orgDetail.data.organisation) === 'pdf'">
+                <div class="bg-canvas-alt p-lg">
+                  <object :data="orgDetail.data.organisation.document_url" type="application/pdf"
+                          class="h-[520px] w-full rounded-field border-hair border-hairline bg-surface">
+                    <p class="p-lg text-bodysm text-ink-secondary">
+                      This browser will not display the PDF inline — use “Open full size” above.
+                    </p>
+                  </object>
+                </div>
+              </template>
+
+              <template x-if="orgDetail.data.organisation.document_url && docKind(orgDetail.data.organisation) === 'other'">
+                <div class="p-lg">
+                  <p class="text-bodysm text-ink-secondary">
+                    This file type cannot be previewed here — use “Open full size” to download it.
+                  </p>
+                </div>
+              </template>
+            </div>
+
             {{--
               The checks a human would run before granting the badge.
               Deliberately advisory: nothing here blocks the button. What it

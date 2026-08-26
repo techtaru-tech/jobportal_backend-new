@@ -914,6 +914,25 @@
           .catch((e) => this.showToast(e.message, true))
       },
 
+      /**
+       * Whether a verification document can be shown inline as an image, or
+       * only linked out to.
+       *
+       * Read from the stored filename first and the URL path second — the URL
+       * carries a signed query string, so the extension has to be taken from
+       * the path alone. Anything unrecognised is treated as a download rather
+       * than guessed at: an <img> pointed at a PDF renders as a broken image,
+       * which reads as "the document is missing" when it is not.
+       */
+      docKind(org) {
+        const source = org.document_name || (org.document_url || '').split('?')[0]
+        const ext = (source.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase()
+
+        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'image'
+        if (ext === 'pdf') return 'pdf'
+        return 'other'
+      },
+
       /** Review-checklist pill colours — pass / warn / fail. */
       checkClass(status) {
         return {
