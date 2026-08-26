@@ -247,8 +247,16 @@ class ApplicantController extends ApiController
     {
         $job = $this->findOwnedJob($request, $jobId);
 
+        // `candidate.candidateProfile` and its two child lists are what
+        // `ApplicantResource` turns into `live_profile`. Loaded only here, on
+        // the single-applicant path — the list endpoint deliberately does not
+        // carry it (see the resource for why).
         $application = $job->applications()
-            ->with(['interview'])
+            ->with([
+                'interview',
+                'candidate.candidateProfile.educations',
+                'candidate.candidateProfile.workExperiences',
+            ])
             ->where('reference', $applicationId)
             ->first();
 

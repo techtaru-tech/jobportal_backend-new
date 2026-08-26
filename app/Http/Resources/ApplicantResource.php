@@ -39,6 +39,43 @@ class ApplicantResource extends JsonResource
             // this recruiter owns the job, not because the payload hides them;
             // the app itself only ever surfaces them on the full profile screen.
             'profile' => $this->applicantProfile(),
+
+            /*
+             * The candidate's profile as it stands *today*, beside the frozen
+             * copy above rather than instead of it.
+             *
+             * The snapshot is the record of what the employer was sent and must
+             * not move (§9.1) — but it also means anything the candidate adds
+             * after applying (an intro video, an About Me, a new skill) was
+             * invisible to the recruiter forever, which is not what either side
+             * expects. Both are returned and the app shows them together.
+             *
+             * Only present on the detail endpoint. The applicant *list* filters
+             * and sorts on the snapshot index columns by design, and loading a
+             * live profile per row would be an N+1 for data that list does not
+             * show — hence the `relationLoaded` guard rather than a lazy read.
+             */
+            'live_profile' => $this->when(
+                $this->relationLoaded('candidate'),
+                fn () => $this->liveProfile(),
+            ),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function liveProfile(): ?array
+    {
+        $profile = $this->candidate?->candidateProfile;
+
+        // A profile row is created lazily, so a candidate who applied through
+        // Smart Apply without ever opening the profile screen genuinely has
+        // none — null rather than an empty shape the app would draw as blanks.
+        if ($profile === null) {
+            return null;
+        }
+
+        return (new CandidateProfileResource($profile))->resolve();
     }
 }
