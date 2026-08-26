@@ -125,9 +125,45 @@ class JobController extends ApiController
             $validated['organisation'] = $organisation->name;
         }
 
+        // Both read before the write: saving is what makes the posting differ
+        // from the copy an admin reviewed, and `wasVisible` has to be captured
+        // before `markResubmitted()` moves the status out from under it.
+        $needsReview = $job->editNeedsReapproval();
+        $wasVisible = in_array($job->posting_status, [
+            JobPostingStatus::Active,
+            JobPostingStatus::Paused,
+        ], true);
+
         $job->fill($validated)->save();
 
-        return ApiResponse::data(new JobResource($job->load('organisationRecord')), 'Job updated.');
+        /*
+         * The edited posting goes (back) into the review queue.
+         *
+         * The approval gate otherwise only guarded the front door: a recruiter
+         * could get an unremarkable posting approved and then rewrite it into
+         * something else, and it stayed visible with nobody having read the new
+         * version. It also gave a rejected posting nowhere to go — see
+         * [JobPosting::editNeedsReapproval] for which statuses qualify and why.
+         *
+         * The message distinguishes the two, because the consequence differs: a
+         * live posting has just left the candidates' browse list, while a
+         * rejected one was never on it. Reporting a bare "Job updated." for the
+         * first case would let a recruiter read the silence as "saved and still
+         * live".
+         */
+        if ($needsReview) {
+            $job->markResubmitted();
+            $this->notifier->jobEditedPendingReview($job, wasVisible: $wasVisible);
+        }
+
+        return ApiResponse::data(
+            new JobResource($job->fresh()->load('organisationRecord')),
+            match (true) {
+                $needsReview && $wasVisible => 'Saved — your changes need approval, so the posting is back in review and paused for candidates.',
+                $needsReview => 'Saved and resubmitted for approval.',
+                default => 'Job updated.',
+            },
+        );
     }
 
     /** PATCH /recruiter/jobs/{jobId}/status (§8.3) */

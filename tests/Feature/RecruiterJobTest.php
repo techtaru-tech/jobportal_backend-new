@@ -317,4 +317,153 @@ class RecruiterJobTest extends TestCase
         $this->assertSame(0, $response->json('data.by_status.rejected'));
         $this->assertCount(4, $response->json('data.by_status'));
     }
+
+    /*
+     * Editing and the approval gate.
+     *
+     * The gate used to guard only the front door: a posting was reviewed once
+     * on creation and every edit after that went straight to candidates. So a
+     * recruiter could get something unremarkable approved and then rewrite it
+     * into anything at all.
+     */
+
+    public function test_editing_a_live_posting_sends_it_back_for_approval(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $job = JobPosting::factory()->forRecruiter($recruiter)->create([
+            'posting_status' => JobPostingStatus::Active->value,
+            'reviewed_at' => now()->subDay(),
+        ]);
+
+        $this->patchJson("{$this->api}/recruiter/jobs/j_{$job->id}", ['title' => 'Rewritten Entirely'])
+            ->assertOk()
+            ->assertJsonPath('data.posting_status', JobPostingStatus::PendingApproval->value);
+
+        $fresh = $job->fresh();
+        $this->assertSame(JobPostingStatus::PendingApproval, $fresh->posting_status);
+
+        // The old decision described text that no longer exists, so it must not
+        // linger and make the queue look already-handled.
+        $this->assertNull($fresh->reviewed_at);
+        $this->assertNull($fresh->reviewed_by_admin_id);
+    }
+
+    /** A posting off the browse list is not something a candidate can find. */
+    public function test_a_posting_edited_while_live_stops_being_visible_to_candidates(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $job = JobPosting::factory()->forRecruiter($recruiter)->create([
+            'posting_status' => JobPostingStatus::Active->value,
+        ]);
+
+        $this->patchJson("{$this->api}/recruiter/jobs/j_{$job->id}", ['title' => 'Rewritten'])->assertOk();
+
+        $this->forgetResolvedUser();
+        $this->actingAsCandidate();
+
+        $codes = collect($this->getJson("{$this->api}/jobs")->assertOk()->json('data'))
+            ->pluck('code');
+
+        $this->assertFalse($codes->contains($job->code));
+    }
+
+    /**
+     * The case most easily got wrong. A rejected posting is *not* in the queue
+     * — `scopeAwaitingReview` matches only `pending_approval` — so leaving it
+     * alone on edit would mean a recruiter fixes exactly what an admin asked
+     * them to fix and nothing ever happens.
+     */
+    public function test_editing_a_rejected_posting_resubmits_it_and_clears_the_reason(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $job = JobPosting::factory()->forRecruiter($recruiter)->create([
+            'posting_status' => JobPostingStatus::Rejected->value,
+            'rejection_reason' => 'The salary range is missing.',
+            'reviewed_at' => now()->subDay(),
+        ]);
+
+        $this->patchJson("{$this->api}/recruiter/jobs/j_{$job->id}", ['salary_min' => 30000])
+            ->assertOk()
+            ->assertJsonPath('data.posting_status', JobPostingStatus::PendingApproval->value);
+
+        $fresh = $job->fresh();
+        $this->assertSame(JobPostingStatus::PendingApproval, $fresh->posting_status);
+
+        // The recruiter has answered the complaint; keeping it would show a
+        // stale objection against copy that may already have fixed it.
+        $this->assertNull($fresh->rejection_reason);
+    }
+
+    /** Already queued — bouncing it would be a no-op that wiped fields anyway. */
+    public function test_editing_a_pending_posting_leaves_it_where_it_is(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $job = JobPosting::factory()->forRecruiter($recruiter)->create([
+            'posting_status' => JobPostingStatus::PendingApproval->value,
+        ]);
+
+        $this->patchJson("{$this->api}/recruiter/jobs/j_{$job->id}", ['title' => 'Tweaked'])
+            ->assertOk()
+            ->assertJsonPath('data.posting_status', JobPostingStatus::PendingApproval->value)
+            ->assertJsonPath('message', 'Job updated.');
+    }
+
+    /**
+     * A closed posting is not in front of anybody and is not asking to be
+     * published, so editing it must not quietly queue it for review.
+     */
+    public function test_editing_a_closed_posting_does_not_queue_it(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $job = JobPosting::factory()->forRecruiter($recruiter)->create([
+            'posting_status' => JobPostingStatus::Closed->value,
+        ]);
+
+        $this->patchJson("{$this->api}/recruiter/jobs/j_{$job->id}", ['title' => 'Archived copy'])
+            ->assertOk()
+            ->assertJsonPath('data.posting_status', JobPostingStatus::Closed->value);
+    }
+
+    /**
+     * The recruiter has to hear about it somewhere other than the response
+     * body: the posting has left the browse list, and that outlives the screen
+     * they were on when they saved.
+     */
+    public function test_editing_a_live_posting_tells_the_recruiter_it_is_paused(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $job = JobPosting::factory()->forRecruiter($recruiter)->create([
+            'posting_status' => JobPostingStatus::Active->value,
+            'title' => 'Staff Nurse',
+        ]);
+
+        $this->patchJson("{$this->api}/recruiter/jobs/j_{$job->id}", ['title' => 'Senior Staff Nurse'])
+            ->assertOk();
+
+        $text = $this->getJson("{$this->api}/notifications?audience=recruiter")
+            ->assertOk()
+            ->json('data.0.text');
+
+        $this->assertStringContainsString('needs approval', $text);
+        $this->assertStringContainsString('paused for candidates', $text);
+    }
+
+    /** A resubmitted rejection never had visibility to lose — do not claim it did. */
+    public function test_resubmitting_a_rejected_posting_does_not_claim_it_was_paused(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $job = JobPosting::factory()->forRecruiter($recruiter)->create([
+            'posting_status' => JobPostingStatus::Rejected->value,
+            'rejection_reason' => 'Needs a salary range.',
+        ]);
+
+        $this->patchJson("{$this->api}/recruiter/jobs/j_{$job->id}", ['salary_min' => 30000])->assertOk();
+
+        $text = $this->getJson("{$this->api}/notifications?audience=recruiter")
+            ->assertOk()
+            ->json('data.0.text');
+
+        $this->assertStringContainsString('resubmitted for approval', $text);
+        $this->assertStringNotContainsString('paused for candidates', $text);
+    }
 }

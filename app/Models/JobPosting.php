@@ -211,6 +211,63 @@ class JobPosting extends Model
         ])->save();
     }
 
+    /**
+     * Sends an already-reviewed posting back into the queue after its owner
+     * edited it.
+     *
+     * Without this, the approval gate closed only the front door. A recruiter
+     * could get an unremarkable posting approved and then rewrite it into
+     * something else — title, salary, duties, the whole body — and it stayed
+     * `active` and visible with nobody having read the new version. Editing was
+     * a straight path around the review every posting is supposed to pass.
+     *
+     * `reviewed_at` and `reviewed_by_admin_id` are cleared because they
+     * describe a decision about text that no longer exists, and leaving them
+     * would make the queue look already-handled. `rejection_reason` goes too:
+     * an edit is the recruiter answering it, so keeping it would show a stale
+     * complaint against copy that may well have fixed it.
+     *
+     * `posted_at` is deliberately left alone — [markApproved] restarts that
+     * clock when the posting goes live again, and moving it here would age a
+     * listing by however long the re-review took.
+     */
+    public function markResubmitted(): void
+    {
+        $this->forceFill([
+            'posting_status' => JobPostingStatus::PendingApproval,
+            'reviewed_at' => null,
+            'reviewed_by_admin_id' => null,
+            'rejection_reason' => null,
+        ])->save();
+    }
+
+    /**
+     * Whether an edit to this posting has to (re)enter the review queue.
+     *
+     * `active`/`paused`: it was reviewed and is in front of candidates, so the
+     * edited text has to be read before it goes back.
+     *
+     * `rejected`: this is the recruiter answering the rejection reason, and it
+     * is the case most easily got wrong. [scopeAwaitingReview] matches only
+     * `pending_approval`, so a rejected posting is *not* in the queue — leaving
+     * it alone on edit would mean a recruiter fixes exactly what an admin asked
+     * them to fix and nothing happens, forever. The whole point of rejecting
+     * with a reason is that acting on it leads somewhere.
+     *
+     * `pending_approval` is excluded because it is already queued: bouncing it
+     * would be a no-op that also wiped fields for no reason.
+     * `closed`/`expired`/`draft` are excluded because none of them are in front
+     * of a candidate and none of them are asking to be published.
+     */
+    public function editNeedsReapproval(): bool
+    {
+        return in_array($this->posting_status, [
+            JobPostingStatus::Active,
+            JobPostingStatus::Paused,
+            JobPostingStatus::Rejected,
+        ], true);
+    }
+
     /** Marks postings past their expiry as `expired` (§7.3 — system-set). */
     public static function expireOverdue(): int
     {

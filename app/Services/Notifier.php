@@ -97,6 +97,32 @@ class Notifier
     }
 
     /**
+     * The recruiter edited a posting, so it went back into the review queue.
+     *
+     * Worth its own notification rather than relying on the API response
+     * alone: the consequence outlives the screen the recruiter was on when they
+     * saved, and somebody who edits and closes the app should still find out
+     * their job is not currently visible.
+     *
+     * `$wasVisible` separates the two cases that reach here. Editing a live
+     * posting takes it off the candidates' browse list — that is news. Editing
+     * a *rejected* one only resubmits it, and telling that recruiter their job
+     * is "paused for candidates" would describe a loss they never had.
+     */
+    public function jobEditedPendingReview(JobPosting $job, bool $wasVisible = true): void
+    {
+        $this->create(
+            $job->recruiter,
+            NotificationAudience::Recruiter,
+            $wasVisible
+                ? "Your edit to {$job->title} needs approval, so the posting is paused for candidates until an admin reviews it."
+                : "Your updated {$job->title} posting has been resubmitted for approval.",
+            NotificationType::System,
+            ['job_posting_id' => $job->id],
+        );
+    }
+
+    /**
      * A posting cleared review and is now live.
      *
      * Distinct from [jobPosted], which fires when a recruiter submits: that

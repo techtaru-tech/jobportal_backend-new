@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Log;
+
 /**
  * Reads the duration of an MP4/MOV without an external dependency.
  *
@@ -13,10 +15,35 @@ namespace App\Support;
  */
 class VideoProbe
 {
-    /** Duration in seconds, or null when it genuinely cannot be determined. */
+    /**
+     * Duration in seconds, or null when it genuinely cannot be determined.
+     *
+     * Never throws. Null means "unmeasurable", and the caller is expected to
+     * let the upload through on it: refusing a video because the *server* could
+     * not read it would reject a perfectly good recording for a reason the
+     * person who made it cannot act on.
+     *
+     * The blanket catch is not defensive padding — it is the fix for a real
+     * 500. `shell_exec` is in `disable_functions` on plenty of shared hosts,
+     * and calling a disabled function raises an `Error` that `@` does **not**
+     * suppress (`@` silences diagnostics, not throwables). So on such a host
+     * every intro-video upload died with "Call to undefined function
+     * shell_exec()" while the same file uploaded fine locally.
+     */
     public static function durationSeconds(string $path): ?float
     {
-        return self::viaFfprobe($path) ?? self::viaAtoms($path);
+        try {
+            return self::viaFfprobe($path) ?? self::viaAtoms($path);
+        } catch (\Throwable $e) {
+            // Worth a line in the log: a host that cannot probe silently caps
+            // nothing, and that is a decision somebody should be able to find.
+            Log::warning('Video duration probe failed; allowing the upload through.', [
+                'path' => $path,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     private static function viaFfprobe(string $path): ?float
@@ -24,7 +51,7 @@ class VideoProbe
         static $available = null;
 
         if ($available === null) {
-            $available = self::binaryExists('ffprobe');
+            $available = self::canRunShell() && self::binaryExists('ffprobe');
         }
 
         if (! $available) {
@@ -40,6 +67,37 @@ class VideoProbe
         $output = @shell_exec($command);
 
         return is_numeric(trim((string) $output)) ? (float) trim((string) $output) : null;
+    }
+
+    /**
+     * Whether this host will actually let us run a shell command.
+     *
+     * `function_exists()` alone is not enough: a function named in
+     * `disable_functions` still reports as existing in some PHP builds while
+     * throwing on call, so the ini list is checked as well. Both are cheap and
+     * the answer cannot change inside a request.
+     *
+     * Getting this wrong is what turned a missing optional dependency into a
+     * 500 — see [durationSeconds].
+     */
+    private static function canRunShell(): bool
+    {
+        static $can = null;
+
+        if ($can !== null) {
+            return $can;
+        }
+
+        if (! function_exists('shell_exec')) {
+            return $can = false;
+        }
+
+        $disabled = array_map(
+            static fn (string $name) => strtolower(trim($name)),
+            explode(',', (string) ini_get('disable_functions')),
+        );
+
+        return $can = ! in_array('shell_exec', $disabled, true);
     }
 
     /**
@@ -165,6 +223,13 @@ class VideoProbe
 
     private static function binaryExists(string $binary): bool
     {
+        // Guarded here as well as at the call site: this is the other place a
+        // disabled `shell_exec` would throw, and a private helper should not
+        // depend on every caller having checked first.
+        if (! self::canRunShell()) {
+            return false;
+        }
+
         // `command -v` is a POSIX shell builtin cmd.exe does not have, and the
         // /dev/null redirect resolves to a literal \dev\null there — cmd prints
         // "The system cannot find the path specified." to stderr before it even
