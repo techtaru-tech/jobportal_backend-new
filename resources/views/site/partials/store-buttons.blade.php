@@ -33,6 +33,12 @@
     @endif
 </div>
 
+{{-- Only while iOS is genuinely unavailable. Setting IOS_STORE_ID removes
+     this line and adds the button above, together. --}}
 @unless ($hasIos)
-    <p class="mt-sm text-caption text-ink-muted">Android today · iOS coming soon</p>
+    <p class="mt-sm text-caption text-ink-muted {{ $align ?? '' }} flex">Android today · iOS coming soon</p>
 @endunless
+
+@if ($hasIos)
+    <p class="mt-sm text-caption text-ink-muted {{ $align ?? '' }} flex">Free on Android and iOS</p>
+@endif

@@ -60,12 +60,30 @@ class AppDownloadController extends Controller
         return (string) config('deeplinks.android.store_url');
     }
 
-    /** Null until `IOS_STORE_URL` is set — the app is not on the App Store yet. */
+    /**
+     * The App Store listing, or null while the app is not published there.
+     *
+     * Accepts either a full URL or the bare numeric ID, because the number is
+     * the awkward half: an App Store URL needs it, and it cannot be derived
+     * from the bundle id — only App Store Connect (or the listing's own URL)
+     * has it. A full `IOS_STORE_URL` wins, so a country-specific or
+     * campaign-tagged link can still be used verbatim.
+     *
+     * This one value is what turns iOS on everywhere: the buttons, the QR's
+     * device routing, and the copy that otherwise says iOS is coming.
+     */
     public static function iosUrl(): ?string
     {
         $url = trim((string) config('deeplinks.ios.store_url'));
+        if ($url !== '') {
+            return $url;
+        }
 
-        return $url === '' ? null : $url;
+        // Digits only — a pasted "id1234567890" or a stray URL fragment would
+        // otherwise build a link that 404s on the store.
+        $id = preg_replace('/\D+/', '', (string) config('deeplinks.ios.store_id'));
+
+        return $id === '' ? null : "https://apps.apple.com/app/id{$id}";
     }
 
     public static function hasIos(): bool

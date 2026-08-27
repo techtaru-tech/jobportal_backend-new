@@ -88,6 +88,26 @@ return [
         */
         'app_id' => env('IOS_APP_ID', ''),
 
+        /*
+        | The App Store listing, and the one switch that turns iOS on across the
+        | whole site — the download buttons, the QR's device routing, the copy
+        | that currently says "Android today · iOS coming soon".
+        |
+        | Two ways to set it, because the number is the awkward part: the
+        | numeric ID is what an App Store URL actually needs, and it is not
+        | derivable from the bundle id.
+        |
+        |   IOS_STORE_ID=1234567890
+        |     -> https://apps.apple.com/app/id1234567890
+        |
+        |   IOS_STORE_URL=https://apps.apple.com/in/app/inthes/id1234567890
+        |     -> used verbatim, for a country-specific or campaign-tagged link
+        |
+        | `IOS_STORE_URL` wins when both are present. Find the number in App
+        | Store Connect, or in the listing's own URL after `/id`.
+        */
+        'store_id' => env('IOS_STORE_ID', ''),
+
         'store_url' => env('IOS_STORE_URL', ''),
     ],
 ];

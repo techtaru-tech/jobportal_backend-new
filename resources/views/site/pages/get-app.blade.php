@@ -31,16 +31,11 @@
 
                 <p class="text-caption text-ink-muted">Point your phone camera at the code</p>
 
-                <a href="{{ App\Support\StoreQr::storeUrl() }}" target="_blank" rel="noopener"
-                   class="inline-flex h-[52px] items-center justify-center gap-sm rounded-button bg-primary px-xxl text-btn font-semibold text-ink-onPrimary shadow-button
-                          transition-[background-color,transform] duration-micro ease-out hover:bg-primary-dark active:scale-[0.97]">
-                    Get it on Google Play
-                </a>
-
-                {{-- Stated rather than left to be discovered on the store page.
-                     iOS is genuinely not shipped yet, and someone on an iPhone
-                     should find that out before they scan. --}}
-                <p class="text-caption text-ink-muted">Android · Free · iOS coming soon</p>
+                {{-- The shared partial, so the buttons and the platform line are
+                     driven by one flag. This page used to hardcode "iOS coming
+                     soon", which meant switching iOS on left the claim behind
+                     next to a working App Store button. --}}
+                @include('site.partials.store-buttons', ['align' => 'justify-center'])
             </div>
         </div>
     </div>
