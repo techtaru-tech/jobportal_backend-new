@@ -104,11 +104,12 @@
                     </div>
                 </div>
 
-                <dl class="mt-xl grid grid-cols-2 gap-lg sm:grid-cols-4">
+                <dl class="mt-xl grid grid-cols-2 gap-lg sm:grid-cols-3 lg:grid-cols-5">
                     @foreach ([
-                        ['label' => 'Location', 'value' => $job->city],
+                        ['label' => 'Location', 'value' => $job->pincode ? "{$job->city} — {$job->pincode}" : $job->city],
                         ['label' => 'Salary', 'value' => $salary],
                         ['label' => 'Experience', 'value' => $job->experience],
+                        ['label' => 'Job type', 'value' => $job->type],
                         ['label' => 'Shift', 'value' => $job->shift],
                     ] as $fact)
                         <div class="min-w-0">
@@ -119,6 +120,19 @@
                         </div>
                     @endforeach
                 </dl>
+
+                {{-- Only when there is one. `expires_at` is admin-set and
+                     usually absent, and a "closes soon" line is worth a lot
+                     when true and worth nothing invented. --}}
+                @if ($job->expires_at)
+                    <div class="mt-lg flex items-center gap-sm rounded-field bg-warning-bg px-md py-sm">
+                        @include('admin.partials.icon', ['name' => 'alert', 'class' => 'h-4 w-4 shrink-0 text-warning'])
+                        <p class="text-caption text-ink">
+                            Applications close {{ $job->expires_at->format('j M Y') }}
+                            ({{ $job->expires_at->diffForHumans() }}).
+                        </p>
+                    </div>
+                @endif
             </article>
 
             @if ($job->about)
@@ -149,12 +163,89 @@
                 @endif
             @endforeach
 
-            @if ($job->organisation_note)
-                <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card">
-                    <h2 class="text-h3 text-ink">About {{ $job->organisation }}</h2>
-                    <p class="mt-md whitespace-pre-line text-body text-ink-secondary">{{ $job->organisation_note }}</p>
+            {{--
+              What Smart Apply will ask the candidate for.
+
+              Shown because it is the honest answer to "can I apply for this?".
+              A posting that demands a resume and a specialization is a
+              different proposition from one that wants a name, and finding that
+              out after installing the app is finding it out too late.
+            --}}
+            @if (!empty($job->required_fields))
+                @php
+                    $fieldLabels = [
+                        'name' => 'Full name',
+                        'qualification' => 'Qualification',
+                        'experience' => 'Experience',
+                        'skills' => 'Skills',
+                        'location' => 'Location',
+                        'specialization' => 'Specialization',
+                        'certification_bls' => 'BLS certification',
+                        'resume' => 'Resume',
+                    ];
+                @endphp
+                <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card" data-reveal>
+                    <h2 class="text-h3 text-ink">What you need to apply</h2>
+                    <p class="mt-xs text-bodysm text-ink-secondary">
+                        This employer asks for these on your profile. Everything else is optional.
+                    </p>
+                    <div class="mt-md flex flex-wrap gap-xs">
+                        @foreach ($job->required_fields as $field)
+                            <span class="inline-flex items-center gap-xs rounded-field bg-primary-light px-md py-[6px] text-tag font-semibold text-primary-dark">
+                                @include('admin.partials.icon', ['name' => 'check', 'class' => 'h-[13px] w-[13px]'])
+                                {{ $fieldLabels[$field] ?? Str::headline($field) }}
+                            </span>
+                        @endforeach
+                    </div>
                 </section>
             @endif
+
+            {{-- The employer, with everything the record actually holds. This
+                 is the other half of the decision: a candidate is choosing a
+                 workplace, not only a job title. --}}
+            @php $org = $job->organisationRecord; @endphp
+            <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card" data-reveal>
+                <h2 class="text-h3 text-ink">About {{ $job->organisation }}</h2>
+
+                @if ($job->organisation_note)
+                    <p class="mt-md whitespace-pre-line text-body text-ink-secondary">{{ $job->organisation_note }}</p>
+                @endif
+
+                @if ($org?->about)
+                    <p class="mt-md whitespace-pre-line text-body text-ink-secondary">{{ $org->about }}</p>
+                @endif
+
+                @if ($org)
+                    <dl class="mt-lg grid grid-cols-2 gap-lg sm:grid-cols-4">
+                        @foreach ([
+                            ['label' => 'Type', 'value' => $org->industry?->value],
+                            ['label' => 'Size', 'value' => $org->size?->value],
+                            ['label' => 'Address', 'value' => $org->address],
+                            ['label' => 'Verified since', 'value' => $org->verified_at?->format('M Y')],
+                        ] as $fact)
+                            @if ($fact['value'])
+                                <div class="min-w-0">
+                                    <dt class="text-kicker text-ink-secondary">{{ strtoupper($fact['label']) }}</dt>
+                                    <dd class="mt-[3px] break-words text-bodysm font-semibold text-ink">{{ $fact['value'] }}</dd>
+                                </div>
+                            @endif
+                        @endforeach
+                    </dl>
+
+                    @if ($org->website)
+                        {{-- `noopener` and `nofollow`: an outbound link on a page
+                             with user-supplied URLs should pass neither window
+                             access nor ranking. --}}
+                        <a href="{{ $org->website }}" target="_blank" rel="noopener nofollow"
+                           class="group mt-lg inline-flex items-center gap-xs text-btnghost font-semibold text-primary-dark transition-colors hover:underline">
+                            <span>Visit website</span>
+                            <span class="nudge">
+                                @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-4 w-4'])
+                            </span>
+                        </a>
+                    @endif
+                @endif
+            </section>
         </div>
 
         {{-- ── apply rail ───────────────────────────────────────────────── --}}
@@ -177,11 +268,10 @@
                      has already decided should not need a second click to reach
                      the thing that gets them there. --}}
                 <div class="mt-lg flex items-center gap-lg">
-                    <div class="w-[92px] shrink-0 rounded-field border-hair border-hairline bg-canvas p-sm [&>svg]:h-full [&>svg]:w-full">
-                        {!! App\Support\StoreQr::svg() !!}
-                    </div>
+                    @include('site.partials.qr-card', ['size' => 'w-[92px]', 'caption' => null])
                     <p class="text-caption text-ink-secondary">
-                        Scan with your phone camera to install Inthes from Google Play.
+                        Scan with your phone camera — the code sends Android and iPhone to the
+                        right store automatically.
                     </p>
                 </div>
             </div>
@@ -196,10 +286,10 @@
                               transition-colors hover:border-hairline-strong hover:bg-surface-muted">
                         WhatsApp
                     </a>
-                    {{-- `x-ref`-free: reads its own href, so it keeps working if
-                         the URL is ever rendered differently. --}}
-                    <button type="button"
-                            @click="navigator.clipboard?.writeText(@js(route('site.job', $job->code))); $el.textContent = 'Link copied'"
+                    {{-- Reports in place and restores itself, and handles the
+                         clipboard being refused — which it is on an insecure
+                         origin, where the old version silently did nothing. --}}
+                    <button type="button" @click="copyLink(@js(route('site.job', $job->code)), $event)"
                             class="inline-flex h-10 items-center justify-center rounded-button border-btn border-hairline bg-surface px-lg text-btnghost font-semibold text-ink
                                    transition-colors hover:border-hairline-strong hover:bg-surface-muted">
                         Copy link

@@ -15,11 +15,11 @@
   request, no JS library, sharp at any size.
 --}}
 <div x-show="applyOpen" x-cloak
-     @keydown.escape.window="applyOpen = false"
+     @keydown.escape.window="closeApply()"
      class="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
      role="dialog" aria-modal="true" aria-label="Apply in the Inthes app">
 
-  <div x-show="applyOpen" @click="applyOpen = false"
+  <div x-show="applyOpen" @click="closeApply()"
        x-transition:enter="transition-opacity duration-component" x-transition:enter-start="opacity-0"
        x-transition:leave="transition-opacity duration-micro" x-transition:leave-end="opacity-0"
        class="absolute inset-0 bg-black/45"></div>
@@ -31,7 +31,7 @@
        x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
        class="relative w-full max-w-[440px] rounded-t-sheet bg-surface p-xl shadow-raised sm:rounded-dialog">
 
-    <button @click="applyOpen = false" aria-label="Close"
+    <button @click="closeApply()" aria-label="Close"
             class="absolute right-lg top-lg inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-muted text-ink transition-colors hover:bg-hairline">
       <span x-html="ICONS.x" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
     </button>
@@ -58,17 +58,12 @@
          scan from is not unusual, and a desktop user may want the link. --}}
     <div class="mt-xl flex flex-col items-center gap-lg">
       <div class="order-2 w-full sm:order-1">
-        <div class="mx-auto w-[196px] rounded-card border-hair border-hairline bg-canvas p-md shadow-card [&>svg]:h-full [&>svg]:w-full">
-          {!! App\Support\StoreQr::svg() !!}
-        </div>
-        <p class="mt-sm text-center text-caption text-ink-muted">Point your phone camera at the code</p>
+        @include('site.partials.qr-card', ['size' => 'w-[196px]', 'caption' => 'Point your phone camera at the code'])
       </div>
 
-      <a href="{{ App\Support\StoreQr::storeUrl() }}" target="_blank" rel="noopener"
-         class="order-1 flex h-[50px] w-full items-center justify-center gap-sm rounded-button bg-primary text-btn font-semibold text-ink-onPrimary shadow-button
-                transition-[background-color,transform] duration-micro ease-out hover:bg-primary-dark active:scale-[0.97] sm:order-2">
-        Open Google Play
-      </a>
+      <div class="order-1 w-full sm:order-2 [&>div]:mt-0">
+        @include('site.partials.store-buttons', ['align' => 'justify-center'])
+      </div>
     </div>
 
     <p class="mt-lg text-center text-caption text-ink-muted">

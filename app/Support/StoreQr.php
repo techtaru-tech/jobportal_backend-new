@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Http\Controllers\Site\AppDownloadController;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\Writer\SvgWriter;
@@ -31,10 +32,29 @@ class StoreQr
      */
     private const CACHE_HOURS = 24;
 
-    /** The URL the QR resolves to — Android for now; see config/deeplinks.php. */
+    /**
+     * What the QR resolves to: our own redirect, not a store URL directly.
+     *
+     * [AppDownloadController] reads the User-Agent and forwards to Play or the
+     * App Store, so a single code serves both platforms — and every QR already
+     * printed on a poster or a card starts working for iPhones the day
+     * `IOS_STORE_URL` is set, with nothing reissued.
+     */
     public static function storeUrl(): string
     {
-        return (string) config('deeplinks.android.store_url');
+        return route('site.app-download');
+    }
+
+    /** The Play listing, for a button that should name the store it opens. */
+    public static function androidUrl(): string
+    {
+        return AppDownloadController::androidUrl();
+    }
+
+    /** Null while the app is not on the App Store yet. */
+    public static function iosUrl(): ?string
+    {
+        return AppDownloadController::iosUrl();
     }
 
     /**

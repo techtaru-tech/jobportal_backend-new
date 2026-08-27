@@ -48,6 +48,21 @@ Route::controller(Site\SiteController::class)->group(function () {
 | The wildcard is so a refresh inside the area still serves the shell rather
 | than a 404; the page switches views itself.
 */
+/*
+|--------------------------------------------------------------------------
+| App download
+|--------------------------------------------------------------------------
+|
+| What every QR on this site resolves to. It reads the User-Agent and forwards
+| to Play or the App Store, so one code serves both platforms instead of asking
+| a visitor which of two codes is for their own phone — and iPhones start
+| working the day IOS_STORE_URL is set, with nothing reprinted.
+|
+| Its own route rather than part of the site controller group: this URL ends up
+| on posters and cards, so it should never move.
+*/
+Route::get('/get-app/go', Site\AppDownloadController::class)->name('site.app-download');
+
 Route::get('/employer/{any?}', fn () => view('site.employer'))
     ->where('any', '.*')
     ->name('site.post-job');

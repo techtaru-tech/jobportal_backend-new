@@ -8,7 +8,7 @@
   The nav collapses to a drawer below `md`. Five links do fit on a phone if you
   shrink them enough, which is exactly why they should not be.
 --}}
-<header class="sticky top-0 z-40 border-b border-hairline-divider bg-canvas/85 backdrop-blur-md">
+<header data-site-header class="sticky top-0 z-40 border-b border-hairline-divider bg-canvas/85 backdrop-blur-md">
   <div class="mx-auto flex h-[68px] max-w-[1200px] items-center gap-lg px-page lg:px-xl">
 
     <a href="{{ route('site.home') }}" class="flex shrink-0 items-center gap-md" title="Inthes">
