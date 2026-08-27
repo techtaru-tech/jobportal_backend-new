@@ -466,4 +466,29 @@ class RecruiterJobTest extends TestCase
         $this->assertStringContainsString('resubmitted for approval', $text);
         $this->assertStringNotContainsString('paused for candidates', $text);
     }
+
+    /**
+     * A brand-new posting must not be described as live.
+     *
+     * It is created `pending_approval` and reaches candidates only once an
+     * admin approves it. The message used to read "Job posted.", which the
+     * app worked around by discarding it and hardcoding its own text — so the
+     * wording is pinned here rather than left to each client to compensate for.
+     */
+    public function test_posting_a_job_says_it_is_awaiting_approval_not_live(): void
+    {
+        [, $organisation] = $this->recruiterWithOrg();
+
+        $response = $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))
+            ->assertCreated();
+
+        $message = $response->json("message");
+
+        $this->assertStringContainsString("approval", $message);
+        $this->assertStringNotContainsString("posted", strtolower($message));
+        $this->assertSame(
+            JobPostingStatus::PendingApproval->value,
+            $response->json("data.posting_status"),
+        );
+    }
 }

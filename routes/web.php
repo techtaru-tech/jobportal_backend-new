@@ -1,11 +1,56 @@
 <?php
 
 use App\Http\Controllers\DeepLinkController;
+use App\Http\Controllers\Site;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+/*
+|--------------------------------------------------------------------------
+| Public site
+|--------------------------------------------------------------------------
+|
+| Server-rendered, unlike the admin panel. These pages are the product's front
+| door and have to be indexable — a job board whose postings Google cannot read
+| is a job board nobody finds — so they render finished HTML from the models and
+| use Alpine only for the interactive parts.
+|
+| Named routes throughout, because the layout and the job cards link to each
+| other constantly and hard-coded paths are what makes a URL change a hunt.
+|
+| Applying is deliberately absent: it needs a profile, a resume and Smart
+| Apply's field gating, none of which exist on the web. The job page offers the
+| app instead — see `StoreQr`.
+*/
+Route::controller(Site\SiteController::class)->group(function () {
+    Route::get('/', 'home')->name('site.home');
+    Route::get('/jobs', 'jobs')->name('site.jobs');
+    Route::get('/get-app', 'getApp')->name('site.get-app');
+    Route::get('/faq', 'faq')->name('site.faq');
+
+    // Below the fixed paths, so `/jobs` and `/faq` are never swallowed by them.
+    Route::get('/jobs/{code}', 'job')->name('site.job');
+    Route::get('/p/{slug}', 'page')->name('site.page');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Employer area
+|--------------------------------------------------------------------------
+|
+| Behind a sign-in, so unlike the public pages it is client-rendered from the
+| API — the same shape as the admin panel, for the same reason: nothing here
+| needs indexing, and the recruiter endpoints already exist and already enforce
+| their own rules (ownership, the plan's posting ceiling, the approval queue).
+|
+| Signing in is phone + OTP, exactly as in the app: one account, one identity,
+| whichever surface it is used from.
+|
+| The wildcard is so a refresh inside the area still serves the shell rather
+| than a 404; the page switches views itself.
+*/
+Route::get('/employer/{any?}', fn () => view('site.employer'))
+    ->where('any', '.*')
+    ->name('site.post-job');
 
 /*
 |--------------------------------------------------------------------------

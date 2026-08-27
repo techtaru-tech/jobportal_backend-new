@@ -11,6 +11,30 @@ class Display
 {
     public const EN_DASH = '–';
 
+    /**
+     * "Fortis Hospital" → "FH". First letters of the first two words.
+     *
+     * Matches `Helpers.initials` in the app and `initials()` in the admin
+     * panel's JS. A third implementation is unavoidable here — the public site
+     * is server-rendered, so it cannot borrow the browser's — but keeping the
+     * rule identical is what stops the same employer showing a different tile
+     * on the site than in the app.
+     */
+    public static function initials(?string $name): string
+    {
+        $parts = preg_split('/\s+/', trim((string) $name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        if ($parts === []) {
+            return '?';
+        }
+
+        if (count($parts) === 1) {
+            return mb_strtoupper(mb_substr($parts[0], 0, 2));
+        }
+
+        return mb_strtoupper(mb_substr($parts[0], 0, 1).mb_substr($parts[1], 0, 1));
+    }
+
     /** 25000, 40000 → "₹25K – ₹40K" */
     public static function salary(?int $min, ?int $max): ?string
     {

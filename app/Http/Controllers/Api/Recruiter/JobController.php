@@ -47,7 +47,21 @@ class JobController extends ApiController
 
         $this->notifier->jobPosted($job->load('organisationRecord'));
 
-        return ApiResponse::data(new JobResource($job->load('organisationRecord')), 'Job posted.', 201);
+        /*
+         * "Submitted", not "posted".
+         *
+         * Every posting is created `pending_approval` and reaches candidates
+         * only once an admin approves it, so "Job posted." was telling a
+         * recruiter their job was live while nobody could see it. The app's own
+         * screen already worked around this by discarding the server message
+         * and hardcoding its own — which is the signal that the message, not
+         * the screen, was wrong. Fixed here so every client gets it right.
+         */
+        return ApiResponse::data(
+            new JobResource($job->load('organisationRecord')),
+            "Submitted for approval — you'll be notified once it's live.",
+            201,
+        );
     }
 
     /**
