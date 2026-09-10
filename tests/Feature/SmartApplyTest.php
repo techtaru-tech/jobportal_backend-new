@@ -71,7 +71,7 @@ class SmartApplyTest extends TestCase
 
     public function test_requirements_list_exactly_the_unmet_fields(): void
     {
-        $job = JobPosting::factory()->requiring(['qualification', 'skills', 'certificationBls', 'resume'])->create();
+        $job = JobPosting::factory()->requiring(['qualification', 'skills', 'resume'])->create();
 
         $bare = CandidateProfile::factory()->empty()->raw(['name' => 'Solo']);
         unset($bare['user_id']);
@@ -84,7 +84,7 @@ class SmartApplyTest extends TestCase
             // only gender/dob/address survive from it — followed by this
             // job's own configured fields.
             ->assertJsonPath('data.missing_fields', [
-                'gender', 'dob', 'address', 'qualification', 'skills', 'certificationBls', 'resume',
+                'gender', 'dob', 'address', 'qualification', 'skills', 'resume',
             ]);
     }
 
@@ -109,15 +109,6 @@ class SmartApplyTest extends TestCase
         $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])
             ->assertStatus(422)
             ->assertJsonStructure(['message', 'errors' => ['profile']]);
-    }
-
-    public function test_the_bls_requirement_reads_the_certifications_list(): void
-    {
-        $job = JobPosting::factory()->requiring(['certificationBls'])->create();
-        $this->actingAsCandidate(['certifications' => ['ACLS']]);
-
-        $this->getJson("{$this->api}/applications/requirements/j_{$job->id}")
-            ->assertJsonPath('data.missing_fields', ['certificationBls']);
     }
 
     public function test_applying_creates_an_application_with_a_frozen_snapshot(): void

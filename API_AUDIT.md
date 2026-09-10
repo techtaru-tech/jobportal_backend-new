@@ -162,10 +162,9 @@ Recently-viewed and cross-device search history are device-local by design
 | Update basics + home location + Smart Apply fields | `/candidate/profile` | PATCH | candidate | ✅ | Verified — partial |
 | Job preferences | `/candidate/profile/preferences` | PATCH | candidate | ✅ | Verified |
 | Skills + proficiency | `/candidate/profile/skills` | PUT | candidate | ✅ | Verified — full replace |
-| Certifications + years | `/candidate/profile/certifications` | PUT | candidate | ✅ | Verified — full replace |
 | Languages + levels | `/candidate/profile/languages` | PUT | candidate | ✅ | Verified — full replace |
 | About me | `/candidate/profile/about` | PATCH | candidate | ✅ | Verified |
-| Upload resume | `/candidate/profile/resume` | POST | candidate | ✅ | Verified — multipart, private+signed |
+| Build resume from profile | `/candidate/profile/resume/generate` | POST | candidate | ✅ | The only resume source — no upload endpoint |
 | Generate resume from profile | `/candidate/profile/resume/generate` | POST | candidate | ✅ | Verified |
 | Profile photo | `/candidate/profile/photo` | POST | candidate | ✅ | Verified |
 | Intro video | `/candidate/profile/intro-video` | POST | candidate | ✅ | Verified — duration re-checked server-side |
@@ -275,7 +274,7 @@ Re-verified against task Step 7; no changes were needed.
 | Chat access | ✅ participants only; non-participants get 404, not 403 — the API won't confirm a thread exists |
 | Mass assignment | ✅ explicit `#[Fillable]` on every model; `verified`, `posting_status`, `status`, `profile_snapshot` are `forceFill`-only |
 | SQL injection | ✅ query builder throughout; `LIKE` terms escape `%`/`_` |
-| File uploads | ✅ mime + size validated; resumes/videos/documents on a private disk behind 15-minute signed URLs |
+| File uploads | ✅ mime + size validated; photos/videos/documents on a private disk behind 15-minute signed URLs (server-rendered resumes too) |
 | Sensitive data exposure | ✅ `password`/`remember_token` hidden; `applicants_count` withheld from candidates |
 | HTTP status codes | ✅ 200/201/401/403/404/422/429 used correctly; every error carries a toast-safe `message` |
 
@@ -313,7 +312,7 @@ person, a message or a count any more:
 
 | Was fabricated | Now |
 |---|---|
-| Option lists (categories, qualifications, skills, cities, shifts, job types, experience bands, certifications, languages, designations, institutes) | `GET /config/options` via a new `ConfigService`, loaded during splash |
+| Option lists (categories, qualifications, skills, cities, shifts, job types, experience bands, languages, designations, institutes) | `GET /config/options` via a new `ConfigService`, loaded during splash |
 | Smart Apply field dictionary | Question copy is app constants (`FieldCopy`); option values come from config |
 | Six sample jobs | `GET /jobs` — `JobService` starts empty |
 | 6–26 generated applicants per job | `GET /recruiter/jobs/{id}/applicants` into a per-job cache |

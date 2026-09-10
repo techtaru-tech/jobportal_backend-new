@@ -83,13 +83,12 @@ Route::prefix('v1')->group(function () {
                 Route::patch('/', [CandidateProfileController::class, 'update']);
                 Route::patch('preferences', [CandidateProfileController::class, 'updatePreferences']);
                 Route::put('skills', [CandidateProfileController::class, 'updateSkills']);
-                Route::put('certifications', [CandidateProfileController::class, 'updateCertifications']);
                 Route::put('languages', [CandidateProfileController::class, 'updateLanguages']);
                 Route::patch('about', [CandidateProfileController::class, 'updateAbout']);
 
-                Route::post('resume', [CandidateProfileController::class, 'uploadResume']);
                 Route::post('resume/generate', [CandidateProfileController::class, 'generateResume']);
                 Route::post('photo', [CandidateProfileController::class, 'uploadPhoto']);
+                Route::delete('photo', [CandidateProfileController::class, 'deletePhoto']);
                 Route::post('intro-video', [CandidateProfileController::class, 'uploadIntroVideo']);
                 Route::delete('intro-video', [CandidateProfileController::class, 'deleteIntroVideo']);
 

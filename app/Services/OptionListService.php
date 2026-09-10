@@ -58,7 +58,6 @@ class OptionListService
         'job_types',
         'shifts',
         'cities',
-        'certifications',
         'languages',
         'salary_steps',
         'salary_filters',
@@ -102,6 +101,66 @@ class OptionListService
             self::CACHE_TTL_SECONDS,
             fn () => $this->resolveAll(),
         );
+    }
+
+    /**
+     * The job-filter groups the app renders its filter sheet from, each with
+     * its chip values already resolved.
+     *
+     * Declared in `config('options.job_filters')` — see the comment there for
+     * the shape and why both sides read the same declaration. Resolving the
+     * values *here* is what makes an admin edit show up as a filter chip: the
+     * group points at an option list, and [list] already prefers the DB
+     * override over the config file.
+     *
+     * A group naming a list that resolves to nothing is dropped rather than
+     * served empty, so a filter heading is never offered with no chips under
+     * it.
+     *
+     * @return list<array{key: string, label: string, param: string, type: string, options: list<string>}>
+     */
+    public function jobFilterGroups(): array
+    {
+        $groups = [];
+
+        foreach ((array) config('options.job_filters', []) as $group) {
+            $options = $this->list((string) ($group['list'] ?? ''));
+
+            if ($options === []) {
+                continue;
+            }
+
+            $groups[] = [
+                'key' => (string) $group['key'],
+                'label' => (string) $group['label'],
+                'param' => (string) $group['param'],
+                'type' => (string) ($group['type'] ?? 'in'),
+                'options' => $options,
+            ];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * The same declaration keyed by query parameter, for the `/jobs` filter
+     * whitelist. Carries `column`, which the app has no use for and is not
+     * served.
+     *
+     * @return array<string, array{column: string, type: string}>
+     */
+    public function jobFilterParams(): array
+    {
+        $params = [];
+
+        foreach ((array) config('options.job_filters', []) as $group) {
+            $params[(string) $group['param']] = [
+                'column' => (string) $group['column'],
+                'type' => (string) ($group['type'] ?? 'in'),
+            ];
+        }
+
+        return $params;
     }
 
     /**

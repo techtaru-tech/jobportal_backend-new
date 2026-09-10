@@ -330,7 +330,7 @@ class OptionListController extends ApiController
             'experience_bands' => CandidateProfile::where('experience', $value)->count()
                 + JobPosting::where('experience', $value)->count(),
 
-            // The JSON-column lists (skills, certifications, languages,
+            // The JSON-column lists (skills, languages,
             // specializations) would need a JSON search per row to count
             // exactly; -1 means "not counted" so the panel can say so rather
             // than imply a confident zero.

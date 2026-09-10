@@ -116,15 +116,6 @@ class ResumePdf
             }
         }
 
-        if (filled($profile->certifications)) {
-            $heading('Certifications');
-
-            foreach ($profile->certifications as $certification) {
-                $year = $profile->certification_years[$certification] ?? null;
-                $add('- '.$certification.($year ? " ({$year})" : ''));
-            }
-        }
-
         if (filled($profile->languages)) {
             $heading('Languages');
 

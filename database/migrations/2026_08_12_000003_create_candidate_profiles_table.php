@@ -36,9 +36,7 @@ return new class extends Migration
             $table->string('expected_salary', 40)->nullable();
             $table->unsignedInteger('expected_salary_amount')->nullable();
 
-            // Certifications + languages (§3.6, §3.7)
-            $table->json('certifications')->nullable();
-            $table->json('certification_years')->nullable();
+            // Languages (§3.6)
             $table->json('languages')->nullable();
             $table->json('language_levels')->nullable();
 

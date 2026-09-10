@@ -103,15 +103,6 @@ return [
         'Bharatpur',
     ],
 
-    // §10.8 Certifications (seed list)
-    'certifications' => [
-        'BLS',
-        'ACLS',
-        'PALS',
-        'NRP',
-        'CPR',
-    ],
-
     // §10.9 Languages + proficiency levels
     'languages' => [
         'Hindi',
@@ -324,7 +315,7 @@ return [
     ],
 
     /*
-    | How far the education / certification year pickers reach.
+    | How far the education year pickers reach.
     |
     | Rendered into a concrete list of years by ConfigController from the
     | server's clock, so it never goes stale the way a literal list of years
@@ -333,6 +324,74 @@ return [
     'passing_years' => [
         'ahead' => 1,
         'back' => 50,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Job filter groups (§4.1)
+    |--------------------------------------------------------------------------
+    |
+    | The filter sheet in the app is drawn from this, not from anything in the
+    | app bundle. Each group names the option list its values come from, so an
+    | admin adding a city or an experience band through the option-list screens
+    | shows up as a filter chip on the next cold start — no app release.
+    |
+    | `/jobs` builds its own whitelist from the same declaration, so a group
+    | added here filters correctly the moment it is served: the app sends
+    | whatever `param` says and the API reads exactly the params it declared.
+    | Anything not declared here is ignored by both sides.
+    |
+    |   key    — stable identifier; what the app keys its selection by
+    |   label  — the group heading in the sheet
+    |   param  — the `/jobs` query parameter the app sends
+    |   list   — the option list the chips come from
+    |   column — the `job_postings` column matched
+    |   type   — `in` (any of the picked values) or `min` (lowest ₹ threshold)
+    |
+    */
+    'job_filters' => [
+        [
+            'key' => 'experience',
+            'label' => 'Experience',
+            'param' => 'experience',
+            'list' => 'experience_bands',
+            'column' => 'experience',
+            'type' => 'in',
+        ],
+        [
+            'key' => 'salary',
+            'label' => 'Salary',
+            'param' => 'min_salary',
+            // `salary_filters`, not `salary_steps` — the latter's "1L" parses
+            // to a ₹1,000 threshold.
+            'list' => 'salary_filters',
+            'column' => 'salary_min',
+            'type' => 'min',
+        ],
+        [
+            'key' => 'job_type',
+            'label' => 'Job type',
+            'param' => 'job_type',
+            'list' => 'job_types',
+            'column' => 'type',
+            'type' => 'in',
+        ],
+        [
+            'key' => 'shift',
+            'label' => 'Shift',
+            'param' => 'shift',
+            'list' => 'shifts',
+            'column' => 'shift',
+            'type' => 'in',
+        ],
+        [
+            'key' => 'city',
+            'label' => 'City',
+            'param' => 'city',
+            'list' => 'cities',
+            'column' => 'city',
+            'type' => 'in',
+        ],
     ],
 
     /*
@@ -382,10 +441,6 @@ return [
     |--------------------------------------------------------------------------
     */
     'uploads' => [
-        'resume' => [
-            'max_kb' => 5 * 1024,
-            'mimes' => ['pdf', 'doc', 'docx'],
-        ],
         'photo' => [
             'max_kb' => 3 * 1024,
             'mimes' => ['jpg', 'jpeg', 'png'],

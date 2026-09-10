@@ -152,8 +152,6 @@ class UserController extends ApiController
                 'preferred_job_types' => $profile->preferred_job_types ?? [],
                 'preferred_shifts' => $profile->preferred_shifts ?? [],
                 'expected_salary' => $profile->expected_salary,
-                'certifications' => $profile->certifications ?? [],
-                'certification_years' => $profile->certification_years ?? [],
                 'languages' => $profile->languages ?? [],
                 'language_levels' => $profile->language_levels ?? [],
                 'about' => $profile->about,

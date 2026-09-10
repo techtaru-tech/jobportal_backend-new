@@ -18,6 +18,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class JobController extends ApiController
 {
+    public function __construct(private readonly OptionListService $options) {}
+
     /** GET /jobs (§4.1) */
     public function index(Request $request): JsonResponse
     {
@@ -29,29 +31,115 @@ class JobController extends ApiController
 
         $query->search($request->string('query')->trim()->value() ?: $request->string('q')->trim()->value());
 
-        if ($city = $request->string('city')->trim()->value()) {
-            $query->where('city', $city);
-        }
-
-        foreach (['experience' => 'experience', 'job_type' => 'type', 'shift' => 'shift'] as $param => $column) {
-            $values = $this->listParam($request, $param);
-
-            if ($values !== []) {
-                $query->whereIn($column, $values);
-            }
-        }
-
-        if ($request->filled('min_salary')) {
-            // §4.1 specifies this filters on salary_min: the job's floor must
-            // clear the candidate's floor, not merely its ceiling.
-            $query->where('salary_min', '>=', (int) $request->integer('min_salary'));
-        }
+        $this->applyDeclaredFilters($query, $request);
 
         $this->attachCandidateState($query, $request);
+
+        // `recommended=1` is what makes the app's "Recommended for you" feed
+        // mean anything. Until it existed that heading sat above
+        // `latest('posted_at')` — the newest jobs, in the same order for every
+        // candidate — while the Preferred jobs screen collected roles, cities,
+        // job types and shifts that nothing ever read.
+        //
+        // A rank, not a filter: a candidate whose preferences match nothing on
+        // the board still gets a feed, just not a personalised one. Filtering
+        // would have shown them an empty screen and no way to tell why.
+        if ($request->boolean('recommended')) {
+            $this->applyPreferenceRanking($query, $request);
+        }
 
         $paginator = $query->latest('posted_at')->paginate($this->perPage($request));
 
         return ApiResponse::paginated($paginator, JobResource::class);
+    }
+
+    /**
+     * Applies whichever of the declared filter groups this request actually
+     * sent — see `config('options.job_filters')`.
+     *
+     * The parameters, the columns they match and how they match are all read
+     * from that one declaration, which is also what `GET /config/options`
+     * serves to the app. So a group added there starts filtering the moment it
+     * is served, with no change here and none in the app; and a parameter
+     * nobody declared is ignored rather than reaching the query builder.
+     *
+     * Two shapes:
+     *
+     *  - `in`  — any of the picked values (`experience`, `job_type`, `shift`,
+     *            `city`). Repeatable, so `city[]=Jaipur&city[]=Kota` is "either".
+     *  - `min` — the lowest ₹ threshold picked, matched against the job's
+     *            *floor*: `salary_min >= x`, so the job pays at least what the
+     *            candidate asked for rather than merely topping out there.
+     */
+    private function applyDeclaredFilters(Builder $query, Request $request): void
+    {
+        foreach ($this->options->jobFilterParams() as $param => $spec) {
+            if ($spec['type'] === 'min') {
+                if ($request->filled($param)) {
+                    $query->where($spec['column'], '>=', (int) $request->integer($param));
+                }
+
+                continue;
+            }
+
+            $values = $this->listParam($request, $param);
+
+            if ($values !== []) {
+                $query->whereIn($spec['column'], $values);
+            }
+        }
+    }
+
+    /**
+     * Orders [$query] by how well each posting matches the candidate's saved
+     * preferences, strongest signal first, before the caller's `posted_at`
+     * tiebreak takes over.
+     *
+     * The weights say which preference a candidate actually chose a job on:
+     * the role they do (4) outranks where they want to work (3), which
+     * outranks full-time-vs-contract (2), which outranks the shift (1). A job
+     * matching role and city therefore beats one matching type and shift.
+     *
+     * `whereIn`-shaped `CASE` expressions rather than a join: the preferences
+     * are JSON columns on the profile, so they arrive as PHP arrays and go in
+     * as bindings. An empty preference contributes nothing instead of
+     * matching everything.
+     */
+    private function applyPreferenceRanking(Builder $query, Request $request): void
+    {
+        $profile = $request->user()?->candidateProfile;
+
+        if (! $profile) {
+            return;
+        }
+
+        $weighted = [
+            ['role', $profile->preferred_roles, 4],
+            ['city', $profile->location, 3],
+            ['type', $profile->preferred_job_types, 2],
+            ['shift', $profile->preferred_shifts, 1],
+        ];
+
+        $terms = [];
+        $bindings = [];
+
+        foreach ($weighted as [$column, $values, $weight]) {
+            $values = array_values(array_filter((array) $values, 'filled'));
+
+            if ($values === []) {
+                continue;
+            }
+
+            $placeholders = implode(',', array_fill(0, count($values), '?'));
+            $terms[] = "(CASE WHEN {$column} IN ({$placeholders}) THEN {$weight} ELSE 0 END)";
+            $bindings = [...$bindings, ...$values];
+        }
+
+        if ($terms === []) {
+            return;
+        }
+
+        $query->orderByRaw(implode(' + ', $terms).' DESC', $bindings);
     }
 
     /** GET /jobs/{jobId} (§4.2) */
@@ -93,7 +181,7 @@ class JobController extends ApiController
         // Seeded categories always appear, even at zero, so the chips are
         // stable. Read through the resolved list so a category an admin adds
         // shows up here too, not only in `/config/options`.
-        $names = collect(app(OptionListService::class)->list('categories'))
+        $names = collect($this->options->list('categories'))
             ->merge($counts->keys())
             ->unique()
             ->values();

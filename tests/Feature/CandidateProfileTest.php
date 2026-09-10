@@ -54,7 +54,7 @@ class CandidateProfileTest extends TestCase
                 'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
                 'qualification', 'experience', 'skills', 'skill_levels', 'specialization',
                 'location', 'preferred_roles', 'preferred_job_types', 'preferred_shifts',
-                'expected_salary', 'certifications', 'certification_years',
+                'expected_salary',
                 'languages', 'language_levels', 'about', 'photo', 'photo_url',
                 'resume', 'resume_url', 'intro_video_url', 'intro_video_thumbnail_url',
                 'educations', 'experiences', 'profile_strength',
@@ -270,18 +270,6 @@ class CandidateProfileTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_certifications_are_a_full_replace_that_drops_stale_years(): void
-    {
-        $this->actingAsCandidate();
-
-        $this->putJson("{$this->api}/candidate/profile/certifications", [
-            'certifications' => ['ACLS'],
-            'certification_years' => ['ACLS' => '2023', 'BLS' => '2020'],
-        ])->assertOk()
-            ->assertJsonPath('data.certifications', ['ACLS'])
-            ->assertJsonPath('data.certification_years', ['ACLS' => '2023']);
-    }
-
     public function test_languages_reject_an_unknown_level(): void
     {
         $this->actingAsCandidate();
@@ -377,18 +365,6 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('data.designation', 'Chief Vibes Officer');
     }
 
-    public function test_resume_upload_accepts_a_pdf(): void
-    {
-        Storage::fake('local');
-        $this->actingAsCandidate();
-
-        $this->postJson("{$this->api}/candidate/profile/resume", [
-            'file' => UploadedFile::fake()->create('Yash_CV.pdf', 200, 'application/pdf'),
-        ])->assertOk()
-            ->assertJsonPath('data.resume', 'Yash_CV.pdf')
-            ->assertJsonStructure(['data' => ['resume', 'resume_url']]);
-    }
-
     /**
      * §9.1 — resumes are signed, expiring private-disk URLs, not public
      * assets. `Storage::fake()` stubs the signing callback with a plain
@@ -400,35 +376,13 @@ class CandidateProfileTest extends TestCase
     public function test_resume_urls_go_through_the_private_signed_url_path(): void
     {
         Storage::fake('local');
-        $this->actingAsCandidate();
+        $this->actingAsCandidate(['name' => 'Yash Saraswat']);
 
-        $url = $this->postJson("{$this->api}/candidate/profile/resume", [
-            'file' => UploadedFile::fake()->create('Yash_CV.pdf', 200, 'application/pdf'),
-        ])->json('data.resume_url');
+        $url = $this->postJson("{$this->api}/candidate/profile/resume/generate")
+            ->assertOk()
+            ->json('data.resume_url');
 
         $this->assertStringContainsString('expiration=', $url);
-    }
-
-    public function test_resume_upload_rejects_the_wrong_type_with_a_readable_message(): void
-    {
-        Storage::fake('local');
-        $this->actingAsCandidate();
-
-        $this->postJson("{$this->api}/candidate/profile/resume", [
-            'file' => UploadedFile::fake()->create('notes.txt', 10, 'text/plain'),
-        ])->assertStatus(422)
-            ->assertJsonPath('errors.file.0', 'Upload your resume as a PDF or Word document.');
-    }
-
-    public function test_resume_upload_rejects_an_oversized_file(): void
-    {
-        Storage::fake('local');
-        $this->actingAsCandidate();
-
-        $this->postJson("{$this->api}/candidate/profile/resume", [
-            'file' => UploadedFile::fake()->create('big.pdf', 6 * 1024, 'application/pdf'),
-        ])->assertStatus(422)
-            ->assertJsonPath('errors.file.0', 'Your resume must be smaller than 5 MB.');
     }
 
     public function test_it_generates_a_real_pdf_resume_from_the_profile(): void
@@ -447,24 +401,36 @@ class CandidateProfileTest extends TestCase
         $this->assertStringEndsWith('_Resume.pdf', $response->json('data.resume'));
     }
 
-    /** Replacing a resume must not break a link already frozen into a snapshot. */
-    public function test_replacing_a_resume_does_not_delete_it_while_an_application_still_needs_it(): void
+    /**
+     * Uploading a resume is gone — the profile is the only source — so the
+     * route is not merely unused, it must not answer at all.
+     */
+    public function test_there_is_no_resume_upload_endpoint(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->postJson("{$this->api}/candidate/profile/resume", [])
+            ->assertStatus(404);
+    }
+
+    /**
+     * Rebuilding must not break a link already frozen into a snapshot: the
+     * applicant screen resolves the application's own copy, and deleting the
+     * file underneath it would leave a recruiter with a dead link.
+     */
+    public function test_rebuilding_a_resume_does_not_delete_it_while_an_application_still_needs_it(): void
     {
         Storage::fake('local');
-        $user = $this->actingAsCandidate(['qualification' => 'B.Sc Nursing']);
+        $user = $this->actingAsCandidate(['name' => 'Yash Saraswat', 'qualification' => 'B.Sc Nursing']);
 
-        $firstPath = $this->postJson("{$this->api}/candidate/profile/resume", [
-            'file' => UploadedFile::fake()->create('First.pdf', 100, 'application/pdf'),
-        ])->json('data.resume');
+        $this->postJson("{$this->api}/candidate/profile/resume/generate")->assertOk();
 
         $job = JobPosting::factory()->create(['required_fields' => []]);
         $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])->assertCreated();
 
         $storedPath = $user->fresh()->candidateProfile->resume_path;
 
-        $this->postJson("{$this->api}/candidate/profile/resume", [
-            'file' => UploadedFile::fake()->create('Second.pdf', 100, 'application/pdf'),
-        ])->assertOk();
+        $this->postJson("{$this->api}/candidate/profile/resume/generate")->assertOk();
 
         Storage::disk('local')->assertExists($storedPath);
     }
@@ -482,6 +448,30 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('data.photo', true);
     }
 
+
+    public function test_a_photo_can_be_removed_not_only_replaced(): void
+    {
+        Storage::fake('public');
+        $user = $this->actingAsCandidate();
+
+        $this->postJson("{$this->api}/candidate/profile/photo", [
+            'file' => UploadedFile::fake()->image('me.jpg', 400, 400),
+        ])->assertOk();
+
+        $path = $user->fresh()->candidateProfile->photo_path;
+        $this->assertNotNull($path);
+
+        $this->deleteJson("{$this->api}/candidate/profile/photo")->assertOk();
+
+        $this->assertNull($user->fresh()->candidateProfile->photo_path);
+        Storage::disk('public')->assertMissing($path);
+
+        // And the profile stops claiming one, so the strength score and the
+        // avatar fall back together.
+        $this->getJson("{$this->api}/candidate/profile")
+            ->assertJsonPath('data.photo', false)
+            ->assertJsonPath('data.photo_url', null);
+    }
     public function test_photo_upload_rejects_a_pdf(): void
     {
         Storage::fake('public');

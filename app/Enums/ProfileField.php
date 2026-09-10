@@ -12,7 +12,6 @@ enum ProfileField: string
     case Skills = 'skills';
     case Location = 'location';
     case Specialization = 'specialization';
-    case CertificationBls = 'certificationBls';
     case Resume = 'resume';
     case Gender = 'gender';
     case Dob = 'dob';
@@ -48,7 +47,6 @@ enum ProfileField: string
             self::Skills => filled($profile->skills),
             self::Location => filled($profile->location),
             self::Specialization => filled($profile->specialization),
-            self::CertificationBls => in_array('BLS', $profile->certifications ?? [], true),
             self::Resume => filled($profile->resume_name),
             self::Gender => filled($profile->gender),
             self::Dob => filled($profile->dob),

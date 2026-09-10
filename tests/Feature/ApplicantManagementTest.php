@@ -71,7 +71,7 @@ class ApplicantManagementTest extends TestCase
                 'application_id', 'job_id', 'status', 'applied_at', 'stage_updated_at', 'interview',
                 'profile' => [
                     'name', 'phone', 'email', 'qualification', 'experience', 'skills',
-                    'profile_strength', 'educations', 'experiences', 'certifications',
+                    'profile_strength', 'educations', 'experiences',
                     'languages', 'about', 'resume', 'resume_url',
                 ],
             ]], 'meta' => ['page', 'per_page', 'total', 'total_pages']])

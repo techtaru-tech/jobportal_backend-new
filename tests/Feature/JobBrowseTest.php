@@ -206,13 +206,129 @@ class JobBrowseTest extends TestCase
             ->assertJsonPath('data.0.has_applied', false);
     }
 
+
+    /**
+     * The "Recommended for you" feed. Until `recommended` existed, that
+     * heading sat above the newest jobs in the same order for everybody while
+     * the Preferred jobs screen collected answers nothing read.
+     */
+    public function test_recommended_ranks_the_candidates_preferred_role_first(): void
+    {
+        // Posted newest-first in the order created, so without ranking the
+        // Dietitian job — created last — would lead.
+        $nurse = JobPosting::factory()->create([
+            'role' => 'Nurse',
+            'city' => 'Jaipur',
+            'posted_at' => now()->subDays(3),
+        ]);
+        JobPosting::factory()->create([
+            'role' => 'Dietitian',
+            'city' => 'Kota',
+            'posted_at' => now(),
+        ]);
+
+        $this->actingAsCandidate([
+            'preferred_roles' => ['Nurse'],
+            'location' => ['Jaipur'],
+        ]);
+
+        // Unranked: newest wins.
+        $this->getJson("{$this->api}/jobs")
+            ->assertOk()
+            ->assertJsonPath('data.0.role', 'Dietitian');
+
+        // Ranked: the candidate's own role and city win.
+        $this->getJson("{$this->api}/jobs?recommended=1")
+            ->assertOk()
+            ->assertJsonPath('data.0.role', 'Nurse')
+            ->assertJsonPath('data.0.id', "j_{$nurse->id}");
+    }
+
+    /**
+     * A rank, not a filter — somebody whose preferences match nothing on the
+     * board still gets a feed. Filtering would have shown them an empty
+     * screen with no way to tell why.
+     */
+    public function test_recommended_still_returns_jobs_that_match_no_preference(): void
+    {
+        JobPosting::factory()->count(3)->create(['role' => 'Nurse']);
+
+        $this->actingAsCandidate([
+            'preferred_roles' => ['Radiology Technician'],
+            'preferred_shifts' => ['Night'],
+        ]);
+
+        $this->getJson("{$this->api}/jobs?recommended=1")
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
+    }
+
+    /** A guest has no preferences to rank by, and must not get an error. */
+    public function test_recommended_is_ignored_for_a_signed_out_visitor(): void
+    {
+        JobPosting::factory()->count(2)->create();
+
+        $this->getJson("{$this->api}/jobs?recommended=1")
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
+    /**
+     * The filter sheet is server-defined. The app ships no list of groups, so
+     * this payload is the only thing that decides what a candidate can filter
+     * on — and `/jobs` reads the same declaration for its whitelist.
+     */
+    public function test_config_options_declare_the_job_filter_groups(): void
+    {
+        $groups = $this->getJson("{$this->api}/config/options")
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['job_filters' => [
+                '*' => ['key', 'label', 'param', 'type', 'options'],
+            ]]])
+            ->json('data.job_filters');
+
+        $byKey = collect($groups)->keyBy('key');
+
+        // City is the location filter; it was the one dimension a candidate
+        // could see on every card and not filter by.
+        $this->assertSame('city', $byKey['city']['param']);
+        $this->assertContains('Jaipur', $byKey['city']['options']);
+
+        // Salary is a threshold, not a set — the app has to know which.
+        $this->assertSame('min', $byKey['salary']['type']);
+        $this->assertSame('in', $byKey['experience']['type']);
+    }
+
+    public function test_the_city_filter_accepts_more_than_one_city(): void
+    {
+        JobPosting::factory()->create(['city' => 'Jaipur']);
+        JobPosting::factory()->create(['city' => 'Kota']);
+        JobPosting::factory()->create(['city' => 'Udaipur']);
+
+        $this->getJson("{$this->api}/jobs?city[]=Jaipur&city[]=Kota")
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
+    /**
+     * A group nobody declared must never reach the query builder — otherwise
+     * the whitelist is decorative and the app could filter on any column.
+     */
+    public function test_an_undeclared_filter_parameter_is_ignored(): void
+    {
+        JobPosting::factory()->count(2)->create(['role' => 'Nurse']);
+
+        $this->getJson("{$this->api}/jobs?role[]=Doctor&posting_status[]=draft")
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
     public function test_config_options_expose_every_reference_list(): void
     {
         $this->getJson("{$this->api}/config/options")
             ->assertOk()
             ->assertJsonStructure(['data' => [
                 'categories', 'experience_bands', 'qualifications', 'skills',
-                'job_types', 'shifts', 'cities', 'certifications', 'languages',
+                'job_types', 'shifts', 'cities', 'languages',
                 'language_levels', 'skill_levels', 'organisation_industries',
                 'organisation_sizes', 'salary_steps',
                 'enums' => ['application_status', 'application_status_pipeline',
