@@ -68,6 +68,42 @@ class OptionListService
     ];
 
     /**
+     * The job-filter declaration list — groups, not values.
+     *
+     * Deliberately **not** in [EDITABLE_LISTS]: those are flat lists of
+     * strings and the generic editor writes exactly that, whereas a filter
+     * group is a label plus four pieces of behaviour carried in `meta`. It
+     * has its own admin endpoints for that reason.
+     */
+    public const FILTER_LIST = 'job_filters';
+
+    /**
+     * The `job_postings` columns a filter group may match on.
+     *
+     * A whitelist, not a convenience: without it, whoever can edit reference
+     * data could point a filter at any column on the table and read it back
+     * through `GET /jobs` one value at a time.
+     *
+     * @var list<string>
+     */
+    public const FILTER_COLUMNS = [
+        'role',
+        'city',
+        'experience',
+        'type',
+        'shift',
+        'salary_min',
+    ];
+
+    /**
+     * `in` — any of the picked values. `min` — the lowest numeric threshold
+     * picked, matched with `>=`.
+     *
+     * @var list<string>
+     */
+    public const FILTER_TYPES = ['in', 'min'];
+
+    /**
      * Lists that are maps rather than flat arrays, and so are edited through
      * their own endpoints: `skills_by_category` (category => skills) and
      * `city_coordinates` (city => {lat, lng}).
@@ -123,18 +159,18 @@ class OptionListService
     {
         $groups = [];
 
-        foreach ((array) config('options.job_filters', []) as $group) {
-            $options = $this->list((string) ($group['list'] ?? ''));
+        foreach ($this->jobFilterDeclarations() as $group) {
+            $options = $this->list($group['list']);
 
             if ($options === []) {
                 continue;
             }
 
             $groups[] = [
-                'key' => (string) $group['key'],
-                'label' => (string) $group['label'],
-                'param' => (string) $group['param'],
-                'type' => (string) ($group['type'] ?? 'in'),
+                'key' => $group['key'],
+                'label' => $group['label'],
+                'param' => $group['param'],
+                'type' => $group['type'],
                 'options' => $options,
             ];
         }
@@ -153,14 +189,95 @@ class OptionListService
     {
         $params = [];
 
-        foreach ((array) config('options.job_filters', []) as $group) {
-            $params[(string) $group['param']] = [
-                'column' => (string) $group['column'],
-                'type' => (string) ($group['type'] ?? 'in'),
+        foreach ($this->jobFilterDeclarations() as $group) {
+            $params[$group['param']] = [
+                'column' => $group['column'],
+                'type' => $group['type'],
             ];
         }
 
         return $params;
+    }
+
+    /**
+     * The filter groups as declared — DB override first, config file
+     * otherwise, exactly like every other list here.
+     *
+     * Unlike the others this one is not a list of strings: a group is a label
+     * *plus* the parameter it sends, the list its chips come from, the column
+     * it matches and how. That rides in `option_items.meta`, which is why
+     * [FILTER_LIST] is kept out of [EDITABLE_LISTS] — the generic value
+     * editor has nowhere to put any of it, and would write a group with no
+     * behaviour.
+     *
+     * Anything malformed is dropped rather than served: a group naming a
+     * column outside [FILTER_COLUMNS] would otherwise let whoever edited it
+     * filter on a column the API never meant to expose.
+     *
+     * @return list<array{id: int|null, key: string, label: string, param: string, list: string, column: string, type: string}>
+     */
+    public function jobFilterDeclarations(): array
+    {
+        $rows = OptionItem::forList(self::FILTER_LIST)->active()->ordered()->get();
+
+        $source = $rows->isEmpty()
+            ? (array) config('options.'.self::FILTER_LIST, [])
+            : $rows->map(fn (OptionItem $row) => [
+                'id' => $row->id,
+                'label' => $row->value,
+                ...($row->meta ?? []),
+            ])->all();
+
+        $groups = [];
+
+        foreach ($source as $group) {
+            $declaration = $this->normaliseFilter($group);
+            if ($declaration !== null) {
+                $groups[] = $declaration;
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param  array<string, mixed>  $group
+     * @return array{id: int|null, key: string, label: string, param: string, list: string, column: string, type: string}|null
+     */
+    private function normaliseFilter(array $group): ?array
+    {
+        $key = trim((string) ($group['key'] ?? ''));
+        $label = trim((string) ($group['label'] ?? ''));
+        $param = trim((string) ($group['param'] ?? ''));
+        $list = trim((string) ($group['list'] ?? ''));
+        $column = trim((string) ($group['column'] ?? ''));
+        $type = trim((string) ($group['type'] ?? 'in'));
+
+        if ($key === '' || $label === '' || $param === '' || $list === '') {
+            return null;
+        }
+
+        if (! in_array($column, self::FILTER_COLUMNS, true)) {
+            return null;
+        }
+
+        if (! in_array($type, self::FILTER_TYPES, true)) {
+            return null;
+        }
+
+        if (! in_array($list, self::EDITABLE_LISTS, true)) {
+            return null;
+        }
+
+        return [
+            'id' => isset($group['id']) ? (int) $group['id'] : null,
+            'key' => $key,
+            'label' => $label,
+            'param' => $param,
+            'list' => $list,
+            'column' => $column,
+            'type' => $type,
+        ];
     }
 
     /**

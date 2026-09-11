@@ -625,11 +625,13 @@ Query params (all optional, combine with AND):
 | `page`, `per_page` | pagination, `per_page` capped at 100, default 20 |
 
 **Filter params are declared, not hardcoded.** Every remaining filter comes
-from `config('options.job_filters')` — the same declaration `GET
-/config/options` serves to the app as `job_filters`. A group added there
-starts filtering immediately and reaches the app's filter sheet on the next
-cold start, with no release on either side; a param nobody declared is
-ignored rather than reaching the query builder. As shipped:
+from the job-filter declaration — `config('options.job_filters')` until an
+operator edits it, `option_items` after that (see `/admin/job-filters`). The
+same declaration is what `GET /config/options` serves to the app as
+`job_filters`, so a group added in the admin panel starts filtering
+immediately and reaches the app's filter sheet on the next cold start, with
+no release on either side; a param nobody declared is ignored rather than
+reaching the query builder. As shipped:
 
 | Param | Matches | Notes |
 |---|---|---|

@@ -50,6 +50,9 @@
     { key: 'optionLists', label: 'Reference data', icon: 'sliders',
       keywords: ['skills', 'cities', 'qualifications', 'categories', 'options', 'lists',
                  'shifts', 'job types'] },
+    { key: 'jobFilters', label: 'Job filters', icon: 'funnel',
+      keywords: ['filters', 'filter sheet', 'browse', 'search', 'refine', 'facets',
+                 'salary filter', 'city filter'] },
     { key: 'content', label: 'Support & Legal', icon: 'fileText',
       keywords: ['terms', 'privacy', 'about us', 'contact us', 'faq', 'faqs', 'help',
                  'support', 'legal', 'policy'] },
@@ -235,6 +238,13 @@
       optionLists: { data: null, busy: false },
       optionListDetail: { data: null, key: '', busy: false },
       newOptionValue: '',
+
+      // The filter sheet the app draws. Reference data edits the *values*
+      // under a filter; this edits the filters themselves.
+      jobFilters: { data: null, busy: false },
+      filterForm: null,
+      filterKeyTouched: false,
+      filterParamTouched: false,
 
       pages: { data: [], busy: false },
       faqs: { data: [], busy: false },
@@ -1061,6 +1071,98 @@
           .catch((e) => this.showToast(e.message, true))
       },
 
+
+      // ── job filters ─────────────────────────────────────────────────
+      // Reference data edits the values *under* a filter; this edits the
+      // filters themselves. A group is a label plus behaviour — the query
+      // parameter the app sends, the list its chips come from, the column it
+      // matches and how — so it gets a form rather than a text box.
+
+      loadJobFilters() {
+        this.jobFilters.busy = true
+        this.api('/admin/job-filters')
+          .then((res) => { this.jobFilters.data = res.data })
+          .catch((e) => this.showToast(e.message, true))
+          .finally(() => { this.jobFilters.busy = false })
+      },
+
+      /** Opens the form blank, or filled in from an existing group. */
+      editJobFilter(group) {
+        this.filterForm = group
+          ? { ...group }
+          : { id: null, key: '', label: '', param: '', list: 'cities', column: 'city', type: 'in' }
+      },
+
+      closeJobFilterForm() { this.filterForm = null },
+
+      /**
+       * The key and the parameter are what the app and the API agree on, and
+       * both are lowercase identifiers — so they are suggested from the label
+       * rather than asked for twice. Only while the field is untouched: an
+       * operator who set a parameter deliberately keeps it.
+       */
+      suggestFilterKeys() {
+        const f = this.filterForm
+        if (!f || f.id) return
+        const slug = (f.label || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+        if (!this.filterKeyTouched) f.key = slug
+        if (!this.filterParamTouched) f.param = slug
+      },
+
+      saveJobFilter() {
+        const f = this.filterForm
+        if (!f) return
+        const body = {
+          key: f.key, label: f.label, param: f.param,
+          list: f.list, column: f.column, type: f.type,
+        }
+        const editing = !!f.id
+        this.api(editing ? '/admin/job-filters/' + f.id : '/admin/job-filters',
+          { method: editing ? 'PATCH' : 'POST', body })
+          .then((res) => {
+            this.jobFilters.data = { ...this.jobFilters.data, groups: res.data, is_overridden: true }
+            this.filterForm = null
+            this.filterKeyTouched = false
+            this.filterParamTouched = false
+            this.showToast(editing ? 'Filter updated.' : 'Filter added.')
+          })
+          .catch((e) => this.showToast(e.message, true))
+      },
+
+      deleteJobFilter(group) {
+        if (!confirm(`Remove the “${group.label}” filter from the app?`)) return
+        this.api('/admin/job-filters/' + group.id, { method: 'DELETE' })
+          .then((res) => {
+            this.jobFilters.data = { ...this.jobFilters.data, groups: res.data }
+            this.showToast('Removed.')
+          })
+          .catch((e) => this.showToast(e.message, true))
+      },
+
+      moveJobFilter(idx, dir) {
+        const groups = this.jobFilters.data.groups
+        const target = idx + dir
+        if (target < 0 || target >= groups.length) return
+        const arr = groups.slice()
+        ;[arr[idx], arr[target]] = [arr[target], arr[idx]]
+        this.jobFilters.data = { ...this.jobFilters.data, groups: arr }
+        this.api('/admin/job-filters/order', { method: 'PUT', body: { ids: arr.map((g) => g.id) } })
+          .then((res) => {
+            this.jobFilters.data = { ...this.jobFilters.data, groups: res.data, is_overridden: true }
+            this.showToast('Order saved.')
+          })
+          .catch((e) => { this.showToast(e.message, true); this.loadJobFilters() })
+      },
+
+      resetJobFilters() {
+        if (!confirm('Reset the filter sheet to the shipped filters? This removes every edit.')) return
+        this.api('/admin/job-filters/override', { method: 'DELETE' })
+          .then((res) => {
+            this.jobFilters.data = { ...this.jobFilters.data, groups: res.data, is_overridden: false }
+            this.showToast('Reverted to defaults.')
+          })
+          .catch((e) => this.showToast(e.message, true))
+      },
       // ── content ─────────────────────────────────────────────────────
       loadPages() {
         this.pages.busy = true
