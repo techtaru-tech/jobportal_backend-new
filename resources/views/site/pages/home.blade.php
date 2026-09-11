@@ -74,6 +74,22 @@
                         Search jobs
                     </button>
                 </form>
+                {{-- The template's "popular keywords" row. Real roles from the
+                     live catalogue, not a hardcoded list — a shortcut that
+                     offers a search returning nothing is worse than no
+                     shortcut. Falls away entirely when nothing is posted. --}}
+                @if ($categories)
+                    <div class="mt-lg flex flex-wrap items-center gap-sm">
+                        <span class="text-caption font-semibold text-ink-secondary">Popular:</span>
+                        @foreach (collect($categories)->take(5) as $popular)
+                            <a href="{{ route('site.jobs', ['role' => $popular['role']]) }}"
+                               class="rounded-chip border-hair border-hairline bg-surface px-md py-[5px] text-caption text-ink-secondary
+                                      transition-colors duration-micro hover:border-primary hover:bg-primary-light hover:text-primary-dark">
+                                {{ $popular['role'] }}
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
 
                 <div class="mt-xl flex flex-wrap items-center gap-x-xxl gap-y-lg">
                     @foreach ([
@@ -176,19 +192,23 @@
 
     <div class="grid grid-cols-2 gap-md sm:grid-cols-3 lg:grid-cols-4" data-reveal-group="60">
         @foreach ($categories as $category)
+            {{-- The template's category tile: centred, dashed edge, and the
+                 whole card flooding brand red on hover rather than just its
+                 border tinting. The dashed edge is what keeps a grid of these
+                 from reading as a wall of boxes before you touch one. --}}
             <a href="{{ route('site.jobs', ['role' => $category['role']]) }}" data-reveal
-               class="lift group rounded-card border-hair border-hairline bg-surface p-lg shadow-card
-                      hover:border-primary-line hover:shadow-raised">
-                <span class="flex h-10 w-10 items-center justify-center rounded-field bg-primary-light text-primary
-                             transition-transform duration-micro group-hover:scale-110">
+               class="lift group block rounded-card border-hair border-dashed border-hairline-strong bg-surface p-lg text-center
+                      transition-colors duration-micro hover:border-solid hover:border-primary hover:bg-primary hover:shadow-button">
+                <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-field bg-primary-light text-primary
+                             transition-[transform,background-color,color] duration-micro
+                             group-hover:scale-110 group-hover:bg-white/15 group-hover:text-ink-onPrimary">
                     @include('admin.partials.icon', ['name' => 'briefcase', 'class' => 'h-5 w-5'])
                 </span>
-                <h3 class="mt-md truncate text-h5 text-ink">{{ $category['role'] }}</h3>
-                <p class="mt-[2px] flex items-center gap-xs text-caption text-ink-muted">
-                    <span>{{ $category['count'] }} {{ Str::plural('opening', $category['count']) }}</span>
-                    <span class="nudge text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                        @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-3 w-3'])
-                    </span>
+                <h3 class="mt-md truncate text-h5 text-ink transition-colors duration-micro group-hover:text-ink-onPrimary">
+                    {{ $category['role'] }}
+                </h3>
+                <p class="mt-[2px] text-caption text-ink-muted transition-colors duration-micro group-hover:text-white/80">
+                    {{ $category['count'] }} {{ Str::plural('opening', $category['count']) }}
                 </p>
             </a>
         @endforeach
@@ -246,6 +266,45 @@
                     <p class="mt-xs text-bodysm text-ink-secondary">{{ $step['body'] }}</p>
                 </div>
             @endforeach
+        </div>
+    </div>
+</section>
+
+{{-- ── full-bleed red band ──────────────────────────────────────────────────
+     The template's signature call-to-action: a solid brand-colour band running
+     edge to edge, breaking the page's run of white sections. It earns its
+     loudness by sitting between browsing and the app pitch — the point where a
+     visitor has seen the jobs and needs telling what to do next.
+--}}
+<section class="relative overflow-hidden bg-primary">
+    {{-- Depth without an image: a soft light source top-right and the same dot
+         grid the rest of the page uses, dropped to a white tint so it reads on
+         red. Decorative, so hidden from assistive tech. --}}
+    <div class="absolute inset-0 opacity-[0.18]" aria-hidden="true"
+         style="background-image:radial-gradient(rgba(255,255,255,0.9) 1px,transparent 1px);background-size:22px 22px"></div>
+    <div class="absolute -right-[140px] -top-[160px] h-[420px] w-[420px] rounded-full" aria-hidden="true"
+         style="background-image:radial-gradient(circle,rgba(255,255,255,0.22) 0%,transparent 62%)"></div>
+
+    <div class="relative mx-auto flex max-w-[1200px] flex-col items-center gap-lg px-page py-xxxl text-center lg:flex-row lg:justify-between lg:px-xl lg:text-left">
+        <div class="min-w-0" data-reveal>
+            <h2 class="text-[28px] font-bold leading-[1.15] tracking-[-0.5px] text-ink-onPrimary sm:text-[36px]">Ready to find your next role?</h2>
+            <p class="mt-sm max-w-[560px] text-body text-white/85">
+                Free for candidates, always. Browse every opening here, then apply in seconds
+                from the app.
+            </p>
+        </div>
+
+        <div class="flex shrink-0 flex-col gap-sm sm:flex-row" data-reveal="right">
+            <a href="{{ route('site.jobs') }}"
+               class="sheen inline-flex h-[52px] items-center justify-center rounded-button bg-white px-xxl text-btn font-semibold text-primary-dark
+                      transition-transform duration-micro ease-out hover:bg-white/90 active:scale-[0.97]">
+                Browse jobs
+            </a>
+            <a href="{{ route('site.get-app') }}"
+               class="inline-flex h-[52px] items-center justify-center rounded-button border-btn border-white/60 px-xxl text-btn font-semibold text-ink-onPrimary
+                      transition-colors duration-micro hover:bg-white/10">
+                Get the app
+            </a>
         </div>
     </div>
 </section>
