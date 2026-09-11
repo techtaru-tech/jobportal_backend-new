@@ -58,6 +58,7 @@
           @include('admin.pages.organisations')
           @include('admin.pages.subscriptions')
           @include('admin.pages.option-lists')
+          @include('admin.pages.job-filters')
           @include('admin.pages.content')
           @include('admin.pages.notifications')
         </div>

@@ -83,13 +83,12 @@ Route::prefix('v1')->group(function () {
                 Route::patch('/', [CandidateProfileController::class, 'update']);
                 Route::patch('preferences', [CandidateProfileController::class, 'updatePreferences']);
                 Route::put('skills', [CandidateProfileController::class, 'updateSkills']);
-                Route::put('certifications', [CandidateProfileController::class, 'updateCertifications']);
                 Route::put('languages', [CandidateProfileController::class, 'updateLanguages']);
                 Route::patch('about', [CandidateProfileController::class, 'updateAbout']);
 
-                Route::post('resume', [CandidateProfileController::class, 'uploadResume']);
                 Route::post('resume/generate', [CandidateProfileController::class, 'generateResume']);
                 Route::post('photo', [CandidateProfileController::class, 'uploadPhoto']);
+                Route::delete('photo', [CandidateProfileController::class, 'deletePhoto']);
                 Route::post('intro-video', [CandidateProfileController::class, 'uploadIntroVideo']);
                 Route::delete('intro-video', [CandidateProfileController::class, 'deleteIntroVideo']);
 
@@ -251,6 +250,9 @@ Route::prefix('v1')->group(function () {
             Route::get('option-lists', [Admin\OptionListController::class, 'index']);
             Route::get('option-lists/{list}', [Admin\OptionListController::class, 'show']);
 
+            // The filter sheet the app draws, as data — groups, not values.
+            Route::get('job-filters', [Admin\JobFilterController::class, 'index']);
+
             Route::get('content/pages', [Admin\ContentController::class, 'pages']);
             Route::get('content/pages/{slug}', [Admin\ContentController::class, 'showPage']);
             Route::get('content/faqs', [Admin\ContentController::class, 'faqs']);
@@ -279,6 +281,14 @@ Route::prefix('v1')->group(function () {
                 Route::delete('option-lists/{list}/items/{itemId}', [Admin\OptionListController::class, 'destroy']);
                 Route::put('option-lists/{list}/reorder', [Admin\OptionListController::class, 'reorder']);
                 Route::delete('option-lists/{list}/override', [Admin\OptionListController::class, 'resetToDefault']);
+
+                // `override` before `{id}`, or the literal would be read as an
+                // id and the reset would 404.
+                Route::post('job-filters', [Admin\JobFilterController::class, 'store']);
+                Route::put('job-filters/order', [Admin\JobFilterController::class, 'reorder']);
+                Route::delete('job-filters/override', [Admin\JobFilterController::class, 'resetToDefault']);
+                Route::patch('job-filters/{id}', [Admin\JobFilterController::class, 'update']);
+                Route::delete('job-filters/{id}', [Admin\JobFilterController::class, 'destroy']);
 
                 Route::patch('content/pages/{slug}', [Admin\ContentController::class, 'updatePage']);
                 Route::post('content/faqs', [Admin\ContentController::class, 'storeFaq']);

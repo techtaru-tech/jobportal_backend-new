@@ -44,7 +44,6 @@ class ConfigController extends ApiController
             'job_types' => $lists['job_types'],
             'shifts' => $lists['shifts'],
             'cities' => $lists['cities'],
-            'certifications' => $lists['certifications'],
             'languages' => $lists['languages'],
 
             // Closed enums, and `genders`, stay on the config file / enum: the
@@ -57,6 +56,14 @@ class ConfigController extends ApiController
             'organisation_sizes' => config('options.organisation_sizes'),
 
             'salary_steps' => $lists['salary_steps'],
+
+            // The filter sheet's whole definition — groups, headings, chip
+            // values and the query parameter each group sends. The app renders
+            // whatever comes back instead of shipping a list of its own, so an
+            // admin adding a city, or a group added server-side, reaches the
+            // sheet on the next cold start with no app release. `/jobs` reads
+            // the same declaration for its filter whitelist.
+            'job_filters' => $this->options->jobFilterGroups(),
 
             // Everything below replaced a hardcoded list in the app's
             // MockDataProvider — see API_AUDIT.md §7.

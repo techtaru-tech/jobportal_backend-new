@@ -131,32 +131,6 @@ class CandidateProfileController extends ApiController
         return $this->respond($profile, 'Skills updated.');
     }
 
-    /** PUT /candidate/profile/certifications (§3.7) — full replace. */
-    public function updateCertifications(Request $request): JsonResponse
-    {
-        $profile = $this->profile($request);
-
-        $validated = $request->validate([
-            'certifications' => ['present', 'array'],
-            'certifications.*' => ['string', 'max:40'],
-            'certification_years' => ['sometimes', 'array'],
-            'certification_years.*' => ['nullable', 'string', 'max:10'],
-        ]);
-
-        $certifications = Display::cleanList($validated['certifications']);
-
-        $profile->fill([
-            'certifications' => $certifications,
-            // Drop year entries for certifications that are no longer held.
-            'certification_years' => collect($validated['certification_years'] ?? [])
-                ->only($certifications)
-                ->filter(fn ($year) => filled($year))
-                ->all(),
-        ])->save();
-
-        return $this->respond($profile, 'Certifications updated.');
-    }
-
     /** PUT /candidate/profile/languages (§3.8) — full replace. */
     public function updateLanguages(Request $request): JsonResponse
     {
@@ -196,42 +170,12 @@ class CandidateProfileController extends ApiController
         return $this->respond($profile, 'About updated.');
     }
 
-    /** POST /candidate/profile/resume (§3.11) */
-    public function uploadResume(Request $request): JsonResponse
-    {
-        $limits = config('options.uploads.resume');
-
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:'.implode(',', $limits['mimes']), 'max:'.$limits['max_kb']],
-        ], [
-            'file.mimes' => 'Upload your resume as a PDF or Word document.',
-            'file.max' => 'Your resume must be smaller than 5 MB.',
-        ]);
-
-        $profile = $this->profile($request);
-        $file = $request->file('file');
-        $previousPath = $profile->resume_path;
-
-        $path = $file->store("resumes/{$profile->user_id}", PrivateFiles::DISK);
-
-        $profile->fill([
-            'resume_name' => $file->getClientOriginalName(),
-            'resume_path' => $path,
-        ])->save();
-
-        FileRetention::replacePrivate($previousPath);
-
-        return ApiResponse::data([
-            'resume' => $profile->resume_name,
-            'resume_url' => PrivateFiles::url($path),
-        ], 'Resume uploaded.');
-    }
-
     /**
      * POST /candidate/profile/resume/generate (§3.11)
      *
-     * Renders a plain resume from the profile for candidates with no file to
-     * upload — the Smart Apply fallback.
+     * Renders a plain resume from the profile. The only way a resume comes
+     * to exist: the upload endpoint is gone, so a candidate's document is
+     * always a rendering of the profile the recruiter is reading anyway.
      */
     public function generateResume(Request $request): JsonResponse
     {
@@ -281,6 +225,25 @@ class CandidateProfileController extends ApiController
         return ApiResponse::data([
             'photo_url' => PrivateFiles::publicUrl($path),
         ], 'Photo updated.');
+    }
+
+    /**
+     * DELETE /candidate/profile/photo (§3.12)
+     *
+     * Replacing a photo was always possible; clearing one was not, so a
+     * candidate who uploaded the wrong image could only ever cover it with
+     * another. Mirrors the intro-video delete.
+     */
+    public function deletePhoto(Request $request): JsonResponse
+    {
+        $profile = $this->profile($request);
+        $previousPath = $profile->photo_path;
+
+        $profile->fill(['photo_path' => null])->save();
+
+        FileRetention::replacePublic($previousPath);
+
+        return ApiResponse::message('Photo removed.');
     }
 
     /**

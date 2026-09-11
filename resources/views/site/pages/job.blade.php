@@ -180,7 +180,6 @@
                         'skills' => 'Skills',
                         'location' => 'Location',
                         'specialization' => 'Specialization',
-                        'certification_bls' => 'BLS certification',
                         'resume' => 'Resume',
                     ];
                 @endphp

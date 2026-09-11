@@ -633,23 +633,23 @@ class AdminPanelTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->postJson("{$this->api}/admin/option-lists/certifications/items", ['value' => 'Solo'])
+        $this->postJson("{$this->api}/admin/option-lists/languages/items", ['value' => 'Solo'])
             ->assertCreated();
 
         // Reduce to a single row the hard way, so the last-row guard is what
         // is under test rather than the materialised list's size.
-        $last = OptionItem::forList('certifications')->orderByDesc('id')->first();
-        OptionItem::forList('certifications')->where('id', '!=', $last->id)->delete();
+        $last = OptionItem::forList('languages')->orderByDesc('id')->first();
+        OptionItem::forList('languages')->where('id', '!=', $last->id)->delete();
 
         // Zero rows would read as "never overridden" and hand the list back to
         // the config file — restoring every value the admin had just removed.
         // So this is refused, and the message names the two real options.
-        $this->deleteJson("{$this->api}/admin/option-lists/certifications/items/{$last->id}")
+        $this->deleteJson("{$this->api}/admin/option-lists/languages/items/{$last->id}")
             ->assertStatus(422);
 
         $this->assertDatabaseHas('option_items', ['id' => $last->id]);
 
-        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.certifications');
+        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.languages');
         $this->assertSame(['Solo'], $served);
     }
 

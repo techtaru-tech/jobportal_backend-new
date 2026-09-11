@@ -120,7 +120,7 @@ enforced:
 §8.4), interview `type`, notification `audience`.
 
 **Freeform (any string accepted):** `qualification`, `skills`,
-`certifications`, `languages`, `preferred_roles`, work-experience
+`languages`, `preferred_roles`, work-experience
 `designation`/`organization`/`department`, job `qualifications`/`skills`/
 `duties`/`benefits`.
 
@@ -255,8 +255,6 @@ learn it once:
   "preferred_shifts": ["Day", "Rotational"],
   "expected_salary": "35K",
 
-  "certifications": ["BLS"],
-  "certification_years": { "BLS": "2024" },
   "languages": ["Hindi", "English"],
   "language_levels": { "Hindi": "Native", "English": "Fluent" },
 
@@ -297,10 +295,10 @@ learn it once:
   minutes). Don't cache them — re-fetch the profile if a link goes stale.
 - `intro_video_thumbnail_url` is currently always `null` — poster-frame
   generation isn't wired up yet. Don't build UI that assumes it's populated.
-- `profile_strength` (0–100) is computed server-side. Weights: name 10,
-  qualification 15, experience 15, skills 10, location 10, resume 15, photo 5,
-  certifications 5, languages 5, about 10. The intro video is **not** in this
-  score by design.
+- `profile_strength` (0–100) is computed server-side. Weights: personal 10,
+  qualification 14, experience 14, skills 10, location 10, resume 14, photo 4,
+  languages 4, about 10, intro_video 10 — they sum to exactly 100, so a
+  profile cannot reach 100 without an intro video.
 
 ### GET `/candidate/profile`
 
@@ -399,21 +397,6 @@ silently.
 
 **Response 200:** `{ "data": <full profile>, "message": "Skills updated." }`
 
-### PUT `/candidate/profile/certifications` — full replace
-
-**Request**
-```json
-{
-  "certifications": ["BLS", "ACLS"],
-  "certification_years": { "BLS": "2024", "ACLS": "2023" }
-}
-```
-`certifications`: required array of string ≤40. `certification_years.*`:
-nullable string ≤10. Years for certifications no longer in the list are
-dropped.
-
-**Response 200:** `{ "data": <full profile>, "message": "Certifications updated." }`
-
 ### PUT `/candidate/profile/languages` — full replace
 
 **Request**
@@ -435,32 +418,13 @@ dropped.
 
 **Response 200:** `{ "data": <full profile>, "message": "About updated." }`
 
-### POST `/candidate/profile/resume` — multipart
-
-**Form field:** `file` — PDF/DOC/DOCX, max 5MB.
-
-**Response 200**
-```json
-{
-  "data": {
-    "resume": "Yash_Saraswat_CV.pdf",
-    "resume_url": "https://api.example.com/storage/resumes/123/xyz.pdf?expires=...&signature=..."
-  },
-  "message": "Resume uploaded."
-}
-```
-
-**Error 422**
-```json
-{ "message": "Upload your resume as a PDF or Word document.", "errors": { "file": ["Upload your resume as a PDF or Word document."] } }
-```
-or `{"errors": {"file": ["Your resume must be smaller than 5 MB."]}}`.
-
 ### POST `/candidate/profile/resume/generate`
 
 No body. Builds a resume PDF server-side from the candidate's current profile
-(name, qualification, experience, skills, work history) — for candidates with
-no file to upload.
+(name, qualification, experience, skills, work history). **The only way a
+resume is created** — there is no upload endpoint. The candidate rebuilds it
+from Profile whenever they change something, and both they and the recruiter
+download that same rendering through the signed `resume_url`.
 
 **Response 200**
 ```json
@@ -647,23 +611,35 @@ candidate, jobs additionally carry `is_saved`/`has_applied`.
   payload — an applicant is never shown how many people they are competing
   with, so read it as "not told", not "zero".
 - `required_fields` values are drawn from: `name`, `qualification`,
-  `experience`, `skills`, `location`, `specialization`, `certificationBls`,
+  `experience`, `skills`, `location`, `specialization`,
   `resume`.
 
 ### GET `/jobs`
 
 Query params (all optional, combine with AND):
-
 | Param | Notes |
 |---|---|
 | `category` | exact match against `role` |
 | `query` (or `q`) | free-text over title/organisation/role/skills |
-| `city` | exact match |
-| `experience` | repeatable or comma-separated |
-| `job_type` | repeatable or comma-separated, values from `job_types` |
-| `shift` | repeatable or comma-separated, values from `shifts` |
-| `min_salary` | int — filters on the job's `salary_min` (i.e. its floor must clear this number, not its ceiling) |
+| `recommended` | `1` to rank the page by the candidate's saved preferences instead of by posting date — preferred role (weight 4), preferred city (3), job type (2), shift (1), then `posted_at` desc. A rank, not a filter: nothing is excluded, so a candidate who matches nothing still gets a feed. Ignored without a candidate token. |
 | `page`, `per_page` | pagination, `per_page` capped at 100, default 20 |
+
+**Filter params are declared, not hardcoded.** Every remaining filter comes
+from the job-filter declaration — `config('options.job_filters')` until an
+operator edits it, `option_items` after that (see `/admin/job-filters`). The
+same declaration is what `GET /config/options` serves to the app as
+`job_filters`, so a group added in the admin panel starts filtering
+immediately and reaches the app's filter sheet on the next cold start, with
+no release on either side; a param nobody declared is ignored rather than
+reaching the query builder. As shipped:
+
+| Param | Matches | Notes |
+|---|---|---|
+| `experience` | `experience` | repeatable or comma-separated |
+| `job_type` | `type` | repeatable or comma-separated |
+| `shift` | `shift` | repeatable or comma-separated |
+| `city` | `city` | repeatable or comma-separated — `city[]=Jaipur&city[]=Kota` is "either" |
+| `min_salary` | `salary_min` | int — the job's floor must clear this number, not its ceiling |
 
 **Response 200:** paginated envelope of `JobModel` (see §1.2).
 
@@ -1353,13 +1329,17 @@ startup and cache it.
     "job_types": ["Full Time", "Part Time", "Contract", "Internship"],
     "shifts": ["Day", "Night", "Rotational", "Flexible"],
     "cities": ["Jaipur", "Jodhpur", "Udaipur", "Kota", "Ajmer", "Bikaner", "Alwar", "Bharatpur"],
-    "certifications": ["BLS", "ACLS", "PALS", "NRP", "CPR"],
     "languages": ["Hindi", "English", "Rajasthani", "Punjabi", "Gujarati", "Marwari"],
     "language_levels": ["Basic", "Intermediate", "Fluent", "Native"],
     "skill_levels": ["Beginner", "Intermediate", "Expert"],
     "organisation_industries": ["Hospital", "Clinic", "Diagnostic Lab", "Pharmacy", "Nursing Home", "Home Healthcare", "Medical College", "Staffing Agency", "Other"],
     "organisation_sizes": ["1–10", "11–50", "51–200", "201–500", "500+"],
     "salary_steps": ["10K", "15K", "20K", "25K", "30K", "35K", "40K", "50K", "60K", "75K", "1L"],
+    "job_filters": [
+      { "key": "experience", "label": "Experience", "param": "experience", "type": "in", "options": ["Fresher", "0–1 yr", "..."] },
+      { "key": "salary", "label": "Salary", "param": "min_salary", "type": "min", "options": ["₹10K+", "₹20K+", "..."] },
+      { "key": "city", "label": "City", "param": "city", "type": "in", "options": ["Jaipur", "Kota", "..."] }
+    ],
     "salary_filters": ["₹10K+", "₹20K+", "₹30K+", "₹50K+", "₹75K+"],
     "specializations": ["Critical Care", "Emergency", "…"],
     "designations": ["Staff Nurse", "ICU Nurse", "…"],
@@ -1370,7 +1350,7 @@ startup and cache it.
       "application_status": ["applied", "shortlisted", "selected", "rejected"],
       "application_status_pipeline": ["applied", "shortlisted", "selected"],
       "job_posting_status": ["active", "paused", "draft", "closed", "expired"],
-      "profile_field": ["name", "qualification", "experience", "skills", "location", "specialization", "certificationBls", "resume"],
+      "profile_field": ["name", "qualification", "experience", "skills", "location", "specialization", "resume"],
       "interview_type": ["online", "inPerson"],
       "chat_sender": ["recruiter", "candidate"],
       "chat_message_status": ["sending", "sent", "delivered", "read"],
@@ -1381,7 +1361,6 @@ startup and cache it.
       "notification_audience": ["jobSeeker", "recruiter"]
     },
     "uploads": {
-      "resume": { "max_kb": 5120, "mimes": ["pdf", "doc", "docx"] },
       "photo": { "max_kb": 3072, "mimes": ["jpg", "jpeg", "png"] },
       "intro_video": { "max_kb": 51200, "max_seconds": 60, "mimes": ["mp4", "mov", "quicktime"] },
       "organisation_logo": { "max_kb": 3072, "mimes": ["jpg", "jpeg", "png"] },
@@ -1390,7 +1369,7 @@ startup and cache it.
   }
 }
 ```
-`salary_steps`, `cities`, `qualifications`, `skills`, `certifications`,
+`salary_steps`, `cities`, `qualifications`, `skills`,
 `specializations`, `designations` and `institutes` are **seed suggestions
 only** — never validated server-side as a closed set (see §1.6). Cities in
 particular are Rajasthan-first for launch but the field accepts any city name.
@@ -1428,10 +1407,8 @@ it renders — it ships no option lists of its own.
 | PATCH | `/candidate/profile` | candidate | |
 | PATCH | `/candidate/profile/preferences` | candidate | |
 | PUT | `/candidate/profile/skills` | candidate | full replace |
-| PUT | `/candidate/profile/certifications` | candidate | full replace |
 | PUT | `/candidate/profile/languages` | candidate | full replace |
 | PATCH | `/candidate/profile/about` | candidate | |
-| POST | `/candidate/profile/resume` | candidate | multipart |
 | POST | `/candidate/profile/resume/generate` | candidate | |
 | POST | `/candidate/profile/photo` | candidate | multipart |
 | POST | `/candidate/profile/intro-video` | candidate | multipart |

@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
     'qualification', 'experience', 'skills', 'skill_levels', 'location', 'specialization',
     'preferred_roles', 'preferred_job_types', 'preferred_shifts', 'expected_salary',
-    'certifications', 'certification_years', 'languages', 'language_levels',
+    'languages', 'language_levels',
     'about', 'photo_path', 'resume_name', 'resume_path',
     'intro_video_path', 'intro_video_thumbnail_path', 'intro_video_seconds',
 ])]
@@ -32,18 +32,21 @@ class CandidateProfile extends Model
      * other bucket — a profile cannot reach 100 without recording one. Every
      * other bucket gave up 1 point to fund it, so relative ranking is
      * unchanged.
+     *
+     * Certifications used to hold 4 of these points. With that section gone
+     * from the app, its 4 went back to the four buckets that had been
+     * shaved to 9 — so those return to 10 and the sum stays 100.
      */
     public const WEIGHTS = [
-        'personal' => 9,
+        'personal' => 10,
         'qualification' => 14,
         'experience' => 14,
-        'skills' => 9,
-        'location' => 9,
+        'skills' => 10,
+        'location' => 10,
         'resume' => 14,
         'photo' => 4,
-        'certifications' => 4,
         'languages' => 4,
-        'about' => 9,
+        'about' => 10,
         'intro_video' => 10,
     ];
 
@@ -73,8 +76,6 @@ class CandidateProfile extends Model
             'preferred_roles' => 'array',
             'preferred_job_types' => 'array',
             'preferred_shifts' => 'array',
-            'certifications' => 'array',
-            'certification_years' => 'array',
             'languages' => 'array',
             'language_levels' => 'array',
         ];
@@ -174,7 +175,6 @@ class CandidateProfile extends Model
             // Single-answer sections, modelled the same way so every caller
             // has one shape to read rather than two.
             'skills' => ['skills' => filled($this->skills)],
-            'certifications' => ['certifications' => filled($this->certifications)],
             'languages' => ['languages' => filled($this->languages)],
             'resume' => ['resume' => filled($this->resume_name)],
             'photo' => ['photo' => $this->hasPhoto()],
