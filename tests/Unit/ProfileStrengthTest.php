@@ -67,7 +67,6 @@ class ProfileStrengthTest extends TestCase
                 'specialization' => ['Critical Care'],
             ],
             'experience' => ['experience' => '3–5 yrs'],
-            'skills' => ['skills' => ['ICU']],
             'location' => [
                 'location' => ['Jaipur'],
                 'preferred_roles' => ['Nurse'],
@@ -104,7 +103,7 @@ class ProfileStrengthTest extends TestCase
     public function test_an_empty_array_does_not_count_as_filled(): void
     {
         $profile = new CandidateProfile;
-        $profile->forceFill($this->personalAttributes() + ['skills' => [], 'location' => []]);
+        $profile->forceFill($this->personalAttributes() + ['location' => [], 'languages' => []]);
 
         $this->assertSame(CandidateProfile::WEIGHTS['personal'], $profile->calculateStrength());
     }
@@ -164,7 +163,6 @@ class ProfileStrengthTest extends TestCase
                 'qualification' => 'B.Sc Nursing',
             'specialization' => ['Critical Care'],
             'experience' => '3–5 yrs',
-            'skills' => ['ICU'],
             // Every Preferred jobs question, not just the city.
             'location' => ['Jaipur'],
             'preferred_roles' => ['Nurse'],

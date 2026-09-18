@@ -73,12 +73,6 @@ class ResumePdf
             }
         }
 
-        if (filled($profile->skills)) {
-            $heading('Skills');
-            foreach (self::wrap(implode(' • ', $profile->skills), 96) as $line) {
-                $add($line);
-            }
-        }
 
         if ($profile->workExperiences->isNotEmpty()) {
             $heading('Work Experience');

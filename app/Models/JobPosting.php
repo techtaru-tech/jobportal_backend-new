@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'organisation_id', 'role', 'title', 'organisation', 'organisation_note',
     'city', 'pincode', 'latitude', 'longitude',
     'salary_min', 'salary_max', 'experience', 'type', 'shift',
-    'required_fields', 'about', 'duties', 'qualifications', 'skills', 'benefits',
+    'required_fields', 'about', 'duties', 'qualifications', 'benefits',
 ])]
 class JobPosting extends Model
 {
@@ -35,7 +35,6 @@ class JobPosting extends Model
             'required_fields' => 'array',
             'duties' => 'array',
             'qualifications' => 'array',
-            'skills' => 'array',
             'benefits' => 'array',
         ];
     }
@@ -163,8 +162,7 @@ class JobPosting extends Model
         return $query->where(function (Builder $q) use ($like) {
             $q->where('title', 'like', $like)
                 ->orWhere('organisation', 'like', $like)
-                ->orWhere('role', 'like', $like)
-                ->orWhere('skills', 'like', $like);
+                ->orWhere('role', 'like', $like);
         });
     }
 

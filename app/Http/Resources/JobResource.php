@@ -82,7 +82,6 @@ class JobResource extends JsonResource
             'about' => $this->about,
             'duties' => $this->duties ?? [],
             'qualifications' => $this->qualifications ?? [],
-            'skills' => $this->skills ?? [],
             'benefits' => $this->benefits ?? [],
 
             // Present only where the caller's saved/applied state was eager-loaded.

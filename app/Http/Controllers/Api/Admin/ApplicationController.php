@@ -111,7 +111,6 @@ class ApplicationController extends ApiController
                 'name' => $live->name,
                 'qualification' => $live->qualification,
                 'experience' => $live->experience,
-                'skills' => $live->skills ?? [],
                 'profile_strength' => (int) $live->profile_strength,
                 'has_resume' => filled($live->resume_path),
             ],

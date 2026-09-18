@@ -12,7 +12,6 @@ use App\Enums\NotificationAudience;
 use App\Enums\OrganisationIndustry;
 use App\Enums\OrganisationSize;
 use App\Enums\ProfileField;
-use App\Enums\SkillLevel;
 use App\Services\OptionListService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -40,7 +39,6 @@ class ConfigController extends ApiController
             'categories' => $lists['categories'],
             'experience_bands' => $lists['experience_bands'],
             'qualifications' => $lists['qualifications'],
-            'skills' => $lists['skills'],
             'job_types' => $lists['job_types'],
             'shifts' => $lists['shifts'],
             'cities' => $lists['cities'],
@@ -51,7 +49,6 @@ class ConfigController extends ApiController
             // be offered by the picker and then rejected on save. See
             // OptionListService::EDITABLE_LISTS.
             'language_levels' => config('options.language_levels'),
-            'skill_levels' => config('options.skill_levels'),
             'organisation_industries' => config('options.organisation_industries'),
             'organisation_sizes' => config('options.organisation_sizes'),
 
@@ -74,7 +71,6 @@ class ConfigController extends ApiController
             'departments' => $lists['departments'],
             'genders' => config('options.genders'),
             'passing_years' => $this->passingYears(),
-            'skills_by_category' => (object) $this->options->skillsByCategory(),
             'city_coordinates' => (object) $this->options->cityCoordinates(),
 
             // The closed enums the app's parsers switch on (§1.8).
@@ -89,7 +85,6 @@ class ConfigController extends ApiController
                 'interview_type' => InterviewType::values(),
                 'chat_sender' => ChatSender::values(),
                 'chat_message_status' => ChatMessageStatus::values(),
-                'skill_level' => SkillLevel::values(),
                 'language_level' => LanguageLevel::values(),
                 'organisation_industry' => OrganisationIndustry::values(),
                 'organisation_size' => OrganisationSize::values(),

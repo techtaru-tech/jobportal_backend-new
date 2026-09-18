@@ -39,8 +39,6 @@ class CandidateProfileResource extends JsonResource
             'experience' => $this->experience,
             'experience_min_years' => $this->experience_min_years,
             'experience_max_years' => $this->experience_max_years,
-            'skills' => $this->skills ?? [],
-            'skill_levels' => (object) ($this->skill_levels ?? []),
             'specialization' => $this->specialization ?? [],
 
             'location' => $this->location ?? [],

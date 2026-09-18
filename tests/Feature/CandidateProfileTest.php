@@ -52,7 +52,7 @@ class CandidateProfileTest extends TestCase
             ->assertJsonStructure(['data' => [
                 'name', 'phone', 'email', 'gender', 'dob', 'address',
                 'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
-                'qualification', 'experience', 'skills', 'skill_levels', 'specialization',
+                'qualification', 'experience', 'specialization',
                 'location', 'preferred_roles', 'preferred_job_types', 'preferred_shifts',
                 'expected_salary',
                 'languages', 'language_levels', 'about', 'photo', 'photo_url',
@@ -121,9 +121,9 @@ class CandidateProfileTest extends TestCase
         $this->actingAsCandidate();
 
         $this->patchJson("{$this->api}/candidate/profile", [
-            'skills' => ['ICU', 'ICU', ' Patient Care '],
+            'specialization' => ['Critical Care', 'Critical Care', ' Emergency '],
         ])->assertOk()
-            ->assertJsonPath('data.skills', ['ICU', 'Patient Care']);
+            ->assertJsonPath('data.specialization', ['Critical Care', 'Emergency']);
     }
 
     public function test_an_experience_band_alone_does_not_earn_the_whole_bucket(): void
@@ -192,7 +192,7 @@ class CandidateProfileTest extends TestCase
     {
         $this->actingAsCandidate();
 
-        $this->patchJson("{$this->api}/candidate/profile", ['skills' => [], 'qualification' => null]);
+        $this->patchJson("{$this->api}/candidate/profile", ['qualification' => null, 'location' => []]);
 
         $strength = $this->getJson("{$this->api}/candidate/profile")->json('data.profile_strength');
 
@@ -212,39 +212,6 @@ class CandidateProfileTest extends TestCase
         // information section complete.
         $this->getJson("{$this->api}/candidate/profile")
             ->assertJsonPath('data.profile_strength', 2);
-    }
-
-    public function test_skills_are_a_full_replace_accepting_any_freeform_string(): void
-    {
-        $this->actingAsCandidate();
-
-        // §3.6 — the §10.4 seed list is a suggestion shortlist, not a whitelist.
-        $this->putJson("{$this->api}/candidate/profile/skills", [
-            'skills' => ['Hyperbaric Chamber Ops', 'ICU'],
-            'skill_levels' => ['ICU' => 'Expert', 'Hyperbaric Chamber Ops' => 'Beginner'],
-        ])->assertOk()
-            ->assertJsonPath('data.skills', ['Hyperbaric Chamber Ops', 'ICU'])
-            ->assertJsonPath('data.skill_levels.ICU', 'Expert');
-    }
-
-    public function test_skills_are_deduplicated_case_insensitively(): void
-    {
-        $this->actingAsCandidate();
-
-        $this->putJson("{$this->api}/candidate/profile/skills", [
-            'skills' => ['ICU', 'icu', ' ICU '],
-        ])->assertOk()
-            ->assertJsonPath('data.skills', ['ICU']);
-    }
-
-    public function test_an_invalid_skill_level_is_rejected(): void
-    {
-        $this->actingAsCandidate();
-
-        $this->putJson("{$this->api}/candidate/profile/skills", [
-            'skills' => ['ICU'],
-            'skill_levels' => ['ICU' => 'Guru'],
-        ])->assertStatus(422);
     }
 
     public function test_preferences_update(): void
@@ -278,6 +245,35 @@ class CandidateProfileTest extends TestCase
             'languages' => ['Hindi'],
             'language_levels' => ['Hindi' => 'Excellent'],
         ])->assertStatus(422);
+    }
+
+    public function test_a_language_level_says_what_the_candidate_can_do(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->putJson("{$this->api}/candidate/profile/languages", [
+            'languages' => ['Hindi', 'English'],
+            'language_levels' => ['Hindi' => 'Read, Write & Speak', 'English' => 'Speak'],
+        ])->assertOk()
+            ->assertJsonPath('data.language_levels.Hindi', 'Read, Write & Speak')
+            ->assertJsonPath('data.language_levels.English', 'Speak');
+    }
+
+    public function test_the_old_proficiency_scale_is_no_longer_accepted(): void
+    {
+        // Basic/Intermediate/Fluent/Native was a self-assessment, and it did
+        // not answer what an employer asks — can this person speak to a
+        // patient, can they read a chart. Rejected rather than quietly
+        // stored, so a stale client cannot keep writing values that no picker
+        // in the app can show as selected.
+        $this->actingAsCandidate();
+
+        foreach (['Basic', 'Intermediate', 'Fluent', 'Native'] as $old) {
+            $this->putJson("{$this->api}/candidate/profile/languages", [
+                'languages' => ['Hindi'],
+                'language_levels' => ['Hindi' => $old],
+            ])->assertStatus(422);
+        }
     }
 
     public function test_about_updates(): void

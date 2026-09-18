@@ -112,7 +112,6 @@ class JobPostingController extends ApiController
                 'about' => $job->about,
                 'duties' => $job->duties ?? [],
                 'qualifications' => $job->qualifications ?? [],
-                'skills' => $job->skills ?? [],
                 'benefits' => $job->benefits ?? [],
 
                 // The Smart Apply gate. A posting demanding many fields the

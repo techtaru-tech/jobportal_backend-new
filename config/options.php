@@ -8,7 +8,7 @@
 | These lists mirror the hardcoded MockDataProvider lists in the Flutter app.
 | They are served verbatim by GET /api/v1/config/options so the app can switch
 | off its local constants without any other change. Seed lists are open (a
-| recruiter may type freeform qualifications/skills — see §8.1); the closed
+| recruiter may type freeform qualifications — see §8.1); the closed
 | enums live in app/Enums instead.
 |
 */
@@ -56,24 +56,6 @@ return [
         'M.Sc Nursing',
     ],
 
-    // §10.4 Common skills (seed list, not exhaustive)
-    'skills' => [
-        'ICU',
-        'Patient Care',
-        'Emergency Care',
-        'OPD',
-        'OT',
-        'Ventilator Care',
-        'Wound Dressing',
-        'Vaccination',
-        'Phlebotomy',
-        'X-Ray',
-        'CT Scan',
-        'MRI',
-        'Physiotherapy',
-        'Counselling',
-    ],
-
     // §10.5 Job types
     'job_types' => [
         'Full Time',
@@ -113,18 +95,17 @@ return [
         'Marwari',
     ],
 
+    // What a candidate can do in the language, not a self-rated proficiency
+    // — see the LanguageLevel enum. Every non-empty combination of read,
+    // write and speak.
     'language_levels' => [
-        'Basic',
-        'Intermediate',
-        'Fluent',
-        'Native',
-    ],
-
-    // §1.8 `skill_level` (§3.6)
-    'skill_levels' => [
-        'Beginner',
-        'Intermediate',
-        'Expert',
+        'Read',
+        'Write',
+        'Speak',
+        'Read & Write',
+        'Read & Speak',
+        'Write & Speak',
+        'Read, Write & Speak',
     ],
 
     // §1.8 `organisation_industry` (§7.2)
@@ -179,47 +160,6 @@ return [
         '₹50K+',
         '₹75K+',
     ],
-
-    /*
-    | Category → the skills a recruiter is offered once Post a Job's category
-    | is picked. A category absent from here falls back to the flat `skills`
-    | list above.
-    */
-    'skills_by_category' => [
-        'Nurse' => [
-            'Patient Care', 'ICU', 'Emergency Care', 'Ventilator Care',
-            'Wound Dressing', 'Vaccination', 'OT', 'Post-Op Care',
-        ],
-        'Doctor' => [
-            'OPD', 'Diagnosis', 'Emergency Care', 'Critical Care',
-            'Clinical Documentation', 'Surgery Assistance', 'Patient Management',
-        ],
-        'Pharmacist' => [
-            'Dispensing', 'Inventory Management', 'Prescription Review',
-            'Drug Interaction Checks', 'Billing', 'Cold Chain Handling',
-        ],
-        'Lab Technician' => [
-            'Phlebotomy', 'Sample Collection', 'Biochemistry', 'Haematology',
-            'Microbiology', 'Report Generation', 'Quality Control',
-        ],
-        'Radiology Technician' => [
-            'X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Radiation Safety',
-            'Patient Positioning',
-        ],
-        'Physiotherapist' => [
-            'Physiotherapy', 'Rehabilitation', 'Exercise Therapy',
-            'Electrotherapy', 'Post-Op Mobility', 'Pain Management',
-        ],
-        'Dietitian' => [
-            'Diet Planning', 'Nutrition Counselling', 'Clinical Nutrition',
-            'Patient Assessment', 'Therapeutic Diets',
-        ],
-        'Medical Officer' => [
-            'OPD', 'Emergency Care', 'Patient Management', 'Diagnosis',
-            'Clinical Documentation', 'Ward Rounds',
-        ],
-    ],
-
     /*
     | Clinical specialisations — the `specialization` Smart Apply field, which
     | a job asks for only when its `required_fields` name it. Distinct from the

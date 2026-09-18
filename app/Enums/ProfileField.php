@@ -9,7 +9,6 @@ enum ProfileField: string
     case Name = 'name';
     case Qualification = 'qualification';
     case Experience = 'experience';
-    case Skills = 'skills';
     case Location = 'location';
     case Specialization = 'specialization';
     case Resume = 'resume';
@@ -44,7 +43,6 @@ enum ProfileField: string
             self::Name => filled($profile->name),
             self::Qualification => filled($profile->qualification),
             self::Experience => filled($profile->experience),
-            self::Skills => filled($profile->skills),
             self::Location => filled($profile->location),
             self::Specialization => filled($profile->specialization),
             self::Resume => filled($profile->resume_name),

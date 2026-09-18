@@ -33,7 +33,6 @@ class ApplicantManagementTest extends TestCase
 
         $this->recruiter = User::factory()->recruiter()->create();
         $this->job = JobPosting::factory()->for($this->recruiter, 'recruiter')->create([
-            'skills' => ['ICU', 'Patient Care', 'Emergency Care'],
         ]);
     }
 
@@ -70,7 +69,7 @@ class ApplicantManagementTest extends TestCase
             ->assertJsonStructure(['data' => [[
                 'application_id', 'job_id', 'status', 'applied_at', 'stage_updated_at', 'interview',
                 'profile' => [
-                    'name', 'phone', 'email', 'qualification', 'experience', 'skills',
+                    'name', 'phone', 'email', 'qualification', 'experience',
                     'profile_strength', 'educations', 'experiences',
                     'languages', 'about', 'resume', 'resume_url',
                 ],
@@ -103,16 +102,15 @@ class ApplicantManagementTest extends TestCase
      */
     public function test_the_profile_is_the_frozen_snapshot_not_the_live_profile(): void
     {
-        $application = $this->applicant(['qualification' => 'GNM', 'skills' => ['OPD']]);
+        $application = $this->applicant(['qualification' => 'GNM']);
 
         $application->candidate->candidateProfile->forceFill([
             'qualification' => 'B.Sc Nursing',
-            'skills' => ['ICU'],
         ])->save();
 
         $this->getJson("{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants")
-            ->assertJsonPath('data.0.profile.qualification', 'GNM')
-            ->assertJsonPath('data.0.profile.skills', ['OPD']);
+
+            ->assertJsonPath('data.0.profile.qualification', 'GNM');
     }
 
     public function test_the_work_history_is_available_via_the_profile(): void
@@ -172,14 +170,11 @@ class ApplicantManagementTest extends TestCase
         }
     }
 
-    public function test_it_filters_by_the_json_backed_skills_and_location_facets(): void
+    public function test_it_filters_by_the_json_backed_location_facet(): void
     {
-        $this->applicant(['name' => 'A', 'skills' => ['ICU', 'OPD'], 'location' => ['Jaipur']]);
-        $this->applicant(['name' => 'B', 'skills' => ['Phlebotomy'], 'location' => ['Jodhpur']]);
+        $this->applicant(['name' => 'A', 'location' => ['Jaipur']]);
+        $this->applicant(['name' => 'B', 'location' => ['Jodhpur']]);
 
-        $this->getJson("{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants?skills=ICU")
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.profile.name', 'A');
 
         $this->getJson("{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants?location=Jodhpur")
             ->assertJsonPath('meta.total', 1)
@@ -201,42 +196,15 @@ class ApplicantManagementTest extends TestCase
         $this->getJson("{$base}?sort=highest_strength")->assertJsonPath('data.0.profile.name', 'Newer');
     }
 
-    public function test_best_match_ranks_by_skill_overlap_with_the_job(): void
-    {
-        $this->applicant(['name' => 'Weak match', 'skills' => ['Phlebotomy']]);
-        $this->applicant(['name' => 'Strong match', 'skills' => ['ICU', 'Patient Care', 'Emergency Care']]);
-        $this->applicant(['name' => 'Partial match', 'skills' => ['ICU']]);
-
-        $names = collect(
-            $this->getJson("{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants?sort=best_match")->json('data')
-        )->pluck('profile.name')->all();
-
-        $this->assertSame(['Strong match', 'Partial match', 'Weak match'], $names);
-    }
-
-    public function test_best_match_paginates(): void
-    {
-        foreach (range(1, 5) as $index) {
-            $this->applicant(['name' => "Candidate {$index}"]);
-        }
-
-        $this->getJson("{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants?sort=best_match&per_page=2&page=2")
-            ->assertJsonPath('meta.total', 5)
-            ->assertJsonPath('meta.page', 2)
-            ->assertJsonPath('meta.total_pages', 3)
-            ->assertJsonCount(2, 'data');
-    }
-
     public function test_facets_list_only_values_present_among_this_jobs_applicants(): void
     {
-        $this->applicant(['skills' => ['ICU'], 'location' => ['Jaipur'], 'qualification' => 'GNM', 'experience' => '1–3 yrs']);
-        $this->applicant(['skills' => ['OPD'], 'location' => ['Kota'], 'qualification' => 'DMLT', 'experience' => 'Fresher']);
+        $this->applicant(['location' => ['Jaipur'], 'qualification' => 'GNM', 'experience' => '1–3 yrs']);
+        $this->applicant(['location' => ['Kota'], 'qualification' => 'DMLT', 'experience' => 'Fresher']);
 
         $facets = $this->getJson("{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/facets")
             ->assertOk()
             ->json('data');
 
-        $this->assertEqualsCanonicalizing(['ICU', 'OPD'], $facets['skills']);
         $this->assertEqualsCanonicalizing(['Jaipur', 'Kota'], $facets['location']);
         $this->assertEqualsCanonicalizing(['GNM', 'DMLT'], $facets['qualification']);
         $this->assertEqualsCanonicalizing(['1–3 yrs', 'Fresher'], $facets['experience']);

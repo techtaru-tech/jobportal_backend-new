@@ -58,7 +58,7 @@ class JobAlert extends Model
             // a one-word alert fire on almost everything, which trains people
             // to ignore the notification.
             $haystack = mb_strtolower(
-                $job->title.' '.implode(' ', $job->skills ?? []),
+                $job->title,
             );
 
             if (! str_contains($haystack, mb_strtolower(trim($this->keyword)))) {

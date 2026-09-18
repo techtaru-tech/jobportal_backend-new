@@ -37,7 +37,7 @@ class OptionListService
      *
      * Everything absent from here is deliberately excluded:
      *
-     *  - `skill_levels`, `language_levels`, `organisation_industries`,
+     *  - `language_levels`, `organisation_industries`,
      *    `organisation_sizes` mirror closed enums in `app/Enums/` that the API
      *    validates against. A value added here would be offered by the picker
      *    and then rejected on save.
@@ -54,7 +54,6 @@ class OptionListService
         'categories',
         'experience_bands',
         'qualifications',
-        'skills',
         'job_types',
         'shifts',
         'cities',
@@ -105,13 +104,11 @@ class OptionListService
 
     /**
      * Lists that are maps rather than flat arrays, and so are edited through
-     * their own endpoints: `skills_by_category` (category => skills) and
-     * `city_coordinates` (city => {lat, lng}).
+     * their own endpoint: `city_coordinates` (city => {lat, lng}).
      *
      * @var list<string>
      */
     public const MAP_LISTS = [
-        'skills_by_category',
         'city_coordinates',
     ];
 
@@ -278,31 +275,6 @@ class OptionListService
             'column' => $column,
             'type' => $type,
         ];
-    }
-
-    /**
-     * `skills_by_category`, DB override merged over the config map.
-     *
-     * Merged per category rather than wholesale: overriding the skills for
-     * "Nurse" must not delete the curated lists for the other seven roles.
-     *
-     * @return array<string, list<string>>
-     */
-    public function skillsByCategory(): array
-    {
-        $config = (array) config('options.skills_by_category', []);
-        $rows = OptionItem::forList('skills_by_category')->active()->ordered()->get();
-
-        if ($rows->isEmpty()) {
-            return $config;
-        }
-
-        $overrides = $rows
-            ->groupBy('group_key')
-            ->map(fn ($items) => $items->pluck('value')->values()->all())
-            ->all();
-
-        return array_merge($config, $overrides);
     }
 
     /**

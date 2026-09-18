@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\SkillLevel;
 use App\Http\Resources\CandidateProfileResource;
 use App\Models\CandidateProfile;
 use App\Services\OptionListService;
@@ -53,15 +52,13 @@ class CandidateProfileController extends ApiController
 
             'qualification' => ['sometimes', 'nullable', 'string', 'max:120'],
             'experience' => ['sometimes', 'nullable', 'string', 'max:40'],
-            'skills' => ['sometimes', 'nullable', 'array'],
-            'skills.*' => ['string', 'max:80'],
             'location' => ['sometimes', 'nullable', 'array'],
             'location.*' => ['string', 'max:80'],
             'specialization' => ['sometimes', 'nullable', 'array'],
             'specialization.*' => ['string', 'max:80'],
         ]);
 
-        foreach (['skills', 'location', 'specialization'] as $list) {
+        foreach (['location', 'specialization'] as $list) {
             if (array_key_exists($list, $validated)) {
                 $validated[$list] = Display::cleanList($validated[$list]);
             }
@@ -99,36 +96,6 @@ class CandidateProfileController extends ApiController
         $profile->fill($validated)->save();
 
         return $this->respond($profile, 'Preferences updated.');
-    }
-
-    /**
-     * PUT /candidate/profile/skills (§3.6) — full replace.
-     *
-     * The §10.4 seed list is a suggestion shortlist, not a whitelist — any
-     * non-empty string is accepted, de-duplicated case-insensitively.
-     */
-    public function updateSkills(Request $request): JsonResponse
-    {
-        $profile = $this->profile($request);
-
-        $validated = $request->validate([
-            'skills' => ['present', 'array'],
-            'skills.*' => ['string', 'max:80'],
-            'skill_levels' => ['sometimes', 'array'],
-            'skill_levels.*' => ['nullable', Rule::in(SkillLevel::values())],
-        ]);
-
-        $skills = $this->dedupeCaseInsensitive($validated['skills']);
-
-        $profile->fill([
-            'skills' => $skills,
-            'skill_levels' => collect($validated['skill_levels'] ?? [])
-                ->only($skills)
-                ->filter(fn ($level) => filled($level))
-                ->all(),
-        ])->save();
-
-        return $this->respond($profile, 'Skills updated.');
     }
 
     /** PUT /candidate/profile/languages (§3.8) — full replace. */

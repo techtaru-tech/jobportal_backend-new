@@ -48,7 +48,6 @@ class RecruiterJobTest extends TestCase
             'type' => 'Full Time',
             'shift' => 'Rotational',
             'qualifications' => ['B.Sc Nursing', 'GNM'],
-            'skills' => ['ICU', 'Patient Care'],
             'duties' => ['Monitor patient vitals every 2 hours'],
             'benefits' => ['PF'],
             'about' => 'We are looking for a compassionate nurse.',
@@ -142,25 +141,23 @@ class RecruiterJobTest extends TestCase
         );
     }
 
-    public function test_freeform_qualifications_and_skills_are_accepted(): void
+    public function test_freeform_qualifications_are_accepted(): void
     {
         [, $organisation] = $this->recruiterWithOrg();
 
         // §8.1 — these are not a closed enum.
         $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}", [
             'qualifications' => ['Post Basic B.Sc Nursing'],
-            'skills' => ['Hyperbaric Chamber Ops'],
         ]))->assertCreated()
-            ->assertJsonPath('data.qualifications', ['Post Basic B.Sc Nursing'])
-            ->assertJsonPath('data.skills', ['Hyperbaric Chamber Ops']);
+            ->assertJsonPath('data.qualifications', ['Post Basic B.Sc Nursing']);
     }
 
     public function test_list_fields_are_deduplicated(): void
     {
         [, $organisation] = $this->recruiterWithOrg();
 
-        $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}", ['skills' => ['ICU', 'ICU', 'OPD']]))
-            ->assertJsonPath('data.skills', ['ICU', 'OPD']);
+        $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}", ['qualifications' => ['GNM', 'GNM', 'ANM']]))
+            ->assertJsonPath('data.qualifications', ['GNM', 'ANM']);
     }
 
     public function test_required_fields_must_be_valid_profile_fields(): void

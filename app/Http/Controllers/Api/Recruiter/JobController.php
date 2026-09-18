@@ -256,8 +256,6 @@ class JobController extends ApiController
             // Freeform allowed — recruiters type their own (§8.1).
             'qualifications' => ['nullable', 'array'],
             'qualifications.*' => ['string', 'max:120'],
-            'skills' => ['nullable', 'array'],
-            'skills.*' => ['string', 'max:80'],
             'duties' => ['nullable', 'array'],
             'duties.*' => ['string', 'max:300'],
             'benefits' => ['nullable', 'array'],
@@ -272,7 +270,7 @@ class JobController extends ApiController
             'salary_max.gte' => 'The maximum salary must be at least the minimum salary.',
         ]);
 
-        foreach (['qualifications', 'skills', 'duties', 'benefits', 'required_fields'] as $list) {
+        foreach (['qualifications', 'duties', 'benefits', 'required_fields'] as $list) {
             if (array_key_exists($list, $validated)) {
                 $validated[$list] = Display::cleanList($validated[$list]);
             }

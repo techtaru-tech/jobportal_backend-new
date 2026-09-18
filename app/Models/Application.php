@@ -28,7 +28,6 @@ class Application extends Model
             'applied_at' => 'datetime',
             'stage_updated_at' => 'datetime',
             'profile_snapshot' => 'array',
-            'snapshot_skills' => 'array',
             'snapshot_location' => 'array',
             'snapshot_files' => 'array',
         ];
@@ -122,7 +121,6 @@ class Application extends Model
             'snapshot_experience' => $snapshot['experience'] ?? null,
             'snapshot_experience_min_years' => $snapshot['experience_min_years'] ?? null,
             'snapshot_profile_strength' => $snapshot['profile_strength'] ?? 0,
-            'snapshot_skills' => $snapshot['skills'] ?? [],
             'snapshot_location' => $snapshot['location'] ?? [],
             'snapshot_files' => $filePaths,
         ]);

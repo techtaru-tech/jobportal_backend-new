@@ -62,7 +62,7 @@ class OptionListController extends ApiController
             // an admin hunting for a list that is deliberately not here.
             'locked' => [
                 [
-                    'keys' => ['skill_levels', 'language_levels', 'organisation_industries', 'organisation_sizes'],
+                    'keys' => ['language_levels', 'organisation_industries', 'organisation_sizes'],
                     'reason' => 'Backed by closed enums the API validates against — a value added here would be offered and then rejected on save.',
                 ],
                 [

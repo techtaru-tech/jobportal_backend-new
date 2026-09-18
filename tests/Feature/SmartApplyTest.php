@@ -71,7 +71,7 @@ class SmartApplyTest extends TestCase
 
     public function test_requirements_list_exactly_the_unmet_fields(): void
     {
-        $job = JobPosting::factory()->requiring(['qualification', 'skills', 'resume'])->create();
+        $job = JobPosting::factory()->requiring(['qualification', 'experience', 'resume'])->create();
 
         $bare = CandidateProfile::factory()->empty()->raw(['name' => 'Solo']);
         unset($bare['user_id']);
@@ -84,7 +84,7 @@ class SmartApplyTest extends TestCase
             // only gender/dob/address survive from it — followed by this
             // job's own configured fields.
             ->assertJsonPath('data.missing_fields', [
-                'gender', 'dob', 'address', 'qualification', 'skills', 'resume',
+                'gender', 'dob', 'address', 'qualification', 'experience', 'resume',
             ]);
     }
 

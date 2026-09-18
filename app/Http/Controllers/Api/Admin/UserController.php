@@ -144,8 +144,6 @@ class UserController extends ApiController
                 'has_coordinates' => $profile->home_latitude !== null && $profile->home_longitude !== null,
                 'qualification' => $profile->qualification,
                 'experience' => $profile->experience,
-                'skills' => $profile->skills ?? [],
-                'skill_levels' => $profile->skill_levels ?? [],
                 'preferred_cities' => $profile->location ?? [],
                 'specialization' => $profile->specialization ?? [],
                 'preferred_roles' => $profile->preferred_roles ?? [],

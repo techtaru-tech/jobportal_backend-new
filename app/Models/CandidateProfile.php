@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'name', 'email', 'gender', 'dob', 'address',
     'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
-    'qualification', 'experience', 'skills', 'skill_levels', 'location', 'specialization',
+    'qualification', 'experience', 'location', 'specialization',
     'preferred_roles', 'preferred_job_types', 'preferred_shifts', 'expected_salary',
     'languages', 'language_levels',
     'about', 'photo_path', 'resume_name', 'resume_path',
@@ -39,9 +39,8 @@ class CandidateProfile extends Model
      */
     public const WEIGHTS = [
         'personal' => 10,
-        'qualification' => 14,
-        'experience' => 14,
-        'skills' => 10,
+        'qualification' => 19,
+        'experience' => 19,
         'location' => 10,
         'resume' => 14,
         'photo' => 4,
@@ -69,8 +68,6 @@ class CandidateProfile extends Model
             'dob' => 'date:Y-m-d',
             'home_latitude' => 'float',
             'home_longitude' => 'float',
-            'skills' => 'array',
-            'skill_levels' => 'array',
             'location' => 'array',
             'specialization' => 'array',
             'preferred_roles' => 'array',
@@ -174,7 +171,6 @@ class CandidateProfile extends Model
 
             // Single-answer sections, modelled the same way so every caller
             // has one shape to read rather than two.
-            'skills' => ['skills' => filled($this->skills)],
             'languages' => ['languages' => filled($this->languages)],
             'resume' => ['resume' => filled($this->resume_name)],
             'photo' => ['photo' => $this->hasPhoto()],

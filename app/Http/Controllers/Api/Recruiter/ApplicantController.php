@@ -16,7 +16,6 @@ use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -44,12 +43,6 @@ class ApplicantController extends ApiController
         $query = $this->filtered($request, $job);
 
         $sort = $request->string('sort')->trim()->value() ?: 'newest';
-
-        // `best_match` scores against the job's skill list, which no portable
-        // SQL expression covers — score in PHP and paginate the result.
-        if ($sort === 'best_match') {
-            return $this->paginateByMatch($request, $job, $query);
-        }
 
         match ($sort) {
             'oldest' => $query->orderBy('applied_at'),
@@ -129,14 +122,13 @@ class ApplicantController extends ApiController
         $job = $this->findOwnedJob($request, $jobId);
 
         $applications = $job->applications()->get([
-            'snapshot_experience', 'snapshot_qualification', 'snapshot_location', 'snapshot_skills',
+            'snapshot_experience', 'snapshot_qualification', 'snapshot_location',
         ]);
 
         return ApiResponse::data([
             'experience' => $this->distinct($applications, fn (Application $a) => [$a->snapshot_experience]),
             'qualification' => $this->distinct($applications, fn (Application $a) => [$a->snapshot_qualification]),
             'location' => $this->distinct($applications, fn (Application $a) => $a->snapshot_location ?? []),
-            'skills' => $this->distinct($applications, fn (Application $a) => $a->snapshot_skills ?? []),
         ]);
     }
 
@@ -160,8 +152,7 @@ class ApplicantController extends ApiController
                 $q->where('snapshot_name', 'like', $like)
                     ->orWhere('snapshot_qualification', 'like', $like)
                     ->orWhere('snapshot_designation', 'like', $like)
-                    ->orWhere('snapshot_location', 'like', $like)
-                    ->orWhere('snapshot_skills', 'like', $like);
+                    ->orWhere('snapshot_location', 'like', $like);
             });
         }
 
@@ -171,7 +162,7 @@ class ApplicantController extends ApiController
             }
         }
 
-        foreach (['location' => 'snapshot_location', 'skills' => 'snapshot_skills'] as $param => $column) {
+        foreach (['location' => 'snapshot_location'] as $param => $column) {
             $values = $this->listParam($request, $param);
 
             if ($values === []) {
@@ -186,40 +177,6 @@ class ApplicantController extends ApiController
         }
 
         return $query;
-    }
-
-    /**
-     * §9.1 `best_match`: descending count of applicant skills that intersect
-     * the job's required skills, read off the frozen snapshot.
-     *
-     * @param  Builder<Application>  $query
-     */
-    private function paginateByMatch(Request $request, JobPosting $job, Builder $query): JsonResponse
-    {
-        $jobSkills = collect($job->skills ?? [])->map(fn (string $skill) => mb_strtolower($skill));
-
-        $scored = $query->orderByDesc('applied_at')
-            ->get()
-            ->sortByDesc(function (Application $application) use ($jobSkills) {
-                $skills = collect($application->snapshot_skills ?? [])
-                    ->map(fn (string $skill) => mb_strtolower($skill));
-
-                return $skills->intersect($jobSkills)->count();
-            })
-            ->values();
-
-        $perPage = $this->perPage($request);
-        $page = max(1, (int) $request->integer('page', 1));
-
-        $paginator = new LengthAwarePaginator(
-            $scored->forPage($page, $perPage)->values(),
-            $scored->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()],
-        );
-
-        return ApiResponse::paginated($paginator, ApplicantResource::class);
     }
 
     /** @param  Collection<int, Application>  $applications */

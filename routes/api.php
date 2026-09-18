@@ -82,7 +82,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [CandidateProfileController::class, 'show']);
                 Route::patch('/', [CandidateProfileController::class, 'update']);
                 Route::patch('preferences', [CandidateProfileController::class, 'updatePreferences']);
-                Route::put('skills', [CandidateProfileController::class, 'updateSkills']);
                 Route::put('languages', [CandidateProfileController::class, 'updateLanguages']);
                 Route::patch('about', [CandidateProfileController::class, 'updateAbout']);
 

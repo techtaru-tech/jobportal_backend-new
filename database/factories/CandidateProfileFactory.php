@@ -32,8 +32,6 @@ class CandidateProfileFactory extends Factory
             // bucket it is meant to fill.
             'specialization' => ['Critical Care'],
             'experience' => '3–5 yrs',
-            'skills' => ['ICU', 'Patient Care'],
-            'skill_levels' => ['ICU' => 'Expert', 'Patient Care' => 'Intermediate'],
             // All five Preferred jobs questions. Only two were set before, so
             // the section could never read as finished.
             'location' => ['Jaipur'],
@@ -42,7 +40,7 @@ class CandidateProfileFactory extends Factory
             'preferred_shifts' => ['Day'],
             'expected_salary' => '30K',
             'languages' => ['Hindi'],
-            'language_levels' => ['Hindi' => 'Native'],
+            'language_levels' => ['Hindi' => 'Read, Write & Speak'],
             'about' => 'Experienced nurse.',
             'resume_name' => 'resume.pdf',
             'resume_path' => 'resumes/1/resume.pdf',
@@ -65,7 +63,6 @@ class CandidateProfileFactory extends Factory
             'home_longitude' => null,
             'qualification' => null,
             'experience' => null,
-            'skills' => null,
             'location' => null,
             'specialization' => null,
             // The rest of the Preferred jobs section. Left set, these gave a

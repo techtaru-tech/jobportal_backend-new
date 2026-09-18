@@ -25,7 +25,7 @@ class JobBrowseTest extends TestCase
                     'organisation_id', 'organisation', 'organisation_verified', 'city',
                     'salary_min', 'salary_max', 'salary_display', 'experience',
                     'type', 'shift', 'posted_at', 'posting_status', 'required_fields',
-                    'about', 'duties', 'qualifications', 'skills', 'benefits']],
+                    'about', 'duties', 'qualifications', 'benefits']],
                 'meta' => ['page', 'per_page', 'total', 'total_pages'],
             ])
             ->assertJsonPath('meta.total', 3);
@@ -95,14 +95,14 @@ class JobBrowseTest extends TestCase
             ->assertJsonPath('data.0.role', 'Doctor');
     }
 
-    public function test_it_filters_by_free_text_across_title_organisation_and_skills(): void
+    public function test_it_filters_by_free_text_across_title_organisation_and_role(): void
     {
         JobPosting::factory()->create(['title' => 'ICU Nurse', 'organisation' => 'Fortis Hospital']);
-        JobPosting::factory()->create(['title' => 'Pharmacist', 'organisation' => 'Apollo Hospitals', 'skills' => ['Dispensing']]);
+        JobPosting::factory()->create(['title' => 'Pharmacist', 'organisation' => 'Apollo Hospitals']);
 
         $this->getJson("{$this->api}/jobs?query=ICU")->assertJsonPath('meta.total', 1);
         $this->getJson("{$this->api}/jobs?query=Apollo")->assertJsonPath('meta.total', 1);
-        $this->getJson("{$this->api}/jobs?query=Dispensing")->assertJsonPath('meta.total', 1);
+        $this->getJson("{$this->api}/jobs?query=Pharmacist")->assertJsonPath('meta.total', 1);
     }
 
     public function test_it_filters_by_repeatable_and_comma_separated_facets(): void
@@ -327,13 +327,13 @@ class JobBrowseTest extends TestCase
         $this->getJson("{$this->api}/config/options")
             ->assertOk()
             ->assertJsonStructure(['data' => [
-                'categories', 'experience_bands', 'qualifications', 'skills',
+                'categories', 'experience_bands', 'qualifications',
                 'job_types', 'shifts', 'cities', 'languages',
-                'language_levels', 'skill_levels', 'organisation_industries',
+                'language_levels', 'organisation_industries',
                 'organisation_sizes', 'salary_steps',
                 'enums' => ['application_status', 'application_status_pipeline',
                     'job_posting_status', 'profile_field', 'interview_type',
-                    'chat_sender', 'chat_message_status', 'skill_level',
+                    'chat_sender', 'chat_message_status',
                     'language_level', 'organisation_industry', 'organisation_size',
                     'notification_audience'],
             ]])

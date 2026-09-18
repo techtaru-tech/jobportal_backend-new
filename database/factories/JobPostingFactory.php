@@ -46,7 +46,6 @@ class JobPostingFactory extends Factory
             'about' => 'We are looking for a compassionate staff nurse.',
             'duties' => ['Monitor patient vitals every 2 hours'],
             'qualifications' => ['B.Sc Nursing', 'GNM'],
-            'skills' => ['ICU', 'Patient Care', 'Emergency Care'],
             'benefits' => ['PF', 'Health insurance'],
         ];
     }

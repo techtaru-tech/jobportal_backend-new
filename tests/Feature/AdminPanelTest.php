@@ -595,21 +595,21 @@ class AdminPanelTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $shipped = config('options.skills');
+        $shipped = config('options.languages');
         $this->assertNotEmpty($shipped);
 
-        $this->postJson("{$this->api}/admin/option-lists/skills/items", [
+        $this->postJson("{$this->api}/admin/option-lists/languages/items", [
             'value' => 'Dialysis',
         ])->assertCreated();
 
         // The bug this guards: one row in `option_items` counts as an override,
-        // so without materialising the config values first the app's skill list
+        // so without materialising the config values first the app's language list
         // would collapse to just the new value.
-        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.skills');
+        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.languages');
 
         $this->assertCount(count($shipped) + 1, $served);
-        foreach ($shipped as $skill) {
-            $this->assertContains($skill, $served);
+        foreach ($shipped as $language) {
+            $this->assertContains($language, $served);
         }
         $this->assertContains('Dialysis', $served);
     }
@@ -618,14 +618,14 @@ class AdminPanelTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->postJson("{$this->api}/admin/option-lists/skills/items", ['value' => 'Only One'])
+        $this->postJson("{$this->api}/admin/option-lists/languages/items", ['value' => 'Only One'])
             ->assertCreated();
 
         // Deactivating keeps the rows, which is what records the override —
         // so the app is served an empty list rather than the shipped defaults.
-        OptionItem::forList('skills')->update(['is_active' => false]);
+        OptionItem::forList('languages')->update(['is_active' => false]);
 
-        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.skills');
+        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.languages');
         $this->assertSame([], $served);
     }
 
@@ -657,14 +657,14 @@ class AdminPanelTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $shipped = config('options.skills');
+        $shipped = config('options.languages');
 
-        $this->postJson("{$this->api}/admin/option-lists/skills/items", ['value' => 'Dialysis'])
+        $this->postJson("{$this->api}/admin/option-lists/languages/items", ['value' => 'Dialysis'])
             ->assertCreated();
 
-        $this->deleteJson("{$this->api}/admin/option-lists/skills/override")->assertOk();
+        $this->deleteJson("{$this->api}/admin/option-lists/languages/override")->assertOk();
 
-        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.skills');
+        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data.languages');
         $this->assertSame(array_values($shipped), $served);
     }
 
@@ -698,7 +698,7 @@ class AdminPanelTest extends TestCase
 
         // Editing these would offer values the API then rejects, so the
         // endpoint refuses rather than shipping a setting that does nothing.
-        foreach (['skill_levels', 'organisation_sizes', 'genders'] as $list) {
+        foreach (['language_levels', 'organisation_sizes', 'genders'] as $list) {
             $this->postJson("{$this->api}/admin/option-lists/{$list}/items", ['value' => 'Nope'])
                 ->assertNotFound();
         }
