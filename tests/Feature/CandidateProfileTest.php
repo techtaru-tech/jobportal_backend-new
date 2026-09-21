@@ -543,4 +543,96 @@ class CandidateProfileTest extends TestCase
             $this->getJson("{$this->api}/candidate/profile")->json('data.profile_strength'),
         );
     }
+
+    // ── the resume maintains itself ──────────────────────────────────────
+
+    public function test_a_resume_appears_once_the_profile_can_fill_one(): void
+    {
+        // No button anywhere asks for this. Somebody who skipped Create
+        // profile and filled their details in later still ends up with a
+        // resume to download.
+        Storage::fake('local');
+
+        // The `empty` state, because the default factory profile already has
+        // everything a resume needs — and so already has a resume, which is
+        // itself the behaviour under test.
+        $user = User::factory()->candidate()->create();
+        CandidateProfile::factory()->for($user)->empty()->create(['name' => 'Yash Saraswat']);
+        $this->actingAs($user->fresh(), 'sanctum');
+
+        $this->assertNull($user->fresh()->candidateProfile->resume_path);
+
+        $this->patchJson("{$this->api}/candidate/profile", [
+            'qualification' => 'B.Sc Nursing',
+            'experience' => '3–5 yrs',
+        ])->assertOk();
+
+        $this->assertNotNull($user->fresh()->candidateProfile->resume_path);
+    }
+
+    public function test_a_profile_too_sparse_to_print_gets_no_resume(): void
+    {
+        // A PDF holding only a mobile number is worse than no PDF — it reads
+        // to the candidate as a finished resume.
+        Storage::fake('local');
+
+        $user = User::factory()->candidate()->create();
+        CandidateProfile::factory()->for($user)->empty()->create();
+        $this->actingAs($user->fresh(), 'sanctum');
+
+        // A name and nothing else — no qualification, no experience.
+        $this->patchJson("{$this->api}/candidate/profile", ['name' => 'Solo'])
+            ->assertOk();
+
+        $this->assertNull($user->fresh()->candidateProfile->resume_path);
+    }
+
+    public function test_editing_the_profile_re_renders_the_stored_resume(): void
+    {
+        // The file a recruiter opens is a rendering of the profile, so it
+        // goes stale the moment the profile changes. It used to stay stale
+        // until somebody remembered to tap "Rebuild".
+        Storage::fake('local');
+        $user = $this->actingAsCandidate([
+            'name' => 'Yash Saraswat',
+            'qualification' => 'B.Sc Nursing',
+            'experience' => '3–5 yrs',
+        ]);
+
+        $this->postJson("{$this->api}/candidate/profile/resume/generate")->assertOk();
+        $before = $user->fresh()->candidateProfile->resume_path;
+
+        $this->patchJson("{$this->api}/candidate/profile", ['name' => 'Yash S'])
+            ->assertOk();
+
+        $after = $user->fresh()->candidateProfile->resume_path;
+
+        $this->assertNotSame($before, $after);
+        Storage::disk('local')->assertExists($after);
+        // The old file is not left behind to accumulate.
+        Storage::disk('local')->assertMissing($before);
+    }
+
+    public function test_adding_an_education_entry_re_renders_it_too(): void
+    {
+        // Education lives in its own table, so a write there does not touch
+        // the profile row on its own — and the resume prints it.
+        Storage::fake('local');
+        $user = $this->actingAsCandidate([
+            'name' => 'Yash Saraswat',
+            'qualification' => 'B.Sc Nursing',
+            'experience' => '3–5 yrs',
+        ]);
+
+        $this->postJson("{$this->api}/candidate/profile/resume/generate")->assertOk();
+        $before = $user->fresh()->candidateProfile->resume_path;
+
+        $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'M.Sc Nursing',
+            'institute' => 'RUHS',
+            'year' => '2024',
+        ])->assertCreated();
+
+        $this->assertNotSame($before, $user->fresh()->candidateProfile->resume_path);
+    }
 }

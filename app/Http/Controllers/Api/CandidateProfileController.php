@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Resources\CandidateProfileResource;
 use App\Models\CandidateProfile;
 use App\Services\OptionListService;
+use App\Services\ResumeRenderer;
 use App\Support\ApiResponse;
 use App\Support\Display;
 use App\Support\FileRetention;
@@ -144,27 +145,13 @@ class CandidateProfileController extends ApiController
      * to exist: the upload endpoint is gone, so a candidate's document is
      * always a rendering of the profile the recruiter is reading anyway.
      */
-    public function generateResume(Request $request): JsonResponse
+    public function generateResume(Request $request, ResumeRenderer $renderer): JsonResponse
     {
-        $profile = $this->profile($request)->load(['educations', 'workExperiences', 'user']);
-
-        $name = $profile->name ?: 'Candidate';
-        $fileName = str($name)->slug('_')->append('_Resume.pdf')->value();
-        $path = "resumes/{$profile->user_id}/".uniqid('generated_').'.pdf';
-        $previousPath = $profile->resume_path;
-
-        PrivateFiles::disk()->put($path, ResumePdf::render($profile));
-
-        $profile->fill([
-            'resume_name' => $fileName,
-            'resume_path' => $path,
-        ])->save();
-
-        FileRetention::replacePrivate($previousPath);
+        [$fileName, $url] = $renderer->generate($this->profile($request));
 
         return ApiResponse::data([
             'resume' => $fileName,
-            'resume_url' => PrivateFiles::url($path),
+            'resume_url' => $url,
         ], 'Resume created from your profile.');
     }
 

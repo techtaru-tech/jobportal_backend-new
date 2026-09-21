@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NotificationAudience;
+use App\Services\ResumeRenderer;
 use App\Services\SubscriptionService;
 use App\Support\Display;
 use Database\Factories\CandidateProfileFactory;
@@ -92,6 +93,17 @@ class CandidateProfile extends Model
             $profile->expected_salary_amount = Display::parseAmount($profile->expected_salary);
             $profile->profile_strength = $profile->calculateStrength();
         });
+
+        // The stored resume is a rendering of this row, so it goes stale the
+        // moment the row changes. Re-rendered here rather than behind a
+        // "Rebuild" button, which asked the candidate to keep a file in step
+        // with a profile they had no way of knowing was out of step with it.
+        //
+        // `ResumeRenderer` guards its own re-entry — it saves this profile to
+        // store the new path, which fires this same event.
+        static::saved(function (self $profile) {
+            app(ResumeRenderer::class)->refresh($profile);
+        });
     }
 
     public function user(): BelongsTo
@@ -112,6 +124,24 @@ class CandidateProfile extends Model
     public function hasPhoto(): bool
     {
         return filled($this->photo_path);
+    }
+
+    /**
+     * Whether there is enough here to be worth rendering a resume from.
+     *
+     * Mirrors `CandidateProfile.missingForResume` in the app exactly, because
+     * the two decide the same thing from opposite ends — the app whether to
+     * offer the download, the server whether to keep a file up to date.
+     *
+     * Education and experience each accept either shape on purpose: a
+     * detailed entry and the flat value are alternative answers to the same
+     * question, and a fresher has no work history to add.
+     */
+    public function canBuildResume(): bool
+    {
+        return filled($this->name)
+            && (filled($this->qualification) || $this->hasRelatedRows('educations'))
+            && (filled($this->experience) || $this->hasRelatedRows('workExperiences'));
     }
 
     /**

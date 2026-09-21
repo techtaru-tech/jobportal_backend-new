@@ -26,6 +26,10 @@ class Education extends Model
         };
 
         static::created($touchProfile);
+        // Edits too, not just adds and removes: the stored resume is
+        // rendered from these rows, so changing a passing year has to reach
+        // it.
+        static::updated($touchProfile);
         static::deleted($touchProfile);
     }
 

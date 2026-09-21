@@ -43,6 +43,8 @@ class WorkExperience extends Model
         };
 
         static::created($touchProfile);
+        // Edits too, not just adds and removes — see `Education::booted()`.
+        static::updated($touchProfile);
         static::deleted($touchProfile);
     }
 
