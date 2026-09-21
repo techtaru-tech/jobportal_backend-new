@@ -155,15 +155,20 @@ class CandidateProfile extends Model
             'qualification' => [
                 'entry' => $this->hasRelatedRows('educations'),
                 'qualification' => filled($this->qualification),
-                'specialization' => filled($this->specialization),
             ],
+
+            // Its own section, and deliberately outside WEIGHTS: it is
+            // optional, so a candidate with none must still be able to reach
+            // 100%. It sat inside `qualification` while the app asked for it
+            // in the Education form, which held Education at "2 of 3" for a
+            // field that now lives on a screen of its own.
+            'specialization' => ['specialization' => filled($this->specialization)],
             'experience' => [
                 'entry' => $this->hasRelatedRows('workExperiences'),
                 'band' => filled($this->experience),
             ],
             'location' => [
                 'cities' => filled($this->location),
-                'roles' => filled($this->preferred_roles),
                 'job_types' => filled($this->preferred_job_types),
                 'shifts' => filled($this->preferred_shifts),
                 'expected_salary' => filled($this->expected_salary),
