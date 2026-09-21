@@ -36,6 +36,21 @@ class PaymentController extends ApiController
         ]);
     }
 
+    /**
+     * GET /payments/one-off — the things bought once rather than subscribed
+     * to, with their prices.
+     *
+     * Served rather than shipped in the app, exactly as the plan catalogue
+     * already is, so a price change is not a release. The app renders
+     * `price_label` verbatim.
+     */
+    public function oneOff(): JsonResponse
+    {
+        return ApiResponse::data([
+            'purchases' => array_values(config('plans.one_off', [])),
+        ]);
+    }
+
     /** POST /payments/orders — opens an order for a paid plan. */
     public function store(Request $request): JsonResponse
     {

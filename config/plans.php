@@ -49,7 +49,9 @@ return [
                 'Profile boost badge on every application',
                 'Early access to new job listings',
             ],
-            'limits' => [],
+            // A Pro subscriber already has the watermark-free resume, so the
+            // one-off below is never charged to them — see `included_in`.
+            'limits' => ['watermark_free_resume' => true],
         ],
     ],
 
@@ -86,6 +88,35 @@ return [
                 'Unlimited applicant chat',
             ],
             'limits' => ['active_jobs' => null],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | One-off purchases
+    |--------------------------------------------------------------------------
+    |
+    | Bought once, kept forever — not a subscription, and deliberately not in
+    | the catalogues above, which the My Plan screen renders wholesale. They
+    | go through the same PaymentOrder flow; `PaymentService::capture` grants
+    | the entitlement instead of starting a subscription.
+    |
+    | `grant` names the `candidate_profiles` column stamped on capture.
+    |
+    | `included_in` names a plan limit that already covers this, so a paying
+    | subscriber is never charged twice for something their plan includes.
+    | The entitlement check reads the plan before it reads the stamp.
+    */
+    'one_off' => [
+        'resume_watermark_free' => [
+            'id' => 'resume_watermark_free',
+            'name' => 'Watermark-free resume',
+            'price_label' => '₹20',
+            'price_paise' => 2000,
+            'grant' => 'resume_watermark_free_at',
+            'included_in' => 'watermark_free_resume',
+            'description' => 'Download your resume without the INTHES mark. '
+                .'One payment, and every future version is clean too.',
         ],
     ],
 

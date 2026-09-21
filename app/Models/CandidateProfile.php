@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\NotificationAudience;
+use App\Services\SubscriptionService;
 use App\Support\Display;
 use Database\Factories\CandidateProfileFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -66,6 +68,7 @@ class CandidateProfile extends Model
     {
         return [
             'dob' => 'date:Y-m-d',
+            'resume_watermark_free_at' => 'datetime',
             'home_latitude' => 'float',
             'home_longitude' => 'float',
             'location' => 'array',
@@ -109,6 +112,31 @@ class CandidateProfile extends Model
     public function hasPhoto(): bool
     {
         return filled($this->photo_path);
+    }
+
+    /**
+     * Whether this candidate's resume comes without the INTHES mark.
+     *
+     * Two ways to earn it, checked in this order because the plan is the
+     * cheaper answer and the fairer one: a subscriber whose plan already
+     * includes it must never be asked for the ₹20 as well. The stamp is the
+     * one-off purchase — see `plans.one_off.resume_watermark_free`.
+     *
+     * Lapsing back to free does not revoke a purchase, which is why the stamp
+     * is checked even when the plan says no.
+     */
+    public function hasWatermarkFreeResume(): bool
+    {
+        $included = config('plans.one_off.resume_watermark_free.included_in');
+
+        $byPlan = $included !== null
+            && app(SubscriptionService::class)->planIncludes(
+                $this->user()->firstOrFail(),
+                NotificationAudience::JobSeeker,
+                $included,
+            );
+
+        return $byPlan || $this->resume_watermark_free_at !== null;
     }
 
     /** The role the candidate is in now, else their most recent one. */

@@ -154,6 +154,7 @@ Route::prefix('v1')->group(function () {
            captured, so these two calls sit between picking a plan and having
            one. Free plans skip them entirely. -------------------------------- */
         Route::get('payments/methods', [PaymentController::class, 'methods']);
+        Route::get('payments/one-off', [PaymentController::class, 'oneOff']);
         Route::get('payments/orders', [PaymentController::class, 'index']);
         Route::post('payments/orders', [PaymentController::class, 'store']);
         Route::post('payments/orders/{order}/confirm', [PaymentController::class, 'confirm']);

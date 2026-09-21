@@ -203,4 +203,110 @@ class PaymentTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.orders', []);
     }
+
+    // ── one-off purchases ────────────────────────────────────────────────
+
+    /** Opens and captures the resume one-off, returning the confirm response. */
+    private function buyCleanResume(): \Illuminate\Testing\TestResponse
+    {
+        $order = $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'jobSeeker',
+            'plan_id' => 'resume_watermark_free',
+            'method' => 'upi',
+        ])->assertOk()->json('data.order');
+
+        return $this->postJson("{$this->api}/payments/orders/{$order['id']}/confirm", []);
+    }
+
+    public function test_the_one_off_catalogue_is_served_from_the_server(): void
+    {
+        // Priced server-side like the plans, so ₹20 becoming ₹30 is not a
+        // release.
+        $this->actingAsCandidate();
+
+        $this->getJson("{$this->api}/payments/one-off")
+            ->assertOk()
+            ->assertJsonPath('data.purchases.0.id', 'resume_watermark_free')
+            ->assertJsonPath('data.purchases.0.price_label', '₹20');
+    }
+
+    public function test_a_candidate_starts_with_a_watermarked_resume(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->getJson("{$this->api}/candidate/profile")
+            ->assertJsonPath('data.resume_watermark_free', false);
+    }
+
+    public function test_paying_the_one_off_grants_the_clean_resume(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->buyCleanResume()
+            ->assertOk()
+            ->assertJsonPath('data.order.status', PaymentStatus::Paid->value);
+
+        $this->getJson("{$this->api}/candidate/profile")
+            ->assertJsonPath('data.resume_watermark_free', true);
+    }
+
+    public function test_the_one_off_does_not_put_the_account_on_a_plan(): void
+    {
+        // Buying one document is not subscribing. Granting a subscription
+        // here would hand over every other Pro entitlement for ₹20.
+        $user = $this->actingAsCandidate();
+
+        $this->buyCleanResume();
+
+        $this->assertNull(Subscription::where('user_id', $user->id)->first());
+    }
+
+    public function test_an_unpaid_order_grants_nothing(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'jobSeeker',
+            'plan_id' => 'resume_watermark_free',
+            'method' => 'upi',
+        ])->assertOk();
+
+        // Opened and never confirmed — no money has moved, so nothing is
+        // granted. This is the hole a client-driven "I paid, honest" would
+        // go through.
+        $this->getJson("{$this->api}/candidate/profile")
+            ->assertJsonPath('data.resume_watermark_free', false);
+    }
+
+    public function test_confirming_twice_does_not_charge_twice(): void
+    {
+        $user = $this->actingAsCandidate();
+
+        $this->buyCleanResume();
+        $granted = $user->candidateProfile()->first()->resume_watermark_free_at;
+
+        // A retried request or a double-tapped button.
+        $this->buyCleanResume();
+
+        $this->assertEquals(
+            $granted,
+            $user->candidateProfile()->first()->fresh()->resume_watermark_free_at,
+        );
+    }
+
+    public function test_a_plan_that_includes_it_is_never_charged_for_it(): void
+    {
+        // Pro carries `watermark_free_resume`, so a subscriber already has
+        // the clean resume and is never shown the ₹20.
+        $user = $this->actingAsCandidate();
+
+        app(\App\Services\SubscriptionService::class)->subscribe(
+            $user,
+            \App\Enums\NotificationAudience::JobSeeker,
+            Subscription::planById(\App\Enums\NotificationAudience::JobSeeker, 'seeker_pro'),
+        );
+
+        $this->getJson("{$this->api}/candidate/profile")
+            ->assertJsonPath('data.resume_watermark_free', true);
+    }
 }

@@ -57,6 +57,12 @@ class CandidateProfileResource extends JsonResource
             'resume' => $this->resume_name,
             'resume_url' => PrivateFiles::url($this->resume_path),
 
+            // Whether this candidate's own copy renders without the INTHES
+            // mark — bought once, or included in their plan. The server
+            // decides, so the app never has to work out what has been paid
+            // for. See CandidateProfile::hasWatermarkFreeResume.
+            'resume_watermark_free' => $this->hasWatermarkFreeResume(),
+
             'intro_video_url' => PrivateFiles::url($this->intro_video_path),
             'intro_video_thumbnail_url' => PrivateFiles::publicUrl($this->intro_video_thumbnail_path),
             'intro_video_seconds' => $this->intro_video_seconds,

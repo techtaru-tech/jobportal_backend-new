@@ -59,6 +59,20 @@ class SubscriptionService
     }
 
     /**
+     * A yes/no entitlement from the active plan.
+     *
+     * Separate from [limitFor] rather than folded into it: that one reads a
+     * *count* and treats null as unlimited, which is the opposite of what an
+     * absent flag has to mean here.
+     */
+    public function planIncludes(User $user, NotificationAudience $audience, string $key): bool
+    {
+        $limits = $this->planFor($user, $audience)['limits'] ?? [];
+
+        return ($limits[$key] ?? false) === true;
+    }
+
+    /**
      * Activates [$planId] immediately.
      *
      * There is no payment gateway yet, so this is the seam a real

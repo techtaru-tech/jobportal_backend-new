@@ -120,6 +120,32 @@ class PaymentService
             return $order;
         }
 
+        // A one-off grants an entitlement and leaves the subscription alone —
+        // buying the watermark-free resume must not read as "this account is
+        // on Pro now".
+        $oneOff = self::oneOffById($order->plan_id);
+
+        if ($oneOff !== null) {
+            DB::transaction(function () use ($order, $oneOff, $result) {
+                $order->fill([
+                    'status' => PaymentStatus::Paid,
+                    'gateway_ref' => $result->reference,
+                    'failure_reason' => null,
+                    'paid_at' => now(),
+                ])->save();
+
+                // `forceFill`: the grant column is deliberately not fillable.
+                // Nothing a client sends should ever be able to set it.
+                $order->user()->firstOrFail()
+                    ->candidateProfile()
+                    ->firstOrFail()
+                    ->forceFill([$oneOff['grant'] => now()])
+                    ->save();
+            });
+
+            return $order->refresh();
+        }
+
         $plan = $order->plan();
 
         if ($plan === null) {
@@ -161,6 +187,15 @@ class PaymentService
      */
     public function requirePlan(NotificationAudience $audience, string $planId): array
     {
+        // One-offs share the plan_id field and the whole order flow, so they
+        // have to resolve here too — otherwise buying one is a 422 saying the
+        // plan does not exist.
+        $oneOff = self::oneOffById($planId);
+
+        if ($oneOff !== null) {
+            return $oneOff;
+        }
+
         $plan = Subscription::planById($audience, $planId);
 
         if ($plan === null) {
@@ -170,5 +205,15 @@ class PaymentService
         }
 
         return $plan;
+    }
+
+    /**
+     * The one-off purchase [$id] names, or null — see `plans.one_off`.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function oneOffById(string $id): ?array
+    {
+        return config("plans.one_off.{$id}");
     }
 }
