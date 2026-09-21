@@ -47,6 +47,10 @@ return [
             'features' => [
                 'Priority placement in recruiter search',
                 'Profile boost badge on every application',
+                // Said out loud on My Plan. It is the one entitlement a
+                // candidate could otherwise only discover by being asked for
+                // ₹20 somewhere else in the app.
+                'Watermark-free resume downloads',
                 'Early access to new job listings',
             ],
             // A Pro subscriber already has the watermark-free resume, so the
