@@ -4,13 +4,24 @@ namespace App\Enums;
 
 use App\Models\CandidateProfile;
 
+/**
+ * The fields a job can refuse an application without.
+ *
+ * `skills` and `specialization` used to be here. Skills is gone from the
+ * product. Specialization is still a profile section but an **optional** one,
+ * and an optional section cannot also be a thing an application is refused
+ * without — the app has no Create profile step for it, so a job demanding it
+ * could only produce a flow that never unblocks.
+ *
+ * A posting whose stored `required_fields` still lists either is not an
+ * error: the value simply no longer resolves, and the gate ignores it.
+ */
 enum ProfileField: string
 {
     case Name = 'name';
     case Qualification = 'qualification';
     case Experience = 'experience';
     case Location = 'location';
-    case Specialization = 'specialization';
     case Resume = 'resume';
     case Gender = 'gender';
     case Dob = 'dob';
@@ -44,7 +55,6 @@ enum ProfileField: string
             self::Qualification => filled($profile->qualification),
             self::Experience => filled($profile->experience),
             self::Location => filled($profile->location),
-            self::Specialization => filled($profile->specialization),
             self::Resume => filled($profile->resume_name),
             self::Gender => filled($profile->gender),
             self::Dob => filled($profile->dob),

@@ -267,7 +267,7 @@ class DemoSeeder extends Seeder
                 'duties' => ['Run post-operative rehab sessions'],
                 'benefits' => ['Flexible hours'],
                 'about' => 'Part-time rehabilitation role, three days a week.',
-                'required_fields' => ['qualification', 'experience', 'specialization'],
+                'required_fields' => ['qualification', 'experience'],
             ]],
             [$apolloRecruiter, $apollo, [
                 'role' => 'Radiology Technician', 'title' => 'CT Technician',
