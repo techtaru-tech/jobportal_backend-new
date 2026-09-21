@@ -30,7 +30,6 @@ class CandidateProfileFactory extends Factory
             // Part of the Education section alongside the qualification, and
             // missing here — which left this "complete" fixture short of the
             // bucket it is meant to fill.
-            'specialization' => ['Critical Care'],
             'experience' => '3–5 yrs',
             // All five Preferred jobs questions. Only two were set before, so
             // the section could never read as finished.
@@ -64,7 +63,6 @@ class CandidateProfileFactory extends Factory
             'qualification' => null,
             'experience' => null,
             'location' => null,
-            'specialization' => null,
             // The rest of the Preferred jobs section. Left set, these gave a
             // "bare" profile two fifths of that bucket for free.
             'preferred_roles' => null,

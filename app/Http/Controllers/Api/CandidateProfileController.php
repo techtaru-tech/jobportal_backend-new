@@ -57,11 +57,9 @@ class CandidateProfileController extends ApiController
             'experience' => ['sometimes', 'nullable', 'string', 'max:40'],
             'location' => ['sometimes', 'nullable', 'array'],
             'location.*' => ['string', 'max:80'],
-            'specialization' => ['sometimes', 'nullable', 'array'],
-            'specialization.*' => ['string', 'max:80'],
         ]);
 
-        foreach (['location', 'specialization'] as $list) {
+        foreach (['location'] as $list) {
             if (array_key_exists($list, $validated)) {
                 $validated[$list] = Display::cleanList($validated[$list]);
             }

@@ -70,7 +70,6 @@ class DemoSeeder extends Seeder
                 'qualification' => 'B.Sc Nursing',
                 'experience' => '3–5 yrs',
                 'location' => ['Jaipur'],
-                'specialization' => [],
                 'preferred_roles' => ['Nurse'],
                 'preferred_job_types' => ['Full Time'],
                 'preferred_shifts' => ['Day', 'Rotational'],

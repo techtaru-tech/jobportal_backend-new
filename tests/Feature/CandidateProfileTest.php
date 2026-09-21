@@ -52,7 +52,7 @@ class CandidateProfileTest extends TestCase
             ->assertJsonStructure(['data' => [
                 'name', 'phone', 'email', 'gender', 'dob', 'address',
                 'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
-                'qualification', 'experience', 'specialization',
+                'qualification', 'experience',
                 'location', 'preferred_roles', 'preferred_job_types', 'preferred_shifts',
                 'expected_salary',
                 'languages', 'language_levels', 'about', 'photo', 'photo_url',
@@ -121,9 +121,9 @@ class CandidateProfileTest extends TestCase
         $this->actingAsCandidate();
 
         $this->patchJson("{$this->api}/candidate/profile", [
-            'specialization' => ['Critical Care', 'Critical Care', ' Emergency '],
+            'location' => ['Jaipur', 'Jaipur', ' Jodhpur '],
         ])->assertOk()
-            ->assertJsonPath('data.specialization', ['Critical Care', 'Emergency']);
+            ->assertJsonPath('data.location', ['Jaipur', 'Jodhpur']);
     }
 
     public function test_an_experience_band_alone_does_not_earn_the_whole_bucket(): void

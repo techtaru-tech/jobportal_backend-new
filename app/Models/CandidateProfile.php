@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'name', 'email', 'gender', 'dob', 'address',
     'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
-    'qualification', 'experience', 'location', 'specialization',
+    'qualification', 'experience', 'location',
     'preferred_roles', 'preferred_job_types', 'preferred_shifts', 'expected_salary',
     'languages', 'language_levels',
     'about', 'photo_path', 'resume_name', 'resume_path',
@@ -73,7 +73,6 @@ class CandidateProfile extends Model
             'home_latitude' => 'float',
             'home_longitude' => 'float',
             'location' => 'array',
-            'specialization' => 'array',
             'preferred_roles' => 'array',
             'preferred_job_types' => 'array',
             'preferred_shifts' => 'array',
@@ -220,7 +219,6 @@ class CandidateProfile extends Model
             // 100%. It sat inside `qualification` while the app asked for it
             // in the Education form, which held Education at "2 of 3" for a
             // field that now lives on a screen of its own.
-            'specialization' => ['specialization' => filled($this->specialization)],
             'experience' => [
                 'entry' => $this->hasRelatedRows('workExperiences'),
                 'band' => filled($this->experience),
