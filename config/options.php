@@ -95,18 +95,14 @@ return [
         'Marwari',
     ],
 
-    // What a candidate can do in the language, not a self-rated proficiency
-    // — see the LanguageLevel enum. Every non-empty combination of read,
-    // write and speak.
-    'language_levels' => [
-        'Read',
-        'Write',
-        'Speak',
-        'Read & Write',
-        'Read & Speak',
-        'Write & Speak',
-        'Read, Write & Speak',
-    ],
+    // What a candidate can do in the language, not a self-rated proficiency.
+    //
+    // Read straight off the enum rather than written out again. These were
+    // two lists that had to be kept equal by hand, and they came apart: the
+    // enum moved to read/write/speak while this list still said
+    // Basic/Intermediate/Fluent/Native, so `/config/options` offered the app
+    // four values that validation then refused.
+    'language_levels' => App\Enums\LanguageLevel::values(),
 
     // §1.8 `organisation_industry` (§7.2)
     'organisation_industries' => [

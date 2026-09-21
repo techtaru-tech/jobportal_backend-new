@@ -259,20 +259,62 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('data.language_levels.English', 'Speak');
     }
 
-    public function test_the_old_proficiency_scale_is_no_longer_accepted(): void
+    public function test_the_old_proficiency_scale_is_accepted_and_moved_on(): void
     {
-        // Basic/Intermediate/Fluent/Native was a self-assessment, and it did
-        // not answer what an employer asks — can this person speak to a
-        // patient, can they read a chart. Rejected rather than quietly
-        // stored, so a stale client cannot keep writing values that no picker
-        // in the app can show as selected.
+        // An installed app is not upgraded the moment the server is. A build
+        // still sending "Fluent" has to keep working, or deploying this makes
+        // every language save fail for a reason the user had no part in.
+        //
+        // Accepted, but not *stored* as sent: it lands on the record in the
+        // new vocabulary, so nothing is left holding a value no picker can
+        // show as selected.
         $this->actingAsCandidate();
 
-        foreach (['Basic', 'Intermediate', 'Fluent', 'Native'] as $old) {
+        $expected = [
+            'Basic' => 'Speak',
+            'Intermediate' => 'Read & Speak',
+            'Fluent' => 'Read, Write & Speak',
+            'Native' => 'Read, Write & Speak',
+        ];
+
+        foreach ($expected as $old => $new) {
             $this->putJson("{$this->api}/candidate/profile/languages", [
                 'languages' => ['Hindi'],
                 'language_levels' => ['Hindi' => $old],
-            ])->assertStatus(422);
+            ])->assertOk()
+                ->assertJsonPath('data.language_levels.Hindi', $new);
+        }
+    }
+
+    public function test_a_level_from_neither_vocabulary_is_still_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->putJson("{$this->api}/candidate/profile/languages", [
+            'languages' => ['Hindi'],
+            'language_levels' => ['Hindi' => 'Excellent'],
+        ])->assertStatus(422);
+    }
+
+    public function test_the_served_list_is_the_one_validation_enforces(): void
+    {
+        // These were two lists kept equal by hand, and they came apart: the
+        // enum moved to read/write/speak while the served list still said
+        // Basic/Fluent, so the app was offered four values that validation
+        // then refused. The config now reads off the enum.
+        $this->actingAsCandidate();
+
+        $served = $this->getJson("{$this->api}/config/options")
+            ->assertOk()
+            ->json('data.language_levels');
+
+        $this->assertSame(\App\Enums\LanguageLevel::values(), $served);
+
+        foreach ($served as $level) {
+            $this->putJson("{$this->api}/candidate/profile/languages", [
+                'languages' => ['Hindi'],
+                'language_levels' => ['Hindi' => $level],
+            ])->assertOk();
         }
     }
 

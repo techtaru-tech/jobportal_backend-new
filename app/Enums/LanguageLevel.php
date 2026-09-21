@@ -31,4 +31,35 @@ enum LanguageLevel: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    /**
+     * The proficiency scale this replaced, mapped forward.
+     *
+     * Kept because an installed app is not upgraded the moment the server is.
+     * A build still sending "Fluent" would otherwise start failing validation
+     * the instant this deploys — the user would see a save break for a reason
+     * that has nothing to do with anything they did.
+     *
+     * Conservative at the bottom, as the data migration is: "Basic" becomes
+     * Speak alone rather than claiming literacy nobody stated.
+     */
+    private const LEGACY = [
+        'Basic' => self::Speak,
+        'Intermediate' => self::ReadSpeak,
+        'Fluent' => self::ReadWriteSpeak,
+        'Native' => self::ReadWriteSpeak,
+    ];
+
+    /**
+     * Resolves [$value] to one of these, accepting the old scale, or null if
+     * it is neither.
+     */
+    public static function coerce(?string $value): ?self
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return self::tryFrom($value) ?? self::LEGACY[$value] ?? null;
+    }
 }

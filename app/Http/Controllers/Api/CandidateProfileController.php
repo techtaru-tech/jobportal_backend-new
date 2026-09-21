@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LanguageLevel;
 use App\Http\Resources\CandidateProfileResource;
 use App\Models\CandidateProfile;
 use App\Services\OptionListService;
@@ -12,6 +13,7 @@ use App\Support\FileRetention;
 use App\Support\PrivateFiles;
 use App\Support\ResumePdf;
 use App\Support\VideoProbe;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -108,15 +110,30 @@ class CandidateProfileController extends ApiController
             'languages' => ['present', 'array'],
             'languages.*' => ['string', 'max:40'],
             'language_levels' => ['sometimes', 'array'],
-            'language_levels.*' => ['nullable', Rule::in(config('options.language_levels'))],
+            // Validated through the enum, which also accepts the proficiency
+            // scale this replaced — an app already on somebody's phone keeps
+            // working after this deploys instead of failing every save. See
+            // `LanguageLevel::coerce`.
+            'language_levels.*' => [
+                'nullable',
+                function (string $attribute, mixed $value, Closure $fail) {
+                    if (LanguageLevel::coerce($value) === null) {
+                        $fail('That is not one of the language abilities on offer.');
+                    }
+                },
+            ],
         ]);
 
         $languages = Display::cleanList($validated['languages']);
 
         $profile->fill([
             'languages' => $languages,
+            // Stored as the enum's own value, so an old level sent by an old
+            // build lands on the record in the new vocabulary rather than
+            // being kept as something no picker can show.
             'language_levels' => collect($validated['language_levels'] ?? [])
                 ->only($languages)
+                ->map(fn ($level) => LanguageLevel::coerce($level)?->value)
                 ->filter(fn ($level) => filled($level))
                 ->all(),
         ])->save();
