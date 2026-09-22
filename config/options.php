@@ -158,6 +158,29 @@ return [
     ],
 
     /*
+    | Clinical specialisations — the subject an education entry is in.
+    |
+    | A suggestion shortlist, never a whitelist: the field accepts freeform, so
+    | a subject nobody listed here is still enterable. This used to be the
+    | profile-level Smart Apply field as well; that one is gone, and a job can
+    | no longer demand a specialization.
+    */
+    'specializations' => [
+        'Critical Care',
+        'Emergency',
+        'Paediatrics',
+        'Cardiology',
+        'Oncology',
+        'Orthopaedics',
+        'Neurology',
+        'Obstetrics & Gynaecology',
+        'X-Ray',
+        'CT Scan',
+        'MRI',
+        'Ultrasound',
+    ],
+
+    /*
     | Designation suggestions for the candidate's work-experience form.
     | A suggestion shortlist, never a whitelist — the field accepts freeform.
     */

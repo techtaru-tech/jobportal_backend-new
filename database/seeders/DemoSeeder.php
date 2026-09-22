@@ -79,7 +79,7 @@ class DemoSeeder extends Seeder
                 'about' => 'Registered nurse with 4 years of ICU experience across multi-speciality hospitals.',
                 'resume_name' => 'Yash_Saraswat_CV.pdf',
             ], [
-                ['qualification' => 'B.Sc Nursing', 'institute' => 'RUHS', 'year' => '2022'],
+                ['qualification' => 'B.Sc Nursing', 'specialization' => 'Critical Care', 'institute' => 'RUHS', 'year' => '2022'],
             ], [
                 [
                     'designation' => 'Staff Nurse', 'organization' => 'Fortis Hospital', 'department' => 'ICU',

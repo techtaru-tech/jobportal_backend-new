@@ -29,6 +29,7 @@ class CandidateProfileTest extends TestCase
 
         $profile->educations()->create([
             'qualification' => 'B.Sc Nursing',
+            'specialization' => 'Critical Care',
             'institute' => 'RUHS',
             'year' => '2020',
         ]);
@@ -164,6 +165,7 @@ class CandidateProfileTest extends TestCase
 
         $user->candidateProfile->educations()->create([
             'qualification' => 'B.Sc Nursing',
+            'specialization' => 'Critical Care',
             'institute' => 'RUHS',
             'year' => '2020',
         ]);
@@ -331,6 +333,7 @@ class CandidateProfileTest extends TestCase
 
         $created = $this->postJson("{$this->api}/candidate/profile/educations", [
             'qualification' => 'M.Sc Nursing',
+            'specialization' => 'Critical Care',
             'institute' => 'RUHS',
             'year' => '2026',
         ])->assertCreated()->json('data');
@@ -668,6 +671,7 @@ class CandidateProfileTest extends TestCase
 
         $this->postJson("{$this->api}/candidate/profile/educations", [
             'qualification' => 'M.Sc Nursing',
+            'specialization' => 'Critical Care',
             'institute' => 'RUHS',
             'year' => '2024',
         ])->assertCreated();

@@ -166,6 +166,7 @@ class UserController extends ApiController
                 'educations' => $profile->educations->map(fn ($e) => [
                     'id' => PublicId::encode('edu', $e->id),
                     'qualification' => $e->qualification,
+                    'specialization' => $e->specialization,
                     'institute' => $e->institute,
                     'year' => $e->year,
                 ])->all(),
