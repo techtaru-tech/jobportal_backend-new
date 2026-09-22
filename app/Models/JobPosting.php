@@ -151,18 +151,51 @@ class JobPosting extends Model
         return $query->with('organisationRecord');
     }
 
+    /**
+     * Free-text search: every word has to appear somewhere, not the whole
+     * phrase in one field in that exact order.
+     *
+     * This was a single `LIKE '%<the whole thing>%'`, which meant a query
+     * stopped working the moment it had two words in it. "ICU Nurse" found
+     * nothing while `ICU Staff Nurse` sat on the board, because the two words
+     * are not adjacent in the title; "nurse icu" found nothing because they
+     * are the wrong way round; and "nurse jaipur" — about the most ordinary
+     * thing anybody types into a job board — found nothing at all, because
+     * the city was not searched in the first place.
+     *
+     * So: split on whitespace, require each word (AND), and let a word match
+     * any of the four columns a person could have meant (OR). More words
+     * narrow the result, which is what typing more words is for.
+     *
+     * The word cap is a ceiling on the query this builds — one nested OR per
+     * word — not a judgement about how people search. Past six words nobody
+     * is searching any more.
+     */
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         if (blank($term)) {
             return $query;
         }
 
-        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], trim($term)).'%';
+        $words = preg_split('/\s+/u', trim($term), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $words = array_slice($words, 0, 6);
 
-        return $query->where(function (Builder $q) use ($like) {
-            $q->where('title', 'like', $like)
-                ->orWhere('organisation', 'like', $like)
-                ->orWhere('role', 'like', $like);
+        if ($words === []) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $outer) use ($words) {
+            foreach ($words as $word) {
+                // `%` and `_` are LIKE wildcards. Left unescaped, a search for
+                // "100%" would match every posting.
+                $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $word).'%';
+
+                $outer->where(fn (Builder $q) => $q
+                    ->where('title', 'like', $like)
+                    ->orWhere('organisation', 'like', $like)
+                    ->orWhere('role', 'like', $like)
+                    ->orWhere('city', 'like', $like));
+            }
         });
     }
 

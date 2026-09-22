@@ -212,19 +212,26 @@ class JobController extends ApiController
             ->limit(10)
             ->pluck('aggregate', 'term');
 
-        // Curated synonyms fill the gap when nothing is posted under that title.
+        // Curated synonyms fill the gap when nothing is posted under that
+        // title — but only the ones that lead somewhere. The count was already
+        // being worked out here and then ignored, so the list happily offered
+        // terms it knew matched nothing: tapping one was a tap straight into
+        // "No jobs found", which reads as a broken search rather than as an
+        // empty corner of the board.
         $curated = collect(config('options.search_dictionary'))
             ->filter(fn (string $entry) => str_contains(mb_strtolower($entry), mb_strtolower($term)))
-            ->reject(fn (string $entry) => $titles->has($entry));
+            ->reject(fn (string $entry) => $titles->has($entry))
+            ->map(fn (string $entry) => [
+                'term' => $entry,
+                'job_count' => $this->countMatching($entry),
+            ])
+            ->filter(fn (array $row) => $row['job_count'] > 0);
 
         $suggestions = $titles->map(fn (int $count, string $term) => [
             'term' => $term,
             'job_count' => $count,
         ])->values()
-            ->merge($curated->map(fn (string $entry) => [
-                'term' => $entry,
-                'job_count' => $this->countMatching($entry),
-            ]))
+            ->merge($curated->values())
             ->take(10)
             ->values();
 

@@ -161,12 +161,20 @@ class JobBrowseTest extends TestCase
 
     public function test_search_suggestions_match_live_titles_and_curated_terms(): void
     {
+        // `role` is Nurse on the factory, so the curated "Nurse" finds both
+        // postings even though neither is titled that.
         JobPosting::factory()->count(2)->create(['title' => 'Staff Nurse']);
 
         $terms = collect($this->getJson("{$this->api}/jobs/search/suggestions?q=nurs")->json('data'));
 
         $this->assertSame(2, $terms->firstWhere('term', 'Staff Nurse')['job_count']);
-        $this->assertTrue($terms->contains('term', 'ICU Nurse'));
+        $this->assertTrue($terms->contains('term', 'Nurse'));
+
+        // "ICU Nurse" is in the dictionary and matches nothing on this board,
+        // so it is not offered. This used to assert the opposite — that a
+        // curated term shows up whether or not it leads anywhere — which is
+        // exactly the tap that lands on "No jobs found". See JobSearchTest.
+        $this->assertFalse($terms->contains('term', 'ICU Nurse'));
     }
 
     public function test_search_suggestions_are_empty_without_a_term(): void
