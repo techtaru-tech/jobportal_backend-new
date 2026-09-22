@@ -158,26 +158,140 @@ return [
     ],
 
     /*
-    | Clinical specialisations — the subject an education entry is in.
+    | The subject an education entry is in.
     |
     | A suggestion shortlist, never a whitelist: the field accepts freeform, so
     | a subject nobody listed here is still enterable. This used to be the
     | profile-level Smart Apply field as well; that one is gone, and a job can
     | no longer demand a specialization.
+    |
+    | Grouped by discipline, and the groups follow `qualifications` above —
+    | there is a degree in this list for every one in that one. A nursing
+    | shortlist alone would have left a B.Pharm or a DMLT holder typing their
+    | own subject every time, which is the picker admitting it does not know
+    | who is filling it in.
+    |
+    | Ordered with the general clinical subjects first because they are the
+    | ones most candidates pick; the sheet has search, so length past the first
+    | screenful costs nothing.
+    |
+    | British spellings throughout — Paediatrics, Orthopaedics, Haematology —
+    | matching the rest of the app's copy.
     */
     'specializations' => [
+        // General clinical — nursing (B.Sc/M.Sc Nursing, GNM, ANM) and
+        // medicine (MBBS) both draw from here.
         'Critical Care',
         'Emergency',
+        'Intensive Care',
+        'General Medicine',
+        'General Surgery',
         'Paediatrics',
+        'Neonatal Care',
         'Cardiology',
+        'Cardiac Care',
         'Oncology',
         'Orthopaedics',
         'Neurology',
         'Obstetrics & Gynaecology',
+        'Operation Theatre',
+        'Anaesthesia',
+        'Dialysis',
+        'Nephrology',
+        'Gastroenterology',
+        'Pulmonology',
+        'Endocrinology',
+        'Urology',
+        'Dermatology',
+        'ENT',
+        'Ophthalmology',
+        'Psychiatry',
+        'Mental Health',
+        'Geriatrics',
+        'Community Health',
+        'Infection Control',
+        'Wound Care',
+        'Palliative Care',
+
+        // Medical imaging — Radiology Technician.
+        'Radiology',
         'X-Ray',
         'CT Scan',
         'MRI',
         'Ultrasound',
+        'Mammography',
+        'Nuclear Medicine',
+        'Interventional Radiology',
+        'Radiotherapy',
+
+        // Laboratory — B.Sc MLT, DMLT.
+        'Medical Laboratory Technology',
+        'Biochemistry',
+        'Microbiology',
+        'Pathology',
+        'Histopathology',
+        'Haematology',
+        'Cytology',
+        'Serology',
+        'Blood Banking',
+        'Transfusion Medicine',
+        'Molecular Biology',
+
+        // Pharmacy — B.Pharm, D.Pharm, M.Pharm.
+        'Clinical Pharmacy',
+        'Hospital Pharmacy',
+        'Pharmaceutics',
+        'Pharmacology',
+        'Pharmaceutical Chemistry',
+        'Pharmacognosy',
+        'Pharmaceutical Quality Assurance',
+        'Pharmacovigilance',
+
+        // Physiotherapy — BPT, MPT.
+        'Orthopaedic Physiotherapy',
+        'Neurological Physiotherapy',
+        'Cardiopulmonary Physiotherapy',
+        'Sports Physiotherapy',
+        'Paediatric Physiotherapy',
+        'Rehabilitation',
+
+        // Nutrition and dietetics — Dietitian.
+        'Clinical Nutrition',
+        'Dietetics',
+        'Public Health Nutrition',
+        'Sports Nutrition',
+        'Food Science',
+
+        // Dental — BDS.
+        'Oral Medicine',
+        'Oral & Maxillofacial Surgery',
+        'Orthodontics',
+        'Periodontics',
+        'Prosthodontics',
+        'Conservative Dentistry',
+        'Paedodontics',
+
+        // AYUSH — BAMS, BHMS.
+        'Ayurveda',
+        'Panchakarma',
+        'Homoeopathy',
+        'Yoga & Naturopathy',
+        'Unani',
+
+        // Allied health and hospital operations.
+        'Operation Theatre Technology',
+        'Anaesthesia Technology',
+        'Dialysis Technology',
+        'Perfusion Technology',
+        'Respiratory Therapy',
+        'Emergency Medical Services',
+        'Optometry',
+        'Audiology & Speech Therapy',
+        'Occupational Therapy',
+        'Hospital Administration',
+        'Public Health',
+        'Medical Records',
+        'Health Informatics',
     ],
 
     /*
