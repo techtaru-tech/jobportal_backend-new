@@ -64,7 +64,6 @@ class ProfileStrengthTest extends TestCase
             // band or a qualification is not a filled-in section.
             'qualification' => [
                 'qualification' => 'B.Sc Nursing',
-                'specialization' => ['Critical Care'],
             ],
             'experience' => ['experience' => '3–5 yrs'],
             'location' => [
@@ -161,7 +160,6 @@ class ProfileStrengthTest extends TestCase
         $profile = $this->profileWith(
             $this->personalAttributes() + [
                 'qualification' => 'B.Sc Nursing',
-            'specialization' => ['Critical Care'],
             'experience' => '3–5 yrs',
             // Every Preferred jobs question, not just the city.
             'location' => ['Jaipur'],

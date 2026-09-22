@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['qualification', 'specialization', 'institute', 'year'])]
+#[Fillable(['qualification', 'institute', 'year'])]
 class Education extends Model
 {
     /** "Education" is uncountable, so Eloquent would guess `education`. */

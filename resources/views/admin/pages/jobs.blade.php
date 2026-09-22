@@ -186,7 +186,9 @@
               <template x-for="group in [
                   { label: 'DUTIES', items: jobDetail.data.job.duties },
                   { label: 'QUALIFICATIONS', items: jobDetail.data.job.qualifications },
-                  { label: 'SKILLS', items: jobDetail.data.job.skills },
+                  {{-- No SKILLS row: `job_postings.skills` was dropped with the
+                       section, and this group only stayed invisible because an
+                       undefined list happens to fail the length guard below. --}}
                   { label: 'BENEFITS', items: jobDetail.data.job.benefits },
                 ]" :key="group.label">
                 <template x-if="(group.items || []).length">

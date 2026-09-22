@@ -181,17 +181,10 @@
                   @include('admin.partials.field', ['label' => 'Experience', 'value' => 'appDetail.data.live_profile.experience'])
                   @include('admin.partials.field', ['label' => 'Resume', 'value' => "appDetail.data.live_profile.has_resume ? 'On file' : null"])
                 </div>
-                <div class="mt-lg">
-                  <span class="block text-kicker text-ink-secondary">SKILLS</span>
-                  <div class="mt-sm flex flex-wrap gap-xs">
-                    <template x-if="(appDetail.data.live_profile.skills || []).length === 0">
-                      <span class="text-bodysm text-ink-muted">—</span>
-                    </template>
-                    <template x-for="skill in appDetail.data.live_profile.skills" :key="skill">
-                      <span class="inline-flex items-center rounded-field px-md py-[5px] text-tag whitespace-nowrap bg-surface-muted text-ink-secondary" x-text="skill"></span>
-                    </template>
-                  </div>
-                </div>
+                {{-- The live profile's SKILLS block is gone with the section
+                     itself — see the same note on the Accounts page. Its
+                     snapshot half went too: `applications.snapshot_skills` was
+                     dropped in the same migration. --}}
               </div>
             </template>
 

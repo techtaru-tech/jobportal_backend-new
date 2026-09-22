@@ -60,7 +60,6 @@ class OptionListService
         'languages',
         'salary_steps',
         'salary_filters',
-        'specializations',
         'designations',
         'institutes',
         'departments',

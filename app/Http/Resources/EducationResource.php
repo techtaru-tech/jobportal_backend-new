@@ -19,7 +19,6 @@ class EducationResource extends JsonResource
         return [
             'id' => PublicId::encode('edu', $this->id),
             'qualification' => $this->qualification,
-            'specialization' => $this->specialization,
             'institute' => $this->institute,
             'year' => $this->year,
         ];

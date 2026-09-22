@@ -159,17 +159,13 @@
                 @include('admin.partials.field', ['label' => 'Home city', 'value' => 'userDetail.data.candidate.home_city'])
                 @include('admin.partials.field', ['label' => 'Resume', 'value' => "userDetail.data.candidate.has_resume ? 'On file' : null"])
               </div>
-              <div class="mt-lg">
-                <span class="block text-kicker text-ink-secondary">SKILLS</span>
-                <div class="mt-sm flex flex-wrap gap-xs">
-                  <template x-if="(userDetail.data.candidate.skills || []).length === 0">
-                    <span class="text-bodysm text-ink-muted">—</span>
-                  </template>
-                  <template x-for="skill in userDetail.data.candidate.skills" :key="skill">
-                    <span class="inline-flex items-center rounded-field px-md py-[5px] text-tag whitespace-nowrap bg-surface-muted text-ink-secondary" x-text="skill"></span>
-                  </template>
-                </div>
-              </div>
+              {{--
+                A SKILLS section used to sit here. The columns behind it were
+                dropped with the section itself (2026_09_18_000001), so the
+                resource stopped sending the key and this rendered a heading
+                over a dash on every candidate — which reads as "this person
+                listed none" rather than "we no longer ask".
+              --}}
             </div>
           </template>
 

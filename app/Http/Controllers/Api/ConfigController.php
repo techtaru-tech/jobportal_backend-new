@@ -65,7 +65,6 @@ class ConfigController extends ApiController
             // Everything below replaced a hardcoded list in the app's
             // MockDataProvider — see API_AUDIT.md §7.
             'salary_filters' => $lists['salary_filters'],
-            'specializations' => $lists['specializations'],
             'designations' => $lists['designations'],
             'institutes' => $lists['institutes'],
             'departments' => $lists['departments'],

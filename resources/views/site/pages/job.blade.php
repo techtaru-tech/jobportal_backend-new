@@ -167,9 +167,14 @@
               What Smart Apply will ask the candidate for.
 
               Shown because it is the honest answer to "can I apply for this?".
-              A posting that demands a resume and a specialization is a
-              different proposition from one that wants a name, and finding that
-              out after installing the app is finding it out too late.
+              A posting that demands a resume and a qualification is a different
+              proposition from one that wants a name, and finding that out after
+              installing the app is finding it out too late.
+
+              The labels cover `App\Enums\ProfileField` and nothing else; the
+              `Str::headline` fallback below is for an old posting whose stored
+              list still names `skills` or `specialization`, both of which left
+              the enum with the sections behind them.
             --}}
             @if (!empty($job->required_fields))
                 @php
@@ -177,9 +182,10 @@
                         'name' => 'Full name',
                         'qualification' => 'Qualification',
                         'experience' => 'Experience',
-                        'skills' => 'Skills',
                         'location' => 'Location',
-                        'specialization' => 'Specialization',
+                        'gender' => 'Gender',
+                        'dob' => 'Date of birth',
+                        'address' => 'Address',
                         'resume' => 'Resume',
                     ];
                 @endphp

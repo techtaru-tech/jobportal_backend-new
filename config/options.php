@@ -156,25 +156,6 @@ return [
         '₹50K+',
         '₹75K+',
     ],
-    /*
-    | Clinical specialisations — the `specialization` Smart Apply field, which
-    | a job asks for only when its `required_fields` name it. Distinct from the
-    | specialisation attached to a single education entry.
-    */
-    'specializations' => [
-        'Critical Care',
-        'Emergency',
-        'Paediatrics',
-        'Cardiology',
-        'Oncology',
-        'Orthopaedics',
-        'Neurology',
-        'Obstetrics & Gynaecology',
-        'X-Ray',
-        'CT Scan',
-        'MRI',
-        'Ultrasound',
-    ],
 
     /*
     | Designation suggestions for the candidate's work-experience form.

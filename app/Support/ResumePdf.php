@@ -102,7 +102,7 @@ class ResumePdf
                 /** @var Education $education */
                 $add($education->qualification, 11, true, 6);
 
-                $meta = array_filter([$education->specialization, $education->institute, $education->year]);
+                $meta = array_filter([$education->institute, $education->year]);
 
                 if ($meta !== []) {
                     $add(implode('  |  ', $meta), 9.5);

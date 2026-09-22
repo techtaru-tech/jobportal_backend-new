@@ -46,7 +46,6 @@ class EducationController extends ApiController
     {
         return $request->validate([
             'qualification' => ['required', 'string', 'max:120'],
-            'specialization' => ['nullable', 'string', 'max:120'],
             'institute' => ['nullable', 'string', 'max:150'],
             'year' => ['nullable', 'string', 'max:10'],
         ]);

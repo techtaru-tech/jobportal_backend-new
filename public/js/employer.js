@@ -24,15 +24,22 @@
    * The Smart Apply gate: which profile fields a posting demands before a
    * candidate may apply. Labels rather than raw enum values, because these are
    * read by a recruiter choosing them, not by code.
+   *
+   * Every value here has to be one of `App\Enums\ProfileField` — the API
+   * validates `required_fields.*` against exactly that list. This offered
+   * `skills`, `specialization` and `certification_bls` after all three had
+   * left the enum, so a recruiter who ticked any of them lost the whole
+   * posting to a 422 that named a field the form had just invited them to
+   * choose.
+   *
+   * Name, gender, date of birth and address are left out on purpose: they are
+   * `ProfileField::alwaysRequired()`, demanded of every application whatever a
+   * posting says, so listing them would be offering a choice that is not one.
    */
   const REQUIRED_FIELD_OPTIONS = [
-    { value: 'name', label: 'Full name' },
     { value: 'qualification', label: 'Qualification' },
     { value: 'experience', label: 'Experience' },
-    { value: 'skills', label: 'Skills' },
     { value: 'location', label: 'Location' },
-    { value: 'specialization', label: 'Specialization' },
-    { value: 'certification_bls', label: 'BLS certification' },
     { value: 'resume', label: 'Resume' },
   ]
 

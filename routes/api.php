@@ -180,8 +180,11 @@ Route::prefix('v1')->group(function () {
     | Admin panel
     |----------------------------------------------------------------------
     |
-    | Serves the operator panel in ../admin_panel. Not part of the mobile
-    | app's contract — nothing in the Flutter client calls anything below.
+    | Serves the operator panel at /admin — a Blade shell booting the Alpine
+    | app in public/js/admin.js, on this same origin (see routes/web.php). The
+    | separate ../admin_panel React project this used to name is gone. Not part
+    | of the mobile app's contract: nothing in the Flutter client calls
+    | anything below.
     |
     | Two layers of protection, because one is not enough here: `auth:sanctum`
     | resolves the bearer token, and `admin` then checks that the token's owner
