@@ -116,15 +116,20 @@ class JobBrowseTest extends TestCase
         $this->getJson("{$this->api}/jobs?shift[]=Day&shift[]=Rotational")->assertJsonPath('meta.total', 2);
     }
 
-    public function test_it_filters_by_minimum_salary_on_the_jobs_floor(): void
+    public function test_it_filters_by_minimum_salary_on_what_the_job_can_pay(): void
     {
+        // ₹20K–₹60K can pay ₹50K, so "₹50K+" must show it. This asserted the
+        // opposite — that only the job's floor counted — which hid a job the
+        // candidate could have taken. See JobSalaryFilterTest.
         JobPosting::factory()->create(['salary_min' => 20000, 'salary_max' => 60000]);
         JobPosting::factory()->create(['salary_min' => 60000, 'salary_max' => 90000]);
 
-        // §4.1 states min_salary filters on salary_min.
         $this->getJson("{$this->api}/jobs?min_salary=50000")
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.salary_min', 60000);
+            ->assertJsonPath('meta.total', 2);
+
+        // A threshold above both ceilings still excludes both.
+        $this->getJson("{$this->api}/jobs?min_salary=95000")
+            ->assertJsonPath('meta.total', 0);
     }
 
     public function test_it_paginates(): void

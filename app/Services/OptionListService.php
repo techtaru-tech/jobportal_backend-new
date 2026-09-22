@@ -95,11 +95,31 @@ class OptionListService
 
     /**
      * `in` — any of the picked values. `min` — the lowest numeric threshold
-     * picked, matched with `>=`.
+     * picked, matched with `>=` (see [RANGE_CEILING] for what it is matched
+     * against).
      *
      * @var list<string>
      */
     public const FILTER_TYPES = ['in', 'min'];
+
+    /**
+     * For a `min` filter whose column is the floor of a range, the column
+     * holding the top of it.
+     *
+     * A posting's salary is a range, and "₹20K+" asks whether the posting can
+     * pay ₹20K — which is a question about its ceiling. Matching the floor
+     * alone hid a ₹16K–₹26K job from somebody asking for ₹20K+, and a
+     * ₹70K–₹1L job from somebody asking for ₹75K+.
+     *
+     * Kept here, keyed by the declared column, rather than as a field on the
+     * declaration itself: the admin panel can edit a filter group, and a
+     * seventh field it does not know to write would be dropped on the first
+     * save — quietly restoring the bug. Column names come from this constant
+     * and never from a request.
+     *
+     * @var array<string, string>
+     */
+    public const RANGE_CEILING = ['salary_min' => 'salary_max'];
 
     /**
      * Lists that are maps rather than flat arrays, and so are edited through

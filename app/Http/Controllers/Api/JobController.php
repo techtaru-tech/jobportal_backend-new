@@ -67,16 +67,15 @@ class JobController extends ApiController
      *
      *  - `in`  — any of the picked values (`experience`, `job_type`, `shift`,
      *            `city`). Repeatable, so `city[]=Jaipur&city[]=Kota` is "either".
-     *  - `min` — the lowest ₹ threshold picked, matched against the job's
-     *            *floor*: `salary_min >= x`, so the job pays at least what the
-     *            candidate asked for rather than merely topping out there.
+     *  - `min` — the ₹ threshold picked, matched against the *top* of the
+     *            job's range. See [applyMinFilter].
      */
     private function applyDeclaredFilters(Builder $query, Request $request): void
     {
         foreach ($this->options->jobFilterParams() as $param => $spec) {
             if ($spec['type'] === 'min') {
                 if ($request->filled($param)) {
-                    $query->where($spec['column'], '>=', (int) $request->integer($param));
+                    $this->applyMinFilter($query, $spec['column'], (int) $request->integer($param));
                 }
 
                 continue;
@@ -88,6 +87,45 @@ class JobController extends ApiController
                 $query->whereIn($spec['column'], $values);
             }
         }
+    }
+
+    /**
+     * "₹20K+" against a posting that pays a range.
+     *
+     * This compared the candidate's floor to the posting's floor —
+     * `salary_min >= 20000` — on the reasoning that the job should pay at
+     * least what was asked rather than merely top out there. But a range is
+     * what the employer will pay *between*, so a job listed at ₹16K–₹26K can
+     * pay ₹20K, and hiding it from somebody who asked for ₹20K+ hides a job
+     * they could have taken. The board's own numbers made it plain: ₹75K+
+     * returned nothing while a ₹70K–₹1L posting sat there, and ₹30K+ dropped
+     * a ₹28K–₹42K one.
+     *
+     * So the question is whether the posting's range *reaches* the threshold,
+     * which is a question about its ceiling. A posting quoting only a floor
+     * ("₹25K", no upper bound) is judged on that instead — its floor is the
+     * only number it has. One quoting neither still matches nothing: there is
+     * no figure to promise the threshold is met.
+     *
+     * [OptionListService::RANGE_CEILING] supplies the ceiling column, so both
+     * names here are constants and neither comes from the request.
+     */
+    private function applyMinFilter(Builder $query, string $floorColumn, int $threshold): void
+    {
+        $ceilingColumn = OptionListService::RANGE_CEILING[$floorColumn] ?? null;
+
+        if ($ceilingColumn === null) {
+            $query->where($floorColumn, '>=', $threshold);
+
+            return;
+        }
+
+        $query->where(function (Builder $q) use ($ceilingColumn, $floorColumn, $threshold) {
+            $q->where($ceilingColumn, '>=', $threshold)
+                ->orWhere(fn (Builder $onlyFloor) => $onlyFloor
+                    ->whereNull($ceilingColumn)
+                    ->where($floorColumn, '>=', $threshold));
+        });
     }
 
     /**
