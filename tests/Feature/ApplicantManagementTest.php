@@ -435,6 +435,107 @@ class ApplicantManagementTest extends TestCase
         )->assertStatus(404);
     }
 
+    /*
+     * The per-tap intro-video link.
+     *
+     * Exactly the resume's problem, and it had no endpoint: "Watch intro
+     * video" opened the signed URL baked into a cached applicant payload,
+     * which had usually expired, so the video simply did not play.
+     */
+
+    public function test_a_recruiter_can_mint_a_fresh_link_to_an_applicants_intro_video(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+
+        Storage::disk(PrivateFiles::DISK)->put('intro-videos/1/riya.mp4', 'video');
+        $application->forceFill([
+            'snapshot_files' => ['intro_video_path' => 'intro-videos/1/riya.mp4'],
+        ])->save();
+
+        $response = $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/intro-video",
+        )->assertOk()->assertJsonStructure(['data' => ['url', 'expires_in_minutes']]);
+
+        $this->assertStringContainsString('intro-videos/1/riya.mp4', $response->json('data.url'));
+
+        // Freshly signed — the whole reason this endpoint exists. A looser
+        // check on the URL's shape would pass for an already-expired one.
+        $this->assertStringContainsString('signature=', $response->json('data.url'));
+        $this->assertGreaterThan(
+            now()->addMinutes(PrivateFiles::TTL_MINUTES - 1)->timestamp,
+            $this->expiryOf($response->json('data.url')),
+        );
+    }
+
+    /**
+     * Unlike the resume, this does fall back to the candidate's current file.
+     *
+     * A video recorded *after* applying has nothing in the frozen snapshot and
+     * it is the one the recruiter means — the applicant payload already
+     * surfaces it separately as `live_profile`.
+     */
+    public function test_a_video_recorded_after_applying_is_still_reachable(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+
+        Storage::disk(PrivateFiles::DISK)->put('intro-videos/1/recorded-later.mp4', 'video');
+        $application->forceFill(['snapshot_files' => []])->save();
+        $application->candidate->candidateProfile
+            ->forceFill(['intro_video_path' => 'intro-videos/1/recorded-later.mp4'])->save();
+
+        $url = $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/intro-video",
+        )->assertOk()->json('data.url');
+
+        $this->assertStringContainsString('recorded-later.mp4', $url);
+    }
+
+    /** Never recorded one is ordinary, not a fault. */
+    public function test_an_applicant_without_an_intro_video_is_reported_as_such(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+        $application->forceFill(['snapshot_files' => []])->save();
+        $application->candidate->candidateProfile
+            ->forceFill(['intro_video_path' => null])->save();
+
+        $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/intro-video",
+        )
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'This applicant has not recorded an intro video.');
+    }
+
+    /** A path with nothing behind it is a different message, and a real fault. */
+    public function test_a_missing_intro_video_file_is_reported_separately(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+        $application->forceFill([
+            'snapshot_files' => ['intro_video_path' => 'intro-videos/1/vanished.mp4'],
+        ])->save();
+
+        $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/intro-video",
+        )
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'That intro video is no longer available.');
+    }
+
+    public function test_another_recruiter_cannot_mint_a_link_to_this_applicants_intro_video(): void
+    {
+        $application = $this->applicant(['name' => 'Riya Sharma']);
+
+        Storage::disk(PrivateFiles::DISK)->put('intro-videos/1/riya.mp4', 'video');
+        $application->forceFill([
+            'snapshot_files' => ['intro_video_path' => 'intro-videos/1/riya.mp4'],
+        ])->save();
+
+        $this->actingAs(User::factory()->recruiter()->create(), 'sanctum');
+
+        $this->getJson(
+            "{$this->api}/recruiter/jobs/j_{$this->job->id}/applicants/{$application->reference}/intro-video",
+        )->assertStatus(404);
+    }
+
     /** The `expires` query parameter off a signed URL, as an integer. */
     private function expiryOf(string $url): int
     {

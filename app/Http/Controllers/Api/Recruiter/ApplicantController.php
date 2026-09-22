@@ -248,6 +248,47 @@ class ApplicantController extends ApiController
         ]);
     }
 
+    /**
+     * GET /recruiter/jobs/{jobId}/applicants/{applicationId}/intro-video
+     *
+     * The same problem as [resume], and it had no answer: `intro_video_url` on
+     * the applicant payload is signed and lives about fifteen minutes, and the
+     * applicant screen reads that payload from a cache the recruiter may have
+     * loaded much earlier. Tapping "Watch intro video" therefore handed the
+     * device an expired signature and the video simply did not play.
+     *
+     * Unlike the resume, this falls back to the candidate's **current** video
+     * when the snapshot has none. That is not a contradiction of §9.1: a
+     * candidate who recorded one after applying has nothing frozen to show,
+     * and the applicant payload already offers it separately as
+     * `live_profile` — the app labels that tap as the later recording.
+     */
+    public function introVideo(Request $request, string $jobId, string $applicationId): JsonResponse
+    {
+        $application = $this->findApplication($request, $jobId, $applicationId);
+
+        $path = $application->snapshot_files['intro_video_path'] ?? null;
+
+        if (blank($path)) {
+            $path = $application->candidate?->candidateProfile?->intro_video_path;
+        }
+
+        // Never recorded one is the ordinary case, not a fault.
+        if (blank($path)) {
+            return ApiResponse::error('This applicant has not recorded an intro video.', 404);
+        }
+
+        if (! PrivateFiles::disk()->exists($path)) {
+            return ApiResponse::error('That intro video is no longer available.', 404);
+        }
+
+        return ApiResponse::data([
+            'url' => PrivateFiles::url($path),
+            'seconds' => $application->profile_snapshot['intro_video_seconds'] ?? null,
+            'expires_in_minutes' => PrivateFiles::TTL_MINUTES,
+        ]);
+    }
+
     private function findApplication(Request $request, string $jobId, string $applicationId): Application
     {
         $job = $this->findOwnedJob($request, $jobId);

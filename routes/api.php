@@ -142,6 +142,9 @@ Route::prefix('v1')->group(function () {
             // short-lived, and the app opens it from a cache that may be an
             // hour old — see the controller method.
             Route::get('jobs/{jobId}/applicants/{applicationId}/resume', [Recruiter\ApplicantController::class, 'resume']);
+            // Same reason, same shape — the intro video's link expires just as
+            // the resume's does, and playing a stale one simply did nothing.
+            Route::get('jobs/{jobId}/applicants/{applicationId}/intro-video', [Recruiter\ApplicantController::class, 'introVideo']);
             Route::patch('jobs/{jobId}/applicants/{applicationId}/status', [Recruiter\ApplicantController::class, 'updateStatus']);
             Route::post('jobs/{jobId}/applicants/{applicationId}/interview', [Recruiter\ApplicantController::class, 'scheduleInterview']);
         });
