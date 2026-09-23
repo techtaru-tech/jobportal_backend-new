@@ -11,6 +11,8 @@ use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Exception\FirebaseException;
 use Kreait\Firebase\Exception\MessagingException;
 use Kreait\Firebase\Factory;
+use Kreait\Firebase\Messaging\AndroidConfig;
+use Kreait\Firebase\Messaging\ApnsConfig;
 use Kreait\Firebase\Messaging\CloudMessage;
 
 /**
@@ -54,7 +56,33 @@ class PushNotificationService
             return;
         }
 
-        $message = CloudMessage::new()->withData($this->dataFor($notification));
+        $message = CloudMessage::new()
+            ->withData($this->dataFor($notification))
+            // High priority, and this is what was missing.
+            //
+            // A data-only message defaults to **normal** priority, and normal
+            // priority is precisely what Android's Doze and App Standby are
+            // free to sit on: it is held until the device next wakes, and for
+            // an app that is not currently running it does not start the
+            // background isolate at all. So nothing reached the tray — while
+            // the in-app list still filled in, because that is polled. Which
+            // is exactly why the messages looked like they were arriving and
+            // the notifications did not.
+            //
+            // Only a data message can be high priority *and* stay data-only,
+            // which is the point: the app draws its own notification and owns
+            // where a tap goes. See this class's doc comment.
+            ->withAndroidConfig(AndroidConfig::new()->withHighMessagePriority())
+            // The iOS half, for the day an APNs key is uploaded. A silent
+            // push needs `content-available` to wake the app at all, and APNs
+            // rejects a background push sent at priority 10 — 5 is the only
+            // value it takes for one.
+            ->withApnsConfig(
+                ApnsConfig::new()
+                    ->withHeader('apns-push-type', 'background')
+                    ->withPowerConservingPriority()
+                    ->withApsField('content-available', 1),
+            );
 
         try {
             $report = $messaging->sendMulticast($message, $tokens->values()->all());

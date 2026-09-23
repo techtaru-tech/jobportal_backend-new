@@ -228,4 +228,77 @@ class PushNotificationServiceTest extends TestCase
 
         $this->assertSame(1, DeviceToken::where('token', 'tok-1')->count());
     }
+
+    /** The message as it goes on the wire, for the two tests below. */
+    private function wireShapeOf(User $user, AppNotification $notification, string $token): array
+    {
+        $sent = [];
+        $fake = Mockery::mock(Messaging::class);
+        $fake->shouldReceive('sendMulticast')
+            ->once()
+            ->withArgs(function ($message, $tokens) use (&$sent) {
+                $sent = $message->jsonSerialize();
+
+                return true;
+            })
+            ->andReturn(MulticastSendReport::withItems([
+                SendReport::success(MessageTarget::with(MessageTarget::TOKEN, $token), ['name' => 'msg-1']),
+            ]));
+
+        $this->serviceWithFakeMessaging($fake)->send($user, $notification);
+
+        return $sent;
+    }
+
+    private function notificationFor(User $user): AppNotification
+    {
+        return AppNotification::create([
+            'user_id' => $user->id,
+            'audience' => 'jobSeeker',
+            'text' => 'Hello',
+            'type' => 'system',
+        ]);
+    }
+
+    /**
+     * The reported bug: chat messages arrived, the notifications did not.
+     *
+     * A data-only message defaults to **normal** priority, which Android's
+     * Doze and App Standby are free to hold — and for an app that is not
+     * currently running, FCM will not start the background isolate for one at
+     * all. So nothing reached the tray, while the in-app list still filled in
+     * because that is polled.
+     *
+     * Asserted on the serialised message rather than through the builder,
+     * because the builder is what was wrong: it accepted a message with no
+     * priority on it perfectly happily.
+     */
+    public function test_a_push_is_sent_at_high_priority_so_a_sleeping_phone_wakes(): void
+    {
+        $user = $this->actingAsCandidate();
+        DeviceToken::create(['user_id' => $user->id, 'token' => 'tok-1', 'platform' => 'android']);
+
+        $sent = $this->wireShapeOf($user, $this->notificationFor($user), 'tok-1');
+
+        $this->assertSame('high', $sent['android']['priority'] ?? null);
+
+        // Still data-only. High priority would be worth nothing if it arrived
+        // as an FCM-rendered notification: the app would stop drawing its own,
+        // and a tap would route through the OS instead of DeepLinkService.
+        $this->assertArrayHasKey('data', $sent);
+        $this->assertArrayNotHasKey('notification', $sent);
+    }
+
+    /** iOS will not wake for a silent push without these two. */
+    public function test_the_ios_half_is_addressed_as_a_background_push(): void
+    {
+        $user = $this->actingAsCandidate();
+        DeviceToken::create(['user_id' => $user->id, 'token' => 'tok-ios', 'platform' => 'ios']);
+
+        $sent = $this->wireShapeOf($user, $this->notificationFor($user), 'tok-ios');
+
+        $this->assertSame(1, $sent['apns']['payload']['aps']['content-available'] ?? null);
+        // APNs rejects a background push sent at priority 10.
+        $this->assertSame('5', $sent['apns']['headers']['apns-priority'] ?? null);
+    }
 }
