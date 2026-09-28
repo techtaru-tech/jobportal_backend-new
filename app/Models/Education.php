@@ -6,11 +6,21 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['qualification', 'specialization', 'institute', 'year'])]
+#[Fillable(['qualification', 'specialization', 'institute', 'year', 'percentage'])]
 class Education extends Model
 {
     /** "Education" is uncountable, so Eloquent would guess `education`. */
     protected $table = 'educations';
+
+    /**
+     * A plain float rather than the string a `decimal` column returns by
+     * default — the app parses this straight into a number, and there is
+     * nothing to be gained by making it round-trip through a string first.
+     */
+    protected function casts(): array
+    {
+        return ['percentage' => 'float'];
+    }
 
     protected static function booted(): void
     {

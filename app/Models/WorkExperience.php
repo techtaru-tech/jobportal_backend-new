@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * portal is not hospital-only, so an unlisted value is never rejected.
  */
 #[Fillable([
-    'designation', 'organization', 'department', 'city',
+    'designation', 'organization', 'department', 'cities',
     'start_date', 'end_date', 'currently_working', 'description',
 ])]
 class WorkExperience extends Model
@@ -21,6 +21,7 @@ class WorkExperience extends Model
     {
         return [
             'currently_working' => 'boolean',
+            'cities' => 'array',
         ];
     }
 

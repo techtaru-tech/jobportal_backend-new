@@ -49,6 +49,7 @@ class EducationController extends ApiController
             'specialization' => ['nullable', 'string', 'max:120'],
             'institute' => ['nullable', 'string', 'max:150'],
             'year' => ['nullable', 'string', 'max:10'],
+            'percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
     }
 

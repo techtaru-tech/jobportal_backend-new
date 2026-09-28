@@ -37,7 +37,7 @@ class CandidateProfileTest extends TestCase
         $profile->workExperiences()->create([
             'designation' => 'Staff Nurse',
             'organization' => 'Fortis Hospital',
-            'city' => 'Jaipur',
+            'cities' => ['Jaipur'],
             'start_date' => 'Mar 2021',
             'currently_working' => true,
         ]);
@@ -139,7 +139,7 @@ class CandidateProfileTest extends TestCase
         $user->candidateProfile->workExperiences()->create([
             'designation' => 'Staff Nurse',
             'organization' => 'Fortis Hospital',
-            'city' => 'Jaipur',
+            'cities' => ['Jaipur'],
             'start_date' => 'Mar 2021',
             'currently_working' => true,
         ]);
@@ -353,6 +353,40 @@ class CandidateProfileTest extends TestCase
         $this->deleteJson("{$this->api}/candidate/profile/educations/{$created['id']}")->assertStatus(404);
     }
 
+    public function test_an_education_entry_carries_a_percentage(): void
+    {
+        $this->actingAsCandidate();
+
+        $created = $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'B.Sc Nursing',
+            'institute' => 'RUHS',
+            'year' => '2022',
+            'percentage' => 72.5,
+        ])->assertCreated()->json('data');
+
+        $this->assertSame(72.5, $created['percentage']);
+
+        // Optional — an entry with none recorded is not refused.
+        $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'GNM',
+        ])->assertCreated()->assertJsonPath('data.percentage', null);
+    }
+
+    public function test_a_percentage_outside_zero_to_a_hundred_is_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'B.Sc Nursing',
+            'percentage' => 101,
+        ])->assertStatus(422);
+
+        $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'B.Sc Nursing',
+            'percentage' => -1,
+        ])->assertStatus(422);
+    }
+
     public function test_one_candidate_cannot_touch_another_candidates_education(): void
     {
         $other = $this->actingAsCandidate();
@@ -375,7 +409,7 @@ class CandidateProfileTest extends TestCase
             'designation' => 'Staff Nurse',
             'organization' => 'Fortis Hospital',
             'department' => 'ICU',
-            'city' => 'Jaipur',
+            'cities' => ['Jaipur', 'Ajmer'],
             'start_date' => 'Mar 2023',
             'end_date' => 'Jan 2024',
             'currently_working' => true,
@@ -386,8 +420,24 @@ class CandidateProfileTest extends TestCase
         $this->assertSame('Present', $created['end_date']);
         $this->assertSame('Managed ventilated patients across a 24-bed medical ICU.', $created['description']);
         $this->assertSame('Mar 2023 – Present', $created['period']);
+        // A role can be worked across more than one location.
+        $this->assertSame(['Jaipur', 'Ajmer'], $created['cities']);
 
         $this->deleteJson("{$this->api}/candidate/profile/experiences/{$created['id']}")->assertOk();
+    }
+
+    public function test_a_role_with_no_city_recorded_yet_reports_an_empty_list(): void
+    {
+        $this->actingAsCandidate();
+
+        $created = $this->postJson("{$this->api}/candidate/profile/experiences", [
+            'designation' => 'Staff Nurse',
+            'organization' => 'Fortis Hospital',
+        ])->assertCreated()->json('data');
+
+        // Never null on the wire — the app reads this as a plain list either
+        // way, and null would be one more case every consumer has to guard.
+        $this->assertSame([], $created['cities']);
     }
 
     public function test_designation_and_organization_accept_any_freeform_value(): void

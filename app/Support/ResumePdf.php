@@ -81,7 +81,11 @@ class ResumePdf
                 /** @var WorkExperience $experience */
                 $add(trim($experience->designation.' — '.$experience->organization), 11, true, 6);
 
-                $meta = array_filter([$experience->department, $experience->city, $experience->period()]);
+                $meta = array_filter([
+                    $experience->department,
+                    implode(', ', $experience->cities ?? []),
+                    $experience->period(),
+                ]);
 
                 if ($meta !== []) {
                     $add(implode('  |  ', $meta), 9.5);
@@ -102,7 +106,12 @@ class ResumePdf
                 /** @var Education $education */
                 $add($education->qualification, 11, true, 6);
 
-                $meta = array_filter([$education->specialization, $education->institute, $education->year]);
+                $meta = array_filter([
+                    $education->specialization,
+                    $education->institute,
+                    $education->year,
+                    $education->percentage === null ? null : $education->percentage.'%',
+                ]);
 
                 if ($meta !== []) {
                     $add(implode('  |  ', $meta), 9.5);

@@ -83,7 +83,7 @@ class DemoSeeder extends Seeder
             ], [
                 [
                     'designation' => 'Staff Nurse', 'organization' => 'Fortis Hospital', 'department' => 'ICU',
-                    'city' => 'Jaipur', 'start_date' => 'Mar 2023', 'currently_working' => true,
+                    'cities' => ['Jaipur'], 'start_date' => 'Mar 2023', 'currently_working' => true,
                     'description' => "Monitored ventilated patients across rotational shifts.\nTrained two junior nurses on ICU protocol.",
                 ],
             ]),
@@ -109,7 +109,7 @@ class DemoSeeder extends Seeder
             ], [
                 [
                     'designation' => 'Staff Nurse', 'organization' => 'Apollo Hospitals', 'department' => 'Nurse',
-                    'city' => 'Jaipur', 'start_date' => '2022', 'currently_working' => true,
+                    'cities' => ['Jaipur'], 'start_date' => '2022', 'currently_working' => true,
                     'description' => 'Handled ICU responsibilities across shifts.',
                 ],
             ]),
@@ -132,7 +132,7 @@ class DemoSeeder extends Seeder
             ], [
                 [
                     'designation' => 'OPD Nurse', 'organization' => 'City Care Clinic', 'department' => 'OPD',
-                    'city' => 'Jodhpur', 'start_date' => 'Jun 2023', 'currently_working' => true,
+                    'cities' => ['Jodhpur'], 'start_date' => 'Jun 2023', 'currently_working' => true,
                 ],
             ]),
 

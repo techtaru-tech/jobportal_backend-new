@@ -21,7 +21,7 @@ class WorkExperienceResource extends JsonResource
             'designation' => $this->designation,
             'organization' => $this->organization,
             'department' => $this->department,
-            'city' => $this->city,
+            'cities' => $this->cities ?? [],
             'start_date' => $this->start_date,
             'end_date' => $this->end_date,
             'currently_working' => $this->currently_working,

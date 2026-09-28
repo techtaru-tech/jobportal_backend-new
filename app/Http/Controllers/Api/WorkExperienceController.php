@@ -46,7 +46,11 @@ class WorkExperienceController extends ApiController
             'designation' => ['required', 'string', 'max:120'],
             'organization' => ['required', 'string', 'max:150'],
             'department' => ['nullable', 'string', 'max:120'],
-            'city' => ['nullable', 'string', 'max:80'],
+            // A role can be worked across more than one location — a
+            // staffing placement rotating between two hospitals in the same
+            // city group, say — so this is a list, not one string.
+            'cities' => ['nullable', 'array'],
+            'cities.*' => ['string', 'max:80'],
             'start_date' => ['nullable', 'string', 'max:30'],
             'end_date' => ['nullable', 'string', 'max:30'],
             'currently_working' => ['boolean'],
