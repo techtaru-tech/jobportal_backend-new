@@ -148,6 +148,7 @@ class UserController extends ApiController
                 'preferred_roles' => $profile->preferred_roles ?? [],
                 'preferred_job_types' => $profile->preferred_job_types ?? [],
                 'preferred_shifts' => $profile->preferred_shifts ?? [],
+                'preferred_organisation_types' => $profile->preferred_organisation_types ?? [],
                 'expected_salary' => $profile->expected_salary,
                 'languages' => $profile->languages ?? [],
                 'language_levels' => $profile->language_levels ?? [],

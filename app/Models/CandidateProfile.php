@@ -17,7 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'name', 'email', 'gender', 'dob', 'address',
     'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
     'qualification', 'experience', 'location',
-    'preferred_roles', 'preferred_job_types', 'preferred_shifts', 'expected_salary',
+    'preferred_roles', 'preferred_job_types', 'preferred_shifts',
+    'preferred_organisation_types', 'expected_salary',
     'languages', 'language_levels',
     'about', 'photo_path', 'resume_name', 'resume_path',
     'intro_video_path', 'intro_video_thumbnail_path', 'intro_video_seconds',
@@ -76,6 +77,7 @@ class CandidateProfile extends Model
             'preferred_roles' => 'array',
             'preferred_job_types' => 'array',
             'preferred_shifts' => 'array',
+            'preferred_organisation_types' => 'array',
             'languages' => 'array',
             'language_levels' => 'array',
         ];
@@ -223,6 +225,11 @@ class CandidateProfile extends Model
                 'entry' => $this->hasRelatedRows('workExperiences'),
                 'band' => filled($this->experience),
             ],
+            // `preferred_organisation_types` is deliberately not one of these
+            // parts — it is a preference like the rest of this bucket, but
+            // adding a required part here would move every existing profile's
+            // stored percentage the moment this shipped, for a field nobody
+            // had been asked yet.
             'location' => [
                 'cities' => filled($this->location),
                 'job_types' => filled($this->preferred_job_types),

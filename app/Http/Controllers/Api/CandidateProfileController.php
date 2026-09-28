@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\LanguageLevel;
+use App\Enums\OrganisationIndustry;
 use App\Http\Resources\CandidateProfileResource;
 use App\Models\CandidateProfile;
 use App\Services\OptionListService;
@@ -85,10 +86,16 @@ class CandidateProfileController extends ApiController
             'preferred_job_types.*' => [Rule::in(app(OptionListService::class)->list('job_types'))],
             'preferred_shifts' => ['sometimes', 'nullable', 'array'],
             'preferred_shifts.*' => [Rule::in(app(OptionListService::class)->list('shifts'))],
+            // The same enum an employer's own organisation industry is
+            // validated against — a candidate's stated preference and a
+            // job's actual `organisation_industry` have to speak the same
+            // words to ever be matched against each other.
+            'preferred_organisation_types' => ['sometimes', 'nullable', 'array'],
+            'preferred_organisation_types.*' => [Rule::in(OrganisationIndustry::values())],
             'expected_salary' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
 
-        foreach (['preferred_roles', 'preferred_job_types', 'preferred_shifts'] as $list) {
+        foreach (['preferred_roles', 'preferred_job_types', 'preferred_shifts', 'preferred_organisation_types'] as $list) {
             if (array_key_exists($list, $validated)) {
                 $validated[$list] = Display::cleanList($validated[$list]);
             }

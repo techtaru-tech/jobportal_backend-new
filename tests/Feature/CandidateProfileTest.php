@@ -54,6 +54,7 @@ class CandidateProfileTest extends TestCase
                 'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
                 'qualification', 'experience',
                 'location', 'preferred_roles', 'preferred_job_types', 'preferred_shifts',
+                'preferred_organisation_types',
                 'expected_salary',
                 'languages', 'language_levels', 'about', 'photo', 'photo_url',
                 'resume', 'resume_url', 'intro_video_url', 'intro_video_thumbnail_url',
@@ -222,9 +223,11 @@ class CandidateProfileTest extends TestCase
             'preferred_roles' => ['Nurse', 'ICU Nurse'],
             'preferred_job_types' => ['Full Time'],
             'preferred_shifts' => ['Day', 'Rotational'],
+            'preferred_organisation_types' => ['Hospital', 'Diagnostic Lab'],
             'expected_salary' => '35K',
         ])->assertOk()
             ->assertJsonPath('data.preferred_roles', ['Nurse', 'ICU Nurse'])
+            ->assertJsonPath('data.preferred_organisation_types', ['Hospital', 'Diagnostic Lab'])
             ->assertJsonPath('data.expected_salary', '35K');
     }
 
@@ -234,6 +237,18 @@ class CandidateProfileTest extends TestCase
 
         $this->patchJson("{$this->api}/candidate/profile/preferences", [
             'preferred_shifts' => ['Whenever'],
+        ])->assertStatus(422);
+    }
+
+    public function test_preferences_reject_an_organisation_type_no_employer_could_have(): void
+    {
+        // Validated against the same enum an employer's own organisation
+        // industry is — a candidate's preference and a job's actual industry
+        // have to speak the same words to ever be matched against each other.
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/preferences", [
+            'preferred_organisation_types' => ['Spaceship'],
         ])->assertStatus(422);
     }
 

@@ -26,7 +26,7 @@ class AdminJobFilterTest extends TestCase
 
         $this->assertFalse($body['is_overridden']);
         $this->assertSame(
-            ['experience', 'salary', 'job_type', 'shift', 'city'],
+            ['city', 'experience', 'salary', 'job_type', 'shift'],
             array_column($body['groups'], 'key'),
         );
 
@@ -75,7 +75,7 @@ class AdminJobFilterTest extends TestCase
             ->json('data');
 
         $this->assertSame(
-            ['experience', 'salary', 'job_type', 'shift', 'city', 'role'],
+            ['city', 'experience', 'salary', 'job_type', 'shift', 'role'],
             array_column($groups, 'key'),
         );
     }
@@ -158,7 +158,7 @@ class AdminJobFilterTest extends TestCase
         $this->deleteJson("{$this->api}/admin/job-filters/override")->assertOk();
 
         $this->assertSame(
-            ['experience', 'salary', 'job_type', 'shift', 'city'],
+            ['city', 'experience', 'salary', 'job_type', 'shift'],
             $this->listedKeys(),
         );
     }

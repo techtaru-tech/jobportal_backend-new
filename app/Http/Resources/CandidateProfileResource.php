@@ -44,6 +44,7 @@ class CandidateProfileResource extends JsonResource
             'preferred_roles' => $this->preferred_roles ?? [],
             'preferred_job_types' => $this->preferred_job_types ?? [],
             'preferred_shifts' => $this->preferred_shifts ?? [],
+            'preferred_organisation_types' => $this->preferred_organisation_types ?? [],
             'expected_salary' => $this->expected_salary,
 
             'languages' => $this->languages ?? [],

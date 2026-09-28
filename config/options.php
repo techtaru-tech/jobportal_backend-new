@@ -74,15 +74,17 @@ return [
 
     // §10.7 Cities — Rajasthan-first for launch, extensible to any Indian city.
     // Not validated as a closed list anywhere; this is picker seed data only.
+    // Alphabetical — this is the list the city filter's chips are drawn from,
+    // and the client asked for the filter itself to read that way.
     'cities' => [
-        'Jaipur',
-        'Jodhpur',
-        'Udaipur',
-        'Kota',
         'Ajmer',
-        'Bikaner',
         'Alwar',
         'Bharatpur',
+        'Bikaner',
+        'Jaipur',
+        'Jodhpur',
+        'Kota',
+        'Udaipur',
     ],
 
     // §10.9 Languages + proficiency levels
@@ -403,7 +405,22 @@ return [
     |   type   — `in` (any of the picked values) or `min` (lowest ₹ threshold)
     |
     */
+    // City first, per the client's own spec — an "Organisation" group after
+    // it is asked for too, but nothing in this app can populate one yet:
+    // there is no bounded list of employer names the way there is for every
+    // other group here (`organisation` is free text an employer types on
+    // their own job, not picked from a catalogue). Reference designs for the
+    // filter sheet were promised and never arrived; adding a group with no
+    // real data behind it would be guessing at both once.
     'job_filters' => [
+        [
+            'key' => 'city',
+            'label' => 'City',
+            'param' => 'city',
+            'list' => 'cities',
+            'column' => 'city',
+            'type' => 'in',
+        ],
         [
             'key' => 'experience',
             'label' => 'Experience',
@@ -436,14 +453,6 @@ return [
             'param' => 'shift',
             'list' => 'shifts',
             'column' => 'shift',
-            'type' => 'in',
-        ],
-        [
-            'key' => 'city',
-            'label' => 'City',
-            'param' => 'city',
-            'list' => 'cities',
-            'column' => 'city',
             'type' => 'in',
         ],
     ],
