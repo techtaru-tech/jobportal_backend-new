@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'currently_employed', 'notice_period', 'last_working_date',
     'immediate_joiner', 'earliest_joining_date',
     'willing_to_relocate', 'has_vehicle', 'has_driving_licence',
-    'languages', 'language_levels',
+    'languages', 'language_levels', 'language_proficiencies',
     'about', 'hobbies', 'skills', 'photo_path', 'resume_name', 'resume_path',
     'intro_video_path', 'intro_video_thumbnail_path', 'intro_video_seconds',
 ])]
@@ -94,6 +94,7 @@ class CandidateProfile extends Model
             'has_driving_licence' => 'boolean',
             'languages' => 'array',
             'language_levels' => 'array',
+            'language_proficiencies' => 'array',
             'hobbies' => 'array',
             'skills' => 'array',
         ];

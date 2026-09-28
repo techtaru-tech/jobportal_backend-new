@@ -49,6 +49,7 @@ class ConfigController extends ApiController
             // be offered by the picker and then rejected on save. See
             // OptionListService::EDITABLE_LISTS.
             'language_levels' => config('options.language_levels'),
+            'language_proficiencies' => config('options.language_proficiencies'),
             'organisation_industries' => config('options.organisation_industries'),
             'organisation_sizes' => config('options.organisation_sizes'),
 
@@ -69,7 +70,7 @@ class ConfigController extends ApiController
             'designations' => $lists['designations'],
             'institutes' => $lists['institutes'],
             'departments' => $lists['departments'],
-            'notice_periods' => $lists['notice_periods'],
+            'notice_periods' => $lists['notice_periods'] ?? config('options.notice_periods', []),
             'genders' => config('options.genders'),
             'marital_statuses' => config('options.marital_statuses'),
             'states' => config('options.states'),

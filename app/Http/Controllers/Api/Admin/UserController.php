@@ -170,6 +170,7 @@ class UserController extends ApiController
                 'has_driving_licence' => $profile->has_driving_licence,
                 'languages' => $profile->languages ?? [],
                 'language_levels' => $profile->language_levels ?? [],
+                'language_proficiencies' => $profile->language_proficiencies ?? [],
                 'about' => $profile->about,
                 'hobbies' => $profile->hobbies ?? [],
                 'skills' => $profile->skills ?? [],

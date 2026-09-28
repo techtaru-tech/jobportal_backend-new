@@ -360,6 +360,47 @@ class CandidateProfileTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_a_language_carries_a_proficiency_beside_its_abilities(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->putJson("{$this->api}/candidate/profile/languages", [
+            'languages' => ['Hindi', 'English'],
+            'language_levels' => ['Hindi' => 'Read, Write & Speak', 'English' => 'Read & Speak'],
+            'language_proficiencies' => ['Hindi' => 'Native', 'English' => 'Professional'],
+        ])->assertOk()
+            ->assertJsonPath('data.language_proficiencies.Hindi', 'Native')
+            ->assertJsonPath('data.language_proficiencies.English', 'Professional')
+            ->assertJsonPath('data.language_levels.Hindi', 'Read, Write & Speak');
+    }
+
+    public function test_a_proficiency_outside_the_list_is_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->putJson("{$this->api}/candidate/profile/languages", [
+            'languages' => ['Hindi'],
+            'language_proficiencies' => ['Hindi' => 'Fluent-ish'],
+        ])->assertStatus(422);
+    }
+
+    public function test_removing_a_language_drops_its_proficiency_even_from_an_old_build(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->putJson("{$this->api}/candidate/profile/languages", [
+            'languages' => ['Hindi', 'English'],
+            'language_proficiencies' => ['Hindi' => 'Native', 'English' => 'Professional'],
+        ])->assertOk();
+
+        // An app that has never heard of proficiency sends only the names.
+        $this->putJson("{$this->api}/candidate/profile/languages", [
+            'languages' => ['Hindi'],
+        ])->assertOk()
+            ->assertJsonPath('data.language_proficiencies.Hindi', 'Native')
+            ->assertJsonMissingPath('data.language_proficiencies.English');
+    }
+
     public function test_the_served_list_is_the_one_validation_enforces(): void
     {
         // These were two lists kept equal by hand, and they came apart: the

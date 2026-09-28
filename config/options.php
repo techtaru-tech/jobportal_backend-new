@@ -106,6 +106,14 @@ return [
     // four values that validation then refused.
     'language_levels' => App\Enums\LanguageLevel::values(),
 
+    // How well, as opposed to `language_levels`' what — the client's table
+    // asks for both. Closed: validated with Rule::in().
+    'language_proficiencies' => [
+        'Native',
+        'Professional',
+        'Conversational',
+    ],
+
     // §1.8 `organisation_industry` (§7.2)
     'organisation_industries' => [
         'Hospital',

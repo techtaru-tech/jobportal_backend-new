@@ -73,6 +73,7 @@ class CandidateProfileResource extends JsonResource
 
             'languages' => $this->languages ?? [],
             'language_levels' => (object) ($this->language_levels ?? []),
+            'language_proficiencies' => (object) ($this->language_proficiencies ?? []),
 
             'about' => $this->about,
             'hobbies' => $this->hobbies ?? [],

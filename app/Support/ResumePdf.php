@@ -122,9 +122,16 @@ class ResumePdf
         if (filled($profile->languages)) {
             $heading('Languages');
 
+            // "Hindi (Native · Read, Write & Speak)" — how well, then what.
             $languages = collect($profile->languages)
-                ->map(fn (string $language) => $language.
-                    (($profile->language_levels[$language] ?? null) ? ' ('.$profile->language_levels[$language].')' : ''))
+                ->map(function (string $language) use ($profile) {
+                    $details = array_filter([
+                        $profile->language_proficiencies[$language] ?? null,
+                        $profile->language_levels[$language] ?? null,
+                    ]);
+
+                    return $details === [] ? $language : $language.' ('.implode(' · ', $details).')';
+                })
                 ->implode(', ');
 
             foreach (self::wrap($languages, 96) as $line) {

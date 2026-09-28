@@ -137,9 +137,27 @@ class CandidateProfileController extends ApiController
                     }
                 },
             ],
+            // Native / Professional / Conversational — optional, and
+            // `sometimes` so a build that only knows about abilities keeps
+            // saving. A key it does not send leaves what is on record alone.
+            'language_proficiencies' => ['sometimes', 'array'],
+            'language_proficiencies.*' => ['nullable', Rule::in(config('options.language_proficiencies'))],
         ]);
 
         $languages = Display::cleanList($validated['languages']);
+
+        if (array_key_exists('language_proficiencies', $validated)) {
+            $profile->language_proficiencies = collect($validated['language_proficiencies'])
+                ->only($languages)
+                ->filter(fn ($value) => filled($value))
+                ->all();
+        } else {
+            // Unsent, but a language that was just removed must not leave its
+            // proficiency behind.
+            $profile->language_proficiencies = collect($profile->language_proficiencies ?? [])
+                ->only($languages)
+                ->all();
+        }
 
         $profile->fill([
             'languages' => $languages,

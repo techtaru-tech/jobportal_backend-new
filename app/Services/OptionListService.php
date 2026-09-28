@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Cache;
 class OptionListService
 {
     /** Bumped with the shape of what is cached, not with its contents. */
-    private const CACHE_KEY = 'option_lists.v1';
+    private const CACHE_KEY = 'option_lists.v2';
 
     private const CACHE_TTL_SECONDS = 3600;
 
