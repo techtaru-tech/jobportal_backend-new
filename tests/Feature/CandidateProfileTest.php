@@ -158,6 +158,52 @@ class CandidateProfileTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_every_state_is_served_with_its_own_cities(): void
+    {
+        $served = $this->getJson("{$this->api}/config/options")->assertOk()->json('data');
+
+        $this->assertCount(36, $served['states']);
+        $this->assertSame($served['states'], array_keys($served['state_cities']));
+
+        foreach ($served['state_cities'] as $state => $cities) {
+            $this->assertNotEmpty($cities, $state);
+            $sorted = $cities;
+            sort($sorted, SORT_NATURAL | SORT_FLAG_CASE);
+            $this->assertSame($sorted, $cities, "{$state} is not alphabetical");
+        }
+
+        $this->assertContains('Jaipur', $served['state_cities']['Rajasthan']);
+        $this->assertContains('Kotputli-Behror', $served['state_cities']['Rajasthan']);
+        $this->assertContains('Noida', $served['state_cities']['Uttar Pradesh']);
+    }
+
+    public function test_a_city_picked_with_a_state_must_be_in_that_state(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile", [
+            'home_state' => 'Rajasthan',
+            'home_city' => 'Lucknow',
+        ])->assertStatus(422)->assertJsonStructure(['errors' => ['home_city']]);
+
+        $this->patchJson("{$this->api}/candidate/profile", [
+            'home_state' => 'Rajasthan',
+            'home_city' => 'Jaipur',
+        ])->assertOk()
+            ->assertJsonPath('data.home_state', 'Rajasthan')
+            ->assertJsonPath('data.home_city', 'Jaipur');
+    }
+
+    public function test_a_city_sent_without_a_state_still_saves_for_older_builds(): void
+    {
+        // Builds from before the state picker send a GPS-derived city alone.
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile", ['home_city' => 'Malviya Nagar'])
+            ->assertOk()
+            ->assertJsonPath('data.home_city', 'Malviya Nagar');
+    }
+
     public function test_it_rejects_a_state_no_candidate_could_live_in(): void
     {
         $this->actingAsCandidate();

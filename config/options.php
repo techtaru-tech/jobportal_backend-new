@@ -395,17 +395,13 @@ return [
     | A candidate can be based anywhere, so this list is national rather than
     | scoped to where the app currently posts jobs.
     */
-    'states' => [
-        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-        'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
-        'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
-        'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan',
-        'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh',
-        'Uttarakhand', 'West Bengal',
-        'Andaman and Nicobar Islands', 'Chandigarh',
-        'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
-        'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
-    ],
+    'states' => array_keys(require __DIR__.'/india_locations.php'),
+
+    /*
+    | State -> its cities (districts plus well-known cities), for the
+    | dependent Current state -> Current city pickers. See india_locations.php.
+    */
+    'state_cities' => require __DIR__.'/india_locations.php',
 
     /*
     | Suggested professional skills for the candidate's profile — a shortlist

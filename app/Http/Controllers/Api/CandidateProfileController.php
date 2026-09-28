@@ -52,11 +52,29 @@ class CandidateProfileController extends ApiController
 
             // Where the candidate lives — distinct from `location` (§3.3, §3.9),
             // which is where they want to work.
-            'home_city' => ['sometimes', 'nullable', 'string', 'max:80'],
             'home_pincode' => ['sometimes', 'nullable', 'string', 'max:10'],
             'home_latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'home_longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'home_state' => ['sometimes', 'nullable', Rule::in(config('options.states'))],
+            // Picked from the state's own list once a state is picked in the
+            // same request. Only then: builds from before the state picker
+            // send a GPS-derived city on its own, and that must keep saving.
+            'home_city' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:80',
+                function (string $attribute, mixed $value, Closure $fail) use ($request) {
+                    $state = $request->input('home_state');
+                    if (blank($value) || blank($state)) {
+                        return;
+                    }
+                    $cities = config("options.state_cities.{$state}", []);
+                    if ($cities !== [] && ! in_array($value, $cities, true)) {
+                        $fail("Pick a city in {$state}.");
+                    }
+                },
+            ],
             'native_place' => ['sometimes', 'nullable', 'string', 'max:120'],
             // Freeform, not Rule::in — a candidate who is not Indian is not a
             // case this app can afford to reject at the door.

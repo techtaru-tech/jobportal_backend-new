@@ -74,6 +74,8 @@ class ConfigController extends ApiController
             'genders' => config('options.genders'),
             'marital_statuses' => config('options.marital_statuses'),
             'states' => config('options.states'),
+            // The Current city picker offers the list under the state picked.
+            'state_cities' => (object) config('options.state_cities'),
             'professional_skills' => config('options.professional_skills'),
             'hobby_interests' => config('options.hobby_interests'),
             'education_types' => config('options.education_types'),
