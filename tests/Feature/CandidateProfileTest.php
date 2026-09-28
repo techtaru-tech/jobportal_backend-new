@@ -353,6 +353,22 @@ class CandidateProfileTest extends TestCase
         $this->deleteJson("{$this->api}/candidate/profile/educations/{$created['id']}")->assertStatus(404);
     }
 
+    public function test_a_year_to_year_range_is_not_refused_for_its_own_length(): void
+    {
+        // The reported bug: the app composes a start year and a passing year
+        // into one string — 'YYYY – YYYY', 11 characters — and this used to
+        // cap `year` at 10. A candidate who genuinely studied across two
+        // years got a 422 on a field they had answered correctly.
+        $this->actingAsCandidate();
+
+        $created = $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'B.Sc Nursing',
+            'year' => '2018 – 2022',
+        ])->assertCreated()->json('data');
+
+        $this->assertSame('2018 – 2022', $created['year']);
+    }
+
     public function test_an_education_entry_carries_a_percentage(): void
     {
         $this->actingAsCandidate();

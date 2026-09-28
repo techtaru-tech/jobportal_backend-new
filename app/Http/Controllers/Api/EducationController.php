@@ -48,7 +48,11 @@ class EducationController extends ApiController
             'qualification' => ['required', 'string', 'max:120'],
             'specialization' => ['nullable', 'string', 'max:120'],
             'institute' => ['nullable', 'string', 'max:150'],
-            'year' => ['nullable', 'string', 'max:10'],
+            // 20, not 10: the app composes a start year and a passing year
+            // into one string — 'YYYY – YYYY' is 11 characters — and this has
+            // to accept exactly what that produces. See the migration that
+            // widened the column to match.
+            'year' => ['nullable', 'string', 'max:20'],
             'percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
     }
