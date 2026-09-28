@@ -454,14 +454,17 @@ class CandidateProfileTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_a_hobby_no_candidate_could_have_picked_is_refused(): void
+    public function test_a_hobby_of_the_candidates_own_is_accepted_and_tidied(): void
     {
+        // The list is a set of suggestions; the picker lets a candidate add
+        // their own, so the server must not refuse one.
         $this->actingAsCandidate();
 
         $this->patchJson("{$this->api}/candidate/profile/about", [
             'about' => 'ICU nurse.',
-            'hobbies' => ['Betting'],
-        ])->assertStatus(422);
+            'hobbies' => ['  Chess ', 'Reading', 'chess'],
+        ])->assertOk()
+            ->assertJsonPath('data.hobbies', ['Chess', 'Reading']);
     }
 
     public function test_an_app_build_from_before_hobbies_existed_still_saves_about(): void
@@ -487,14 +490,45 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('data.skills', ['Communication', 'Team Management']);
     }
 
-    public function test_a_skill_no_role_here_asks_for_is_refused(): void
+    public function test_a_skill_of_the_candidates_own_is_accepted(): void
     {
         $this->actingAsCandidate();
 
         $this->patchJson("{$this->api}/candidate/profile/about", [
             'about' => 'ICU nurse.',
-            'skills' => ['Sorcery'],
+            'skills' => ['Communication', 'Phlebotomy'],
+        ])->assertOk()
+            ->assertJsonPath('data.skills', ['Communication', 'Phlebotomy']);
+    }
+
+    public function test_an_absurdly_long_skill_is_still_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/about", [
+            'about' => 'ICU nurse.',
+            'skills' => [str_repeat('x', 61)],
         ])->assertStatus(422);
+    }
+
+    public function test_contact_numbers_must_be_exactly_ten_digits(): void
+    {
+        $this->actingAsCandidate();
+
+        foreach (['98123', '98123456789', '98123-4567', '+919812345678'] as $bad) {
+            $this->patchJson("{$this->api}/candidate/profile", ['alternate_phone' => $bad])
+                ->assertStatus(422);
+            $this->patchJson("{$this->api}/candidate/profile", ['whatsapp_number' => $bad])
+                ->assertStatus(422);
+        }
+
+        // Optional, so clearing one is fine.
+        $this->patchJson("{$this->api}/candidate/profile", [
+            'alternate_phone' => null,
+            'whatsapp_number' => '9812345678',
+        ])->assertOk()
+            ->assertJsonPath('data.alternate_phone', null)
+            ->assertJsonPath('data.whatsapp_number', '9812345678');
     }
 
     public function test_availability_updates(): void

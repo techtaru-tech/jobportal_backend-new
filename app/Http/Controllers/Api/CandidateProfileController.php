@@ -61,8 +61,10 @@ class CandidateProfileController extends ApiController
             // Freeform, not Rule::in — a candidate who is not Indian is not a
             // case this app can afford to reject at the door.
             'nationality' => ['sometimes', 'nullable', 'string', 'max:80'],
-            'alternate_phone' => ['sometimes', 'nullable', 'string', 'max:15'],
-            'whatsapp_number' => ['sometimes', 'nullable', 'string', 'max:15'],
+            // Exactly ten digits — an Indian mobile number, the same shape the
+            // app's own field enforces. Blank is still allowed: both are optional.
+            'alternate_phone' => ['sometimes', 'nullable', 'digits:10'],
+            'whatsapp_number' => ['sometimes', 'nullable', 'digits:10'],
 
             'qualification' => ['sometimes', 'nullable', 'string', 'max:120'],
             'experience' => ['sometimes', 'nullable', 'string', 'max:40'],
@@ -192,10 +194,21 @@ class CandidateProfileController extends ApiController
             // the build that sent it as free text on launch day — that key
             // is simply absent from a request this validation still accepts.
             'hobbies' => ['sometimes', 'nullable', 'array', 'max:3'],
-            'hobbies.*' => [Rule::in(config('options.hobby_interests'))],
+            // The config lists are suggestions: a candidate can add their own
+            // from the picker, so any short value is accepted.
+            'hobbies.*' => ['string', 'max:60'],
             'skills' => ['sometimes', 'nullable', 'array'],
-            'skills.*' => [Rule::in(config('options.professional_skills'))],
+            'skills.*' => ['string', 'max:60'],
         ]);
+
+        // Typed values arrive with stray spaces and repeats; the list shown
+        // on the resume should not.
+        foreach (['hobbies', 'skills'] as $list) {
+            if (array_key_exists($list, $validated) && is_array($validated[$list])) {
+                // "Chess" and "chess" are one hobby, whichever was typed.
+                $validated[$list] = $this->dedupeCaseInsensitive($validated[$list]);
+            }
+        }
 
         $profile->fill($validated)->save();
 

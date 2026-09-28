@@ -408,9 +408,8 @@ return [
     ],
 
     /*
-    | Chip-select skills on the candidate's profile. A shortlist of the
-    | transferable skills that apply across every role this app posts for,
-    | not a per-specialization clinical-skill catalogue.
+    | Suggested professional skills for the candidate's profile — a shortlist
+    | the picker offers, not a whitelist: a candidate can add their own.
     */
     'professional_skills' => [
         'Communication',
@@ -424,10 +423,10 @@ return [
     ],
 
     /*
-    | Hobbies / interests — a capped multi-select (see
-    | CandidateProfileController::updateAbout), not free text. Genuine
-    | interests only; a resume is not the place for anything that reads as a
-    | joke to whoever is reading it next.
+    | Suggested hobbies / interests — capped at three (see
+    | CandidateProfileController::updateAbout). A shortlist, not a whitelist;
+    | the candidate can add their own. Genuine interests only — a resume is
+    | not the place for anything that reads as a joke.
     */
     'hobby_interests' => [
         'Reading',
