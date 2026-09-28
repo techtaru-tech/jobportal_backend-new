@@ -27,18 +27,33 @@ class CandidateProfileResource extends JsonResource
             'email' => $this->email,
             'gender' => $this->gender,
             'dob' => $this->dob?->format('Y-m-d'),
+            // Derived, not stored — recalculated on every read so a birthday
+            // that passes between two logins is never stale. Null rather
+            // than a wrong number when there is no `dob` on record yet.
+            'age' => $this->dob?->age,
             'address' => $this->address,
+            'marital_status' => $this->marital_status,
+            'father_name' => $this->father_name,
+            'mother_name' => $this->mother_name,
 
             // Where they live — distinct from `location`, where they want to work.
             'home_city' => $this->home_city,
             'home_pincode' => $this->home_pincode,
             'home_latitude' => $this->home_latitude,
             'home_longitude' => $this->home_longitude,
+            'home_state' => $this->home_state,
+            'native_place' => $this->native_place,
+            'nationality' => $this->nationality,
+            'alternate_phone' => $this->alternate_phone,
+            'whatsapp_number' => $this->whatsapp_number,
 
             'qualification' => $this->qualification,
             'experience' => $this->experience,
             'experience_min_years' => $this->experience_min_years,
             'experience_max_years' => $this->experience_max_years,
+            // Informational cross-check, not what Smart Apply gates on — see
+            // CandidateProfile::computedExperienceYears.
+            'computed_experience_years' => $this->computedExperienceYears(),
 
             'location' => $this->location ?? [],
             'preferred_roles' => $this->preferred_roles ?? [],
@@ -47,11 +62,21 @@ class CandidateProfileResource extends JsonResource
             'preferred_organisation_types' => $this->preferred_organisation_types ?? [],
             'expected_salary' => $this->expected_salary,
 
+            'currently_employed' => $this->currently_employed,
+            'notice_period' => $this->notice_period,
+            'last_working_date' => $this->last_working_date?->format('Y-m-d'),
+            'immediate_joiner' => $this->immediate_joiner,
+            'earliest_joining_date' => $this->earliest_joining_date?->format('Y-m-d'),
+            'willing_to_relocate' => $this->willing_to_relocate,
+            'has_vehicle' => $this->has_vehicle,
+            'has_driving_licence' => $this->has_driving_licence,
+
             'languages' => $this->languages ?? [],
             'language_levels' => (object) ($this->language_levels ?? []),
 
             'about' => $this->about,
-            'hobbies' => $this->hobbies,
+            'hobbies' => $this->hobbies ?? [],
+            'skills' => $this->skills ?? [],
             'photo' => $this->hasPhoto(),
             'photo_url' => PrivateFiles::publicUrl($this->photo_path),
 

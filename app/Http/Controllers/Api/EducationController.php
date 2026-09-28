@@ -8,6 +8,7 @@ use App\Support\ApiResponse;
 use App\Support\PublicId;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /** §3.4 Education history. */
@@ -53,6 +54,7 @@ class EducationController extends ApiController
             // to accept exactly what that produces. See the migration that
             // widened the column to match.
             'year' => ['nullable', 'string', 'max:20'],
+            'course_type' => ['nullable', Rule::in(config('options.education_types'))],
             'percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
     }

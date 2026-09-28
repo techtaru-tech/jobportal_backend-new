@@ -50,13 +50,20 @@ class CandidateProfileTest extends TestCase
         $this->getJson("{$this->api}/candidate/profile")
             ->assertOk()
             ->assertJsonStructure(['data' => [
-                'name', 'phone', 'email', 'gender', 'dob', 'address',
+                'name', 'phone', 'email', 'gender', 'dob', 'age', 'address',
+                'marital_status', 'father_name', 'mother_name',
                 'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
-                'qualification', 'experience',
+                'home_state', 'native_place', 'nationality',
+                'alternate_phone', 'whatsapp_number',
+                'qualification', 'experience', 'computed_experience_years',
                 'location', 'preferred_roles', 'preferred_job_types', 'preferred_shifts',
                 'preferred_organisation_types',
                 'expected_salary',
-                'languages', 'language_levels', 'about', 'photo', 'photo_url',
+                'currently_employed', 'notice_period', 'last_working_date',
+                'immediate_joiner', 'earliest_joining_date',
+                'willing_to_relocate', 'has_vehicle', 'has_driving_licence',
+                'languages', 'language_levels', 'about', 'hobbies', 'skills',
+                'photo', 'photo_url',
                 'resume', 'resume_url', 'intro_video_url', 'intro_video_thumbnail_url',
                 'educations', 'experiences', 'profile_strength',
             ]])
@@ -115,6 +122,48 @@ class CandidateProfileTest extends TestCase
         $this->patchJson("{$this->api}/candidate/profile", ['gender' => 'Unknown'])
             ->assertStatus(422)
             ->assertJsonStructure(['message', 'errors' => ['gender']]);
+    }
+
+    public function test_the_personal_detail_fields_update_and_age_is_derived(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile", [
+            'dob' => now()->subYears(24)->subDays(1)->format('Y-m-d'),
+            'marital_status' => 'Single',
+            'father_name' => 'Ramesh Saraswat',
+            'mother_name' => 'Sunita Saraswat',
+            'home_state' => 'Rajasthan',
+            'native_place' => 'Sikar',
+            'nationality' => 'Indian',
+            'alternate_phone' => '9812345678',
+            'whatsapp_number' => '9812345678',
+        ])->assertOk()
+            ->assertJsonPath('data.age', 24)
+            ->assertJsonPath('data.marital_status', 'Single')
+            ->assertJsonPath('data.father_name', 'Ramesh Saraswat')
+            ->assertJsonPath('data.mother_name', 'Sunita Saraswat')
+            ->assertJsonPath('data.home_state', 'Rajasthan')
+            ->assertJsonPath('data.native_place', 'Sikar')
+            ->assertJsonPath('data.nationality', 'Indian')
+            ->assertJsonPath('data.alternate_phone', '9812345678')
+            ->assertJsonPath('data.whatsapp_number', '9812345678');
+    }
+
+    public function test_it_rejects_a_marital_status_outside_the_allowed_set(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile", ['marital_status' => 'Complicated'])
+            ->assertStatus(422);
+    }
+
+    public function test_it_rejects_a_state_no_candidate_could_live_in(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile", ['home_state' => 'Narnia'])
+            ->assertStatus(422);
     }
 
     public function test_list_fields_are_trimmed_and_deduplicated(): void
@@ -342,16 +391,36 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('data.about', 'ICU nurse.');
     }
 
-    public function test_hobbies_is_optional_and_travels_with_about(): void
+    public function test_hobbies_is_a_capped_select_and_travels_with_about(): void
     {
         $this->actingAsCandidate();
 
         $this->patchJson("{$this->api}/candidate/profile/about", [
             'about' => 'ICU nurse.',
-            'hobbies' => 'Reading, badminton.',
+            'hobbies' => ['Reading', 'Fitness'],
         ])
             ->assertOk()
-            ->assertJsonPath('data.hobbies', 'Reading, badminton.');
+            ->assertJsonPath('data.hobbies', ['Reading', 'Fitness']);
+    }
+
+    public function test_a_fourth_hobby_is_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/about", [
+            'about' => 'ICU nurse.',
+            'hobbies' => ['Reading', 'Fitness', 'Sports', 'Travelling'],
+        ])->assertStatus(422);
+    }
+
+    public function test_a_hobby_no_candidate_could_have_picked_is_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/about", [
+            'about' => 'ICU nurse.',
+            'hobbies' => ['Betting'],
+        ])->assertStatus(422);
     }
 
     public function test_an_app_build_from_before_hobbies_existed_still_saves_about(): void
@@ -363,7 +432,65 @@ class CandidateProfileTest extends TestCase
 
         $this->patchJson("{$this->api}/candidate/profile/about", ['about' => 'ICU nurse.'])
             ->assertOk()
-            ->assertJsonPath('data.hobbies', null);
+            ->assertJsonPath('data.hobbies', []);
+    }
+
+    public function test_skills_travel_with_about_too(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/about", [
+            'about' => 'ICU nurse.',
+            'skills' => ['Communication', 'Team Management'],
+        ])->assertOk()
+            ->assertJsonPath('data.skills', ['Communication', 'Team Management']);
+    }
+
+    public function test_a_skill_no_role_here_asks_for_is_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/about", [
+            'about' => 'ICU nurse.',
+            'skills' => ['Sorcery'],
+        ])->assertStatus(422);
+    }
+
+    public function test_availability_updates(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/availability", [
+            'currently_employed' => true,
+            'notice_period' => '1 Month',
+            'immediate_joiner' => false,
+            'earliest_joining_date' => now()->addMonth()->format('Y-m-d'),
+            'willing_to_relocate' => true,
+            'has_vehicle' => false,
+            'has_driving_licence' => true,
+        ])->assertOk()
+            ->assertJsonPath('data.currently_employed', true)
+            ->assertJsonPath('data.notice_period', '1 Month')
+            ->assertJsonPath('data.immediate_joiner', false)
+            ->assertJsonPath('data.willing_to_relocate', true)
+            ->assertJsonPath('data.has_vehicle', false)
+            ->assertJsonPath('data.has_driving_licence', true);
+    }
+
+    public function test_availability_fields_are_all_optional_and_leave_each_other_alone(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/availability", ['willing_to_relocate' => true])
+            ->assertOk()
+            ->assertJsonPath('data.willing_to_relocate', true)
+            ->assertJsonPath('data.currently_employed', null);
+
+        $this->patchJson("{$this->api}/candidate/profile/availability", ['currently_employed' => false])
+            ->assertOk()
+            ->assertJsonPath('data.currently_employed', false)
+            // The earlier answer must still be on record.
+            ->assertJsonPath('data.willing_to_relocate', true);
     }
 
     public function test_education_crud_and_qualification_sync(): void
@@ -427,6 +554,29 @@ class CandidateProfileTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.percentage', null);
     }
 
+    public function test_an_education_entry_carries_a_course_type(): void
+    {
+        $this->actingAsCandidate();
+
+        $created = $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'B.Sc Nursing',
+            'year' => '2022',
+            'course_type' => 'Distance',
+        ])->assertCreated()->json('data');
+
+        $this->assertSame('Distance', $created['course_type']);
+    }
+
+    public function test_a_course_type_no_institute_offers_is_refused(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->postJson("{$this->api}/candidate/profile/educations", [
+            'qualification' => 'B.Sc Nursing',
+            'course_type' => 'Correspondence',
+        ])->assertStatus(422);
+    }
+
     public function test_a_percentage_outside_zero_to_a_hundred_is_refused(): void
     {
         $this->actingAsCandidate();
@@ -479,6 +629,60 @@ class CandidateProfileTest extends TestCase
         $this->assertSame(['Jaipur', 'Ajmer'], $created['cities']);
 
         $this->deleteJson("{$this->api}/candidate/profile/experiences/{$created['id']}")->assertOk();
+    }
+
+    public function test_a_roles_duration_is_computed_from_its_dates(): void
+    {
+        $this->actingAsCandidate();
+
+        $created = $this->postJson("{$this->api}/candidate/profile/experiences", [
+            'designation' => 'Staff Nurse',
+            'organization' => 'Fortis Hospital',
+            'start_date' => 'Jan 2022',
+            'end_date' => 'Sep 2023',
+            'currently_working' => false,
+        ])->assertCreated()->json('data');
+
+        $this->assertSame('1 yr 9 mos', $created['duration']);
+    }
+
+    public function test_a_roles_duration_is_null_when_its_dates_dont_parse(): void
+    {
+        $this->actingAsCandidate();
+
+        $created = $this->postJson("{$this->api}/candidate/profile/experiences", [
+            'designation' => 'Staff Nurse',
+            'organization' => 'Fortis Hospital',
+            'start_date' => 'a while back',
+        ])->assertCreated()->json('data');
+
+        $this->assertNull($created['duration']);
+    }
+
+    public function test_total_experience_merges_overlapping_roles_instead_of_double_counting(): void
+    {
+        $this->actingAsCandidate();
+
+        // A part-time role held alongside the full-time one below — the six
+        // months they share must be counted once, not twice.
+        $this->postJson("{$this->api}/candidate/profile/experiences", [
+            'designation' => 'Staff Nurse',
+            'organization' => 'Fortis Hospital',
+            'start_date' => 'Jan 2020',
+            'end_date' => 'Dec 2020',
+        ])->assertCreated();
+
+        $this->postJson("{$this->api}/candidate/profile/experiences", [
+            'designation' => 'Locum Nurse',
+            'organization' => 'SMS Hospital',
+            'start_date' => 'Jul 2020',
+            'end_date' => 'Jun 2021',
+        ])->assertCreated();
+
+        // Jan 2020 – Jun 2021 merged, not Jan 2020–Dec 2020 plus
+        // Jul 2020–Jun 2021 summed: 18 months, not 24.
+        $this->getJson("{$this->api}/candidate/profile")
+            ->assertJsonPath('data.computed_experience_years', 1.5);
     }
 
     public function test_a_role_with_no_city_recorded_yet_reports_an_empty_list(): void

@@ -6,6 +6,7 @@ use App\Enums\NotificationAudience;
 use App\Services\ResumeRenderer;
 use App\Services\SubscriptionService;
 use App\Support\Display;
+use App\Support\ExperienceSpan;
 use Database\Factories\CandidateProfileFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,12 +16,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'name', 'email', 'gender', 'dob', 'address',
+    'marital_status', 'father_name', 'mother_name',
     'home_city', 'home_pincode', 'home_latitude', 'home_longitude',
+    'home_state', 'native_place', 'nationality',
+    'alternate_phone', 'whatsapp_number',
     'qualification', 'experience', 'location',
     'preferred_roles', 'preferred_job_types', 'preferred_shifts',
     'preferred_organisation_types', 'expected_salary',
+    'currently_employed', 'notice_period', 'last_working_date',
+    'immediate_joiner', 'earliest_joining_date',
+    'willing_to_relocate', 'has_vehicle', 'has_driving_licence',
     'languages', 'language_levels',
-    'about', 'hobbies', 'photo_path', 'resume_name', 'resume_path',
+    'about', 'hobbies', 'skills', 'photo_path', 'resume_name', 'resume_path',
     'intro_video_path', 'intro_video_thumbnail_path', 'intro_video_seconds',
 ])]
 class CandidateProfile extends Model
@@ -78,8 +85,17 @@ class CandidateProfile extends Model
             'preferred_job_types' => 'array',
             'preferred_shifts' => 'array',
             'preferred_organisation_types' => 'array',
+            'last_working_date' => 'date:Y-m-d',
+            'earliest_joining_date' => 'date:Y-m-d',
+            'currently_employed' => 'boolean',
+            'immediate_joiner' => 'boolean',
+            'willing_to_relocate' => 'boolean',
+            'has_vehicle' => 'boolean',
+            'has_driving_licence' => 'boolean',
             'languages' => 'array',
             'language_levels' => 'array',
+            'hobbies' => 'array',
+            'skills' => 'array',
         ];
     }
 
@@ -175,6 +191,22 @@ class CandidateProfile extends Model
     {
         return $this->workExperiences->first(fn (WorkExperience $role) => $role->currently_working)
             ?? $this->workExperiences->first();
+    }
+
+    /**
+     * Total experience in years, merging overlapping roles so time held in
+     * two jobs at once is counted once — see [ExperienceSpan]. Informational
+     * only: it is never written back onto [experience], the band Smart Apply
+     * actually gates on, since a candidate's own pick of that band is
+     * theirs to make and this is not always precise enough to override it
+     * (an unparseable date on any one entry drops that entry from the sum
+     * rather than refusing the whole total).
+     *
+     * Null when none of the candidate's entries have dates this can parse.
+     */
+    public function computedExperienceYears(): ?float
+    {
+        return ExperienceSpan::totalYears($this->workExperiences);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ExperienceSpan;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -60,5 +61,11 @@ class WorkExperience extends Model
         return trim(collect([$this->start_date, $this->end_date])
             ->filter()
             ->implode(' – '));
+    }
+
+    /** "1 yr 8 mos" — null when the dates on this entry don't parse. See [ExperienceSpan]. */
+    public function duration(): ?string
+    {
+        return ExperienceSpan::durationLabel($this);
     }
 }

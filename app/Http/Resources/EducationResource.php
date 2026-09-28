@@ -22,6 +22,7 @@ class EducationResource extends JsonResource
             'specialization' => $this->specialization,
             'institute' => $this->institute,
             'year' => $this->year,
+            'course_type' => $this->course_type,
             'percentage' => $this->percentage,
         ];
     }

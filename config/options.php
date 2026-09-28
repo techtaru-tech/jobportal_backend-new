@@ -371,6 +371,92 @@ return [
     ],
 
     /*
+    | Marital status, offered on the candidate's personal-information form.
+    | Closed — validated with Rule::in(), same as `genders` above.
+    */
+    'marital_statuses' => [
+        'Single',
+        'Married',
+        'Divorced',
+        'Widowed',
+    ],
+
+    /*
+    | Indian states + union territories, for "Current state" — closed, unlike
+    | `cities` (a Rajasthan-first seed list a candidate can still type past).
+    | A candidate can be based anywhere, so this list is national rather than
+    | scoped to where the app currently posts jobs.
+    */
+    'states' => [
+        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+        'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
+        'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+        'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan',
+        'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh',
+        'Uttarakhand', 'West Bengal',
+        'Andaman and Nicobar Islands', 'Chandigarh',
+        'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
+        'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+    ],
+
+    /*
+    | Chip-select skills on the candidate's profile. A shortlist of the
+    | transferable skills that apply across every role this app posts for,
+    | not a per-specialization clinical-skill catalogue.
+    */
+    'professional_skills' => [
+        'Communication',
+        'Team Management',
+        'Customer Handling',
+        'Problem Solving',
+        'Leadership',
+        'Training',
+        'Documentation',
+        'Inventory Management',
+    ],
+
+    /*
+    | Hobbies / interests — a capped multi-select (see
+    | CandidateProfileController::updateAbout), not free text. Genuine
+    | interests only; a resume is not the place for anything that reads as a
+    | joke to whoever is reading it next.
+    */
+    'hobby_interests' => [
+        'Reading',
+        'Fitness',
+        'Sports',
+        'Travelling',
+        'Volunteering',
+        'Photography',
+        'Technology',
+        'Gardening',
+        'Gaming',
+    ],
+
+    /*
+    | Notice period, offered on the candidate's availability form. A
+    | shortlist, not a closed enum — Rule::in isn't applied so an employer's
+    | unusual contractual notice is never rejected outright.
+    */
+    'notice_periods' => [
+        'Immediate',
+        '15 Days',
+        '1 Month',
+        '2 Months',
+        '3 Months',
+    ],
+
+    /*
+    | How an education was pursued. Closed — validated the same way as
+    | `genders`.
+    */
+    'education_types' => [
+        'Full-time',
+        'Part-time',
+        'Distance',
+    ],
+
+    /*
     | How far the education year pickers reach.
     |
     | Rendered into a concrete list of years by ConfigController from the

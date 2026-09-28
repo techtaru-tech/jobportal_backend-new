@@ -69,7 +69,13 @@ class ConfigController extends ApiController
             'designations' => $lists['designations'],
             'institutes' => $lists['institutes'],
             'departments' => $lists['departments'],
+            'notice_periods' => $lists['notice_periods'],
             'genders' => config('options.genders'),
+            'marital_statuses' => config('options.marital_statuses'),
+            'states' => config('options.states'),
+            'professional_skills' => config('options.professional_skills'),
+            'hobby_interests' => config('options.hobby_interests'),
+            'education_types' => config('options.education_types'),
             'passing_years' => $this->passingYears(),
             'city_coordinates' => (object) $this->options->cityCoordinates(),
 

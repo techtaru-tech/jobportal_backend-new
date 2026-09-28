@@ -64,6 +64,10 @@ class OptionListService
         'designations',
         'institutes',
         'departments',
+        // A shortlist, not a closed enum — the availability form's notice
+        // period is never validated with Rule::in(), matching designations
+        // and institutes above rather than genders below.
+        'notice_periods',
     ];
 
     /**

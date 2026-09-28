@@ -46,6 +46,9 @@ class CandidateProfileController extends ApiController
             'gender' => ['sometimes', 'nullable', Rule::in(['Male', 'Female', 'Other'])],
             'dob' => ['sometimes', 'nullable', 'date', 'before:today'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'marital_status' => ['sometimes', 'nullable', Rule::in(config('options.marital_statuses'))],
+            'father_name' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'mother_name' => ['sometimes', 'nullable', 'string', 'max:120'],
 
             // Where the candidate lives — distinct from `location` (§3.3, §3.9),
             // which is where they want to work.
@@ -53,6 +56,13 @@ class CandidateProfileController extends ApiController
             'home_pincode' => ['sometimes', 'nullable', 'string', 'max:10'],
             'home_latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'home_longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
+            'home_state' => ['sometimes', 'nullable', Rule::in(config('options.states'))],
+            'native_place' => ['sometimes', 'nullable', 'string', 'max:120'],
+            // Freeform, not Rule::in — a candidate who is not Indian is not a
+            // case this app can afford to reject at the door.
+            'nationality' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'alternate_phone' => ['sometimes', 'nullable', 'string', 'max:15'],
+            'whatsapp_number' => ['sometimes', 'nullable', 'string', 'max:15'],
 
             'qualification' => ['sometimes', 'nullable', 'string', 'max:120'],
             'experience' => ['sometimes', 'nullable', 'string', 'max:40'],
@@ -153,20 +163,49 @@ class CandidateProfileController extends ApiController
 
         $validated = $request->validate([
             'about' => ['present', 'nullable', 'string', 'max:2000'],
-            // The client's own filler-question example — optional, short,
-            // and asked on the same screen as `about`, so it travels on the
-            // same endpoint rather than getting one of its own.
+            // The client's own filler-question example — optional, and a
+            // capped *select* rather than a typed line: 2–3 genuine
+            // interests read better on a resume than a paragraph of them.
             //
             // `sometimes`, not `present` like `about` above: an app build
             // from before this field existed sends this endpoint with only
             // `about` in the body, and that save must keep working rather
-            // than 422 on a key it has never heard of.
-            'hobbies' => ['sometimes', 'nullable', 'string', 'max:500'],
+            // than 422 on a key it has never heard of. The same is true of
+            // the build that sent it as free text on launch day — that key
+            // is simply absent from a request this validation still accepts.
+            'hobbies' => ['sometimes', 'nullable', 'array', 'max:3'],
+            'hobbies.*' => [Rule::in(config('options.hobby_interests'))],
+            'skills' => ['sometimes', 'nullable', 'array'],
+            'skills.*' => [Rule::in(config('options.professional_skills'))],
         ]);
 
         $profile->fill($validated)->save();
 
         return $this->respond($profile, 'About updated.');
+    }
+
+    /** PATCH /candidate/profile/availability */
+    public function updateAvailability(Request $request): JsonResponse
+    {
+        $profile = $this->profile($request);
+
+        $validated = $request->validate([
+            'currently_employed' => ['sometimes', 'nullable', 'boolean'],
+            // A shortlist offered by the app, not a closed enum — an
+            // employer's unusual contractual notice must never be rejected
+            // outright. See `config('options.notice_periods')`.
+            'notice_period' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'last_working_date' => ['sometimes', 'nullable', 'date'],
+            'immediate_joiner' => ['sometimes', 'nullable', 'boolean'],
+            'earliest_joining_date' => ['sometimes', 'nullable', 'date'],
+            'willing_to_relocate' => ['sometimes', 'nullable', 'boolean'],
+            'has_vehicle' => ['sometimes', 'nullable', 'boolean'],
+            'has_driving_licence' => ['sometimes', 'nullable', 'boolean'],
+        ]);
+
+        $profile->fill($validated)->save();
+
+        return $this->respond($profile, 'Availability updated.');
     }
 
     /**

@@ -84,6 +84,7 @@ Route::prefix('v1')->group(function () {
                 Route::patch('preferences', [CandidateProfileController::class, 'updatePreferences']);
                 Route::put('languages', [CandidateProfileController::class, 'updateLanguages']);
                 Route::patch('about', [CandidateProfileController::class, 'updateAbout']);
+                Route::patch('availability', [CandidateProfileController::class, 'updateAvailability']);
 
                 Route::post('resume/generate', [CandidateProfileController::class, 'generateResume']);
                 Route::post('photo', [CandidateProfileController::class, 'uploadPhoto']);

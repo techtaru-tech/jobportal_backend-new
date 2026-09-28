@@ -27,6 +27,7 @@ class WorkExperienceResource extends JsonResource
             'currently_working' => $this->currently_working,
             'description' => $this->description,
             'period' => $this->period(),
+            'duration' => $this->duration(),
         ];
     }
 }
