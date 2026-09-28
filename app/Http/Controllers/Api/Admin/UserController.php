@@ -153,6 +153,7 @@ class UserController extends ApiController
                 'languages' => $profile->languages ?? [],
                 'language_levels' => $profile->language_levels ?? [],
                 'about' => $profile->about,
+                'hobbies' => $profile->hobbies,
                 'has_resume' => filled($profile->resume_path),
                 'resume_name' => $profile->resume_name,
                 'has_photo' => filled($profile->photo_path),

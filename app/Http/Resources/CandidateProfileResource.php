@@ -51,6 +51,7 @@ class CandidateProfileResource extends JsonResource
             'language_levels' => (object) ($this->language_levels ?? []),
 
             'about' => $this->about,
+            'hobbies' => $this->hobbies,
             'photo' => $this->hasPhoto(),
             'photo_url' => PrivateFiles::publicUrl($this->photo_path),
 

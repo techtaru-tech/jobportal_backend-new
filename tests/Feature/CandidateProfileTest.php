@@ -342,6 +342,30 @@ class CandidateProfileTest extends TestCase
             ->assertJsonPath('data.about', 'ICU nurse.');
     }
 
+    public function test_hobbies_is_optional_and_travels_with_about(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/about", [
+            'about' => 'ICU nurse.',
+            'hobbies' => 'Reading, badminton.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.hobbies', 'Reading, badminton.');
+    }
+
+    public function test_an_app_build_from_before_hobbies_existed_still_saves_about(): void
+    {
+        // `hobbies` is `sometimes`, not `present` like `about` — an app that
+        // has never heard of this field must not 422 on a save that only
+        // knows about `about`.
+        $this->actingAsCandidate();
+
+        $this->patchJson("{$this->api}/candidate/profile/about", ['about' => 'ICU nurse.'])
+            ->assertOk()
+            ->assertJsonPath('data.hobbies', null);
+    }
+
     public function test_education_crud_and_qualification_sync(): void
     {
         $user = $this->actingAsCandidate();

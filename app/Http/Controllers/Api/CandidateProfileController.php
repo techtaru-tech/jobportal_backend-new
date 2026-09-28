@@ -153,6 +153,15 @@ class CandidateProfileController extends ApiController
 
         $validated = $request->validate([
             'about' => ['present', 'nullable', 'string', 'max:2000'],
+            // The client's own filler-question example — optional, short,
+            // and asked on the same screen as `about`, so it travels on the
+            // same endpoint rather than getting one of its own.
+            //
+            // `sometimes`, not `present` like `about` above: an app build
+            // from before this field existed sends this endpoint with only
+            // `about` in the body, and that save must keep working rather
+            // than 422 on a key it has never heard of.
+            'hobbies' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);
 
         $profile->fill($validated)->save();

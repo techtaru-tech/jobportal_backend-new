@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'preferred_roles', 'preferred_job_types', 'preferred_shifts',
     'preferred_organisation_types', 'expected_salary',
     'languages', 'language_levels',
-    'about', 'photo_path', 'resume_name', 'resume_path',
+    'about', 'hobbies', 'photo_path', 'resume_name', 'resume_path',
     'intro_video_path', 'intro_video_thumbnail_path', 'intro_video_seconds',
 ])]
 class CandidateProfile extends Model
