@@ -129,11 +129,9 @@ return [
 
     // §1.8 `organisation_size` (§7.2)
     'organisation_sizes' => [
-        '1–10',
-        '11–50',
-        '51–200',
-        '201–500',
-        '500+',
+        'Small',
+        'Mid',
+        'Large',
     ],
 
     // §10.10 Salary steps (Post Job salary picker)

@@ -183,7 +183,11 @@ class RecruiterJobTest extends TestCase
 
         $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}", ['salary_min' => 50000, 'salary_max' => 10000]))
             ->assertStatus(422)
-            ->assertJsonPath('errors.salary_max.0', 'The maximum salary must be at least the minimum salary.');
+            ->assertJsonPath('errors.salary_max.0', 'The maximum salary must be more than the minimum salary.');
+
+        // Equal is not a range either.
+        $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}", ['salary_min' => 20000, 'salary_max' => 20000]))
+            ->assertStatus(422);
     }
 
     public function test_posting_a_job_notifies_the_recruiter(): void

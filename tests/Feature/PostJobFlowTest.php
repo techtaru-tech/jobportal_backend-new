@@ -320,7 +320,7 @@ class PostJobFlowTest extends TestCase
             'name' => 'Veldx Labs Pvt Ltd',
             'email' => 'jags@veldxlabs.com',
             'hiring_type' => 'company',
-            'size' => '11–50',
+            'size' => 'Small',
         ])->assertCreated()
             ->assertJsonPath('data.email', 'jags@veldxlabs.com')
             ->assertJsonPath('data.hiring_type', 'company');

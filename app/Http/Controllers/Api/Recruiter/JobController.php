@@ -358,7 +358,7 @@ class JobController extends ApiController
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
 
             'salary_min' => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'salary_max' => ['nullable', 'integer', 'min:0', 'max:100000000', 'gte:salary_min'],
+            'salary_max' => ['nullable', 'integer', 'min:0', 'max:100000000', 'gt:salary_min'],
             'experience' => ['nullable', 'string', 'max:40'],
 
             // Resolved lists, not `config()` directly — both are
@@ -401,7 +401,7 @@ class JobController extends ApiController
             ],
             'whatsapp_phone' => ['nullable', 'digits:10'],
         ], [
-            'salary_max.gte' => 'The maximum salary must be at least the minimum salary.',
+            'salary_max.gt' => 'The maximum salary must be more than the minimum salary.',
             'contact_phone.required' => 'Add the number candidates should call.',
             'contact_phone.digits' => 'The contact number must be 10 digits.',
             'whatsapp_phone.digits' => 'The WhatsApp number must be 10 digits.',

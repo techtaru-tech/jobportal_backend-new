@@ -2,14 +2,16 @@
 
 namespace App\Enums;
 
-/** §1.8 `organisation_size` — headcount bands, en-dashed to match the spec. */
+/**
+ * §1.8 `organisation_size` — Small, Mid or Large, as the employer feedback
+ * asks. These replaced five headcount bands (1–10 … 500+); the migration
+ * `2026_10_15_000001` folds stored values onto these three.
+ */
 enum OrganisationSize: string
 {
-    case UpToTen = '1–10';
-    case ElevenToFifty = '11–50';
-    case FiftyOneToTwoHundred = '51–200';
-    case TwoHundredOneToFiveHundred = '201–500';
-    case FiveHundredPlus = '500+';
+    case Small = 'Small';
+    case Mid = 'Mid';
+    case Large = 'Large';
 
     public static function values(): array
     {

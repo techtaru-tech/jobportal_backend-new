@@ -19,7 +19,7 @@ class OrganisationFactory extends Factory
             'user_id' => User::factory()->recruiter(),
             'name' => 'Fortis Hospital',
             'industry' => OrganisationIndustry::Hospital->value,
-            'size' => OrganisationSize::TwoHundredOneToFiveHundred->value,
+            'size' => OrganisationSize::Mid->value,
             'address' => 'Tonk Road, Jaipur',
             'website' => 'https://fortishealthcare.com',
             'gst_number' => '08AABCU9603R1ZM',

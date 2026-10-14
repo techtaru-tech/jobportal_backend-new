@@ -33,7 +33,7 @@ class DemoSeeder extends Seeder
         $fortis = $this->organisation($fortisRecruiter, [
             'name' => 'Fortis Hospital',
             'industry' => OrganisationIndustry::Hospital->value,
-            'size' => OrganisationSize::TwoHundredOneToFiveHundred->value,
+            'size' => OrganisationSize::Mid->value,
             'address' => 'Malviya Nagar, Jaipur',
             'website' => 'https://fortishealthcare.com',
             'gst_number' => '08AABCU9603R1ZM',
@@ -44,7 +44,7 @@ class DemoSeeder extends Seeder
         $apollo = $this->organisation($apolloRecruiter, [
             'name' => 'Apollo Hospitals',
             'industry' => OrganisationIndustry::Hospital->value,
-            'size' => OrganisationSize::FiveHundredPlus->value,
+            'size' => OrganisationSize::Large->value,
             'address' => 'Sardarpura, Jodhpur',
             'website' => 'https://apollohospitals.com',
             'gst_number' => '08AAACA8441L1ZC',
