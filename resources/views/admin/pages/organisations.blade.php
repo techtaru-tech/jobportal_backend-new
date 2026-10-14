@@ -9,9 +9,9 @@
 <template x-if="view === 'organisations'">
   <div class="animate-enter-up" x-init="loadOrgs()">
     @include('admin.partials.page-header', [
-      'kicker' => 'Employers',
-      'title' => 'Employers',
-      'description' => 'Until an employer is verified, none of their postings reach candidates.',
+      'kicker' => 'Companies',
+      'title' => 'Companies',
+      'description' => 'Step 1: check the business document and verify the company. Step 2: approve its jobs — from its page or the Job postings tab.',
     ])
 
     @include('admin.partials.list-shell', [
@@ -19,7 +19,7 @@
       'loader' => 'loadOrgs',
       'cols' => 5,
       'placeholder' => 'Search name, GST or address…',
-      'emptyTitle' => 'No employers match',
+      'emptyTitle' => 'No companies match',
       'emptyMessage' => 'Try a different search or filter.',
       'filters' => '
         <div class="relative">
@@ -40,10 +40,10 @@
         </button>',
 
       'head' => '
-        <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted">EMPLOYER</th>
+        <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted">COMPANY</th>
         <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted hidden md:table-cell">GST</th>
         <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted">REVIEW</th>
-        <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted text-right">POSTINGS</th>
+        <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted text-right">JOBS (LIVE / ALL)</th>
         <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted text-right hidden lg:table-cell">REGISTERED</th>',
 
       'body' => '
@@ -89,19 +89,19 @@
 <template x-if="view === 'organisationDetail'">
   <div class="animate-enter-up">
     <template x-if="orgDetail.busy && !orgDetail.data">
-      @include('admin.partials.loading-panel', ['label' => 'Loading the employer…'])
+      @include('admin.partials.loading-panel', ['label' => 'Loading the company…'])
     </template>
 
     <template x-if="orgDetail.data">
       <div>
-        @include('admin.partials.back', ['to' => 'organisations', 'label' => 'Back to employers'])
+        @include('admin.partials.back', ['to' => 'organisations', 'label' => 'Back to companies'])
 
         <div class="mb-lg flex flex-wrap items-end justify-between gap-md">
           <div class="flex min-w-0 items-center gap-lg">
             <span aria-hidden="true" x-text="initials(orgDetail.data.organisation.name)" style="font-size:17px"
                   class="inline-flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-logo bg-primary-light font-semibold text-primary-dark"></span>
             <div class="min-w-0">
-              <span class="block text-kicker text-ink-secondary">EMPLOYER</span>
+              <span class="block text-kicker text-ink-secondary">COMPANY</span>
               <h1 class="mt-[2px] truncate text-h2 text-ink" x-text="orgDetail.data.organisation.name"></h1>
               <p class="mt-xs text-bodysm text-ink-secondary" x-text="orgDetail.data.organisation.gst_number || 'No GST number'"></p>
             </div>
@@ -124,10 +124,10 @@
                   <span><span x-text="orgDetail.data.impact.active_postings"></span> active posting(s) are hidden from candidates pending this decision.</span>
                 </template>
                 <template x-if="!orgDetail.data.impact.currently_hidden">
-                  <span>This employer is not verified.</span>
+                  <span>This company is not verified.</span>
                 </template>
               </p>
-              <p class="mt-[2px] text-caption text-ink-secondary">Verifying grants the trust badge every candidate sees on their postings.</p>
+              <p class="mt-[2px] text-caption text-ink-secondary">Verify after checking the business document. Its paid jobs go live automatically; other waiting jobs can then be approved below.</p>
             </div>
             {{-- No document link here: the certificate has its own card below,
                  which is reachable whatever the verification state. --}}
@@ -137,7 +137,7 @@
                              bg-primary text-ink-onPrimary shadow-button transition-[background-color,transform] duration-micro ease-out
                              hover:bg-primary-dark active:scale-[0.97]">
                 <span x-html="ICONS.badgeCheck" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
-                <span>Verify employer</span>
+                <span>Verify company</span>
               </button>
             </div>
           </div>
@@ -177,9 +177,9 @@
             <div class="rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card">
               <div class="flex flex-wrap items-center justify-between gap-md border-b border-hairline-divider px-lg py-md">
                 <div class="min-w-0">
-                  <h2 class="text-h3 text-ink">Verification document</h2>
+                  <h2 class="text-h3 text-ink">Business document</h2>
                   <p class="mt-[2px] truncate text-caption text-ink-muted"
-                     x-text="orgDetail.data.organisation.document_name || 'GST certificate'"></p>
+                     x-text="orgDetail.data.organisation.document_name || 'Business document'"></p>
                 </div>
                 <template x-if="orgDetail.data.organisation.document_url">
                   <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener"
@@ -197,7 +197,7 @@
               <template x-if="!orgDetail.data.organisation.document_url">
                 @include('admin.partials.empty-state', [
                   'icon' => 'fileText', 'title' => 'No document on file',
-                  'message' => 'This employer registered without uploading a GST certificate, so there is nothing to verify against. Ask them to upload one before deciding.',
+                  'message' => 'This company has not uploaded a business document yet (GST certificate, shop licence or registration), so there is nothing to verify against. Ask them to upload one before deciding.',
                 ])
               </template>
 
@@ -206,7 +206,7 @@
                      white and would otherwise dissolve into the card. --}}
                 <div class="bg-canvas-alt p-lg">
                   <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener" class="block">
-                    <img :src="orgDetail.data.organisation.document_url" alt="GST certificate"
+                    <img :src="orgDetail.data.organisation.document_url" alt="Business document"
                          class="mx-auto max-h-[520px] w-auto max-w-full rounded-field border-hair border-hairline bg-surface object-contain shadow-card">
                   </a>
                 </div>
@@ -274,25 +274,54 @@
             </div>
 
             <div class="rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card flex flex-col">
-              <div class="border-b border-hairline-divider px-lg py-md">
-                <h2 class="text-h4 text-ink">Postings
+              {{-- Every job of this company in one place. Approving is step 2:
+                   the buttons appear once the company itself is verified. --}}
+              <div class="flex flex-wrap items-center justify-between gap-sm border-b border-hairline-divider px-lg py-md">
+                <h2 class="text-h4 text-ink">Jobs
                   <span class="font-normal text-ink-muted" x-text="'(' + orgDetail.data.jobs.length + ')'"></span>
                 </h2>
-              </div>
-              <template x-if="orgDetail.data.jobs.length === 0">
-                <p class="p-lg text-bodysm text-ink-muted">This employer has never posted a job.</p>
-              </template>
-              <ul class="max-h-[400px] overflow-y-auto thin-scrollbar">
-                <template x-for="job in orgDetail.data.jobs" :key="job.id">
-                  <li class="border-b border-hairline-divider last:border-0">
-                    <button @click="openJob(job.id)"
-                            class="flex w-full items-center justify-between gap-md px-lg py-md text-left transition-colors duration-micro hover:bg-canvas-alt">
-                      <span class="min-w-0">
-                        <span class="block truncate text-bodysm font-semibold text-ink" x-text="job.title"></span>
-                        <span class="block truncate text-caption text-ink-muted" x-text="job.city + ' · ' + timeAgo(job.posted_at)"></span>
-                      </span>
-                      <span x-html="statusDot(job.status, 'job')"></span>
+                <div class="flex flex-wrap items-center gap-sm">
+                  <template x-if="canWrite && orgDetail.data.organisation.verified && orgDetail.data.jobs_waiting > 0">
+                    <button @click="approveAllCompanyJobs()"
+                            class="inline-flex h-9 items-center justify-center gap-xs rounded-button px-md text-btnghost font-semibold
+                                   bg-primary text-ink-onPrimary shadow-button transition-colors duration-micro hover:bg-primary-dark">
+                      <span x-html="ICONS.check" class="[&>svg]:h-4 [&>svg]:w-4"></span>
+                      <span x-text="'Approve all waiting (' + orgDetail.data.jobs_waiting + ')'"></span>
                     </button>
+                  </template>
+                  <template x-if="orgDetail.data.jobs.length">
+                    <button @click="viewCompanyJobs(orgDetail.data.organisation)"
+                            class="text-bodysm font-semibold text-primary-dark hover:underline">Open in Job postings →</button>
+                  </template>
+                </div>
+              </div>
+              <template x-if="!orgDetail.data.organisation.verified && orgDetail.data.jobs_waiting > 0">
+                <p class="border-b border-hairline-divider bg-warning-bg px-lg py-sm text-caption text-ink">
+                  <span class="font-semibold" x-text="orgDetail.data.jobs_waiting + ' job(s)'"></span>
+                  waiting. Verify the company first — then you can approve its jobs here.
+                </p>
+              </template>
+              <template x-if="orgDetail.data.jobs.length === 0">
+                <p class="p-lg text-bodysm text-ink-muted">This company has not posted a job yet.</p>
+              </template>
+              <ul class="max-h-[460px] overflow-y-auto thin-scrollbar">
+                <template x-for="job in orgDetail.data.jobs" :key="job.id">
+                  <li class="flex items-center gap-md border-b border-hairline-divider px-lg py-md last:border-0">
+                    <button @click="openJob(job.id)" class="min-w-0 flex-1 text-left hover:text-primary-dark">
+                      <span class="block truncate text-bodysm font-semibold text-ink" x-text="job.title"></span>
+                      <span class="block truncate text-caption text-ink-muted"
+                            x-text="job.code + ' · ' + job.city + ' · ' + job.applicants + ' applicant(s) · ' + timeAgo(job.posted_at)"></span>
+                      <span class="mt-[2px] inline-flex items-center rounded-chip px-[7px] py-[1px] text-caption"
+                            :class="stageTone(job.stage)" x-text="job.stage_label"></span>
+                    </button>
+                    <span class="hidden sm:inline" x-html="statusDot(job.status, 'job')"></span>
+                    <template x-if="canWrite && job.awaiting_review && orgDetail.data.organisation.verified">
+                      <button @click="approveCompanyJob(job.id)"
+                              class="inline-flex h-9 shrink-0 items-center justify-center rounded-button px-md text-btnghost font-semibold
+                                     bg-surface text-primary border-btn border-primary transition-colors duration-micro hover:bg-primary-light">
+                        Approve
+                      </button>
+                    </template>
                   </li>
                 </template>
               </ul>
@@ -336,7 +365,7 @@
             <div class="rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card flex flex-col">
               <div class="border-b border-hairline-divider px-lg py-md"><h2 class="text-h4 text-ink">History</h2></div>
               <template x-if="orgDetail.data.audit.length === 0">
-                <p class="p-lg text-bodysm text-ink-muted">No admin has acted on this employer yet.</p>
+                <p class="p-lg text-bodysm text-ink-muted">No admin has acted on this company yet.</p>
               </template>
               <ul class="max-h-[320px] overflow-y-auto thin-scrollbar">
                 <template x-for="log in orgDetail.data.audit" :key="log.at">

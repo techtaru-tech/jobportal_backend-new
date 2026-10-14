@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -73,6 +74,11 @@ class JobPostingController extends ApiController
             $query->whereHas('organisationRecord', fn (Builder $q) => $q->where('verified', false));
         }
 
+        // One company's postings, opened from the company page.
+        if (($org = (string) $request->query('organisation', '')) !== '') {
+            $query->where('organisation_id', PublicId::decode('org', $org) ?? 0);
+        }
+
         // Payment × business document, in the client's own status wording —
         // see JobPosting::hiringStage().
         if (($stage = (string) $request->query('stage', '')) !== ''
@@ -120,6 +126,21 @@ class JobPostingController extends ApiController
                 'duties' => $job->duties ?? [],
                 'qualifications' => $job->qualifications ?? [],
                 'benefits' => $job->benefits ?? [],
+
+                // Post a Job — the fields the employer picked.
+                'openings' => $job->openings,
+                'charges_fee' => $job->charges_fee,
+                'state' => $job->state,
+                'locality' => $job->locality,
+                'min_education' => $job->min_education,
+                'preferred_gender' => $job->preferred_gender,
+                'skills' => $job->skills ?? [],
+                'contact_mode' => $job->contact_mode,
+                'contact_mode_label' => $job->contact_mode
+                    ? config('options.contact_modes.'.$job->contact_mode)
+                    : null,
+                'contact_phone' => $job->contact_phone,
+                'whatsapp_phone' => $job->whatsapp_phone,
 
                 // The Smart Apply gate. A posting demanding many fields the
                 // average profile lacks converts badly, so this is a
@@ -193,6 +214,10 @@ class JobPostingController extends ApiController
             return ApiResponse::message('That posting is already '.$to->value.'.');
         }
 
+        if ($to === JobPostingStatus::Active) {
+            $this->requireVerifiedCompany($job);
+        }
+
         $wasOwnerAllowed = $from->canTransitionTo($to);
 
         $job->forceFill(['posting_status' => $to->value])->save();
@@ -236,6 +261,8 @@ class JobPostingController extends ApiController
                 'That posting is not waiting for review — it is '.$job->posting_status->label().'.',
             );
         }
+
+        $this->requireVerifiedCompany($job);
 
         $from = $job->posting_status;
         $job->markApproved((int) $request->user()->id);
@@ -357,7 +384,11 @@ class JobPostingController extends ApiController
             'title' => $job->title,
             'role' => $job->role,
             'organisation' => $job->organisation,
+            'organisation_id' => $job->organisation_id === null ? null : PublicId::encode('org', $job->organisation_id),
             'organisation_verified' => (bool) ($job->organisationRecord?->verified ?? false),
+            // Approve is offered only once the company is verified.
+            'can_approve' => $job->posting_status->isAwaitingReview()
+                && ($job->organisationRecord === null || (bool) $job->organisationRecord->verified),
             'city' => $job->city,
             'type' => $job->type,
             'status' => $job->posting_status->value,
@@ -395,6 +426,27 @@ class JobPostingController extends ApiController
                 ->values()
                 ->all(),
         ]);
+    }
+
+    /**
+     * The company comes first: a posting is published only once its company
+     * has been verified, so an admin checks the business document before
+     * any of that company's jobs go live. Postings from before companies
+     * were records (no `organisation_id`) are exempt — there is nothing to
+     * verify them against.
+     */
+    private function requireVerifiedCompany(JobPosting $job): void
+    {
+        $org = $job->organisationRecord;
+
+        if ($org !== null && ! $org->verified) {
+            throw ValidationException::withMessages([
+                'organisation' => [
+                    "Verify the company first — {$org->name} is not verified yet. "
+                    .'Open the company, check its document and verify it; then approve this job.',
+                ],
+            ]);
+        }
     }
 
     private function findJob(string $jobId): JobPosting

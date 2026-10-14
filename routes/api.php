@@ -295,6 +295,7 @@ Route::prefix('v1')->group(function () {
 
                 Route::post('organisations/{organisationId}/verify', [Admin\OrganisationController::class, 'verify']);
                 Route::post('organisations/{organisationId}/unverify', [Admin\OrganisationController::class, 'unverify']);
+                Route::post('organisations/{organisationId}/approve-jobs', [Admin\OrganisationController::class, 'approveJobs']);
 
                 Route::post('option-lists/{list}/items', [Admin\OptionListController::class, 'store']);
                 Route::patch('option-lists/{list}/items/{itemId}', [Admin\OptionListController::class, 'update']);

@@ -10,7 +10,7 @@
     @include('admin.partials.page-header', [
       'kicker' => 'Job postings',
       'title' => 'Job postings',
-      'description' => 'Every posting in every status. Nothing reaches candidates until it is approved here.',
+      'description' => 'Every job in every status. The company is verified first (Companies tab); then its jobs are approved here.',
     ])
 
     {{--
@@ -28,11 +28,23 @@
       </template>
     </div>
 
+    {{-- Opened from a company page: only that company's jobs. --}}
+    <template x-if="jobs.org">
+      <div class="mb-md flex flex-wrap items-center gap-sm rounded-card border-hair border-primary-line bg-primary-light px-lg py-md">
+        <span x-html="ICONS.badgeCheck" class="[&>svg]:h-[18px] [&>svg]:w-[18px] text-primary-dark"></span>
+        <p class="flex-1 text-bodysm text-primary-dark">
+          Showing all jobs of <span class="font-semibold" x-text="jobs.orgName"></span>
+        </p>
+        <button @click="openOrganisation(jobs.org)" class="text-bodysm font-semibold text-primary-dark hover:underline">Open company</button>
+        <button @click="clearJobCompany()" class="text-bodysm text-ink-secondary hover:underline">Show all companies</button>
+      </div>
+    </template>
+
     @include('admin.partials.list-shell', [
       'state' => 'jobs',
       'loader' => 'loadJobs',
       'cols' => 5,
-      'placeholder' => 'Search title, code or employer…',
+      'placeholder' => 'Search title, code or company…',
       'emptyTitle' => 'No postings match',
       'emptyMessage' => 'Try a different search or filter.',
       'filters' => '
@@ -56,7 +68,7 @@
                 :class="jobs.unverified ? \'border-primary bg-primary-light font-semibold text-primary-dark\' : \'border-transparent bg-surface-muted text-ink hover:bg-hairline\'"
                 class="inline-flex shrink-0 items-center gap-xs rounded-chip border-chip px-lg py-sm text-chip whitespace-nowrap transition-colors duration-150">
           <span x-show="jobs.unverified" x-html="ICONS.check" class="[&>svg]:h-[14px] [&>svg]:w-[14px] text-primary"></span>
-          Unverified employer
+          Company not verified
         </button>
         <button @click="jobs.missingCoords = !jobs.missingCoords; loadJobs(1)"
                 :class="jobs.missingCoords ? \'border-primary bg-primary-light font-semibold text-primary-dark\' : \'border-transparent bg-surface-muted text-ink hover:bg-hairline\'"
@@ -67,7 +79,7 @@
 
       'head' => '
         <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted">POSTING</th>
-        <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted hidden md:table-cell">EMPLOYER</th>
+        <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted hidden md:table-cell">COMPANY</th>
         <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted">STATUS</th>
         <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted text-right">APPLICANTS</th>
         <th scope="col" class="whitespace-nowrap border-b border-hairline px-lg py-md text-kicker text-ink-muted text-right hidden lg:table-cell">POSTED</th>',
@@ -84,10 +96,12 @@
               </span>
             </td>
             <td class="px-lg py-md align-middle text-bodysm text-ink hidden md:table-cell">
-              <span class="flex items-center gap-xs">
+              <button type="button" @click.stop="row.organisation_id && openOrganisation(row.organisation_id)"
+                      class="flex max-w-full items-center gap-xs text-left hover:text-primary-dark">
                 <span class="truncate" x-text="row.organisation"></span>
-                <span x-show="row.organisation_verified" x-html="ICONS.badgeCheck" class="[&>svg]:h-[14px] [&>svg]:w-[14px] shrink-0 text-primary" title="Verified employer"></span>
-              </span>
+                <span x-show="row.organisation_verified" x-html="ICONS.badgeCheck" class="[&>svg]:h-[14px] [&>svg]:w-[14px] shrink-0 text-primary" title="Verified company"></span>
+              </button>
+              <span x-show="!row.organisation_verified" class="block text-caption text-warning">Company not verified</span>
             </td>
             <td class="px-lg py-md align-middle text-bodysm">
               <span x-html="statusDot(row.status, \'job\')"></span>
@@ -108,12 +122,12 @@
 <template x-if="view === 'jobDetail'">
   <div class="animate-enter-up">
     <template x-if="jobDetail.busy && !jobDetail.data">
-      @include('admin.partials.loading-panel', ['label' => 'Loading the posting…'])
+      @include('admin.partials.loading-panel', ['label' => 'Loading the job…'])
     </template>
 
     <template x-if="jobDetail.data">
       <div>
-        @include('admin.partials.back', ['to' => 'jobs', 'label' => 'Back to postings'])
+        @include('admin.partials.back', ['to' => 'jobs', 'label' => 'Back to job postings'])
 
         <div class="mb-lg flex flex-wrap items-end justify-between gap-md">
           <div class="min-w-0">
@@ -139,11 +153,42 @@
           one case where the action belongs above the detail rather than beside
           it — an operator here is deciding, not browsing.
         --}}
-        <template x-if="jobDetail.data.job.awaiting_review && canWrite">
+        {{-- The company comes first: until it is verified, this job cannot be
+             approved — the way forward is the company page. --}}
+        <template x-if="jobDetail.data.job.awaiting_review && !jobDetail.data.job.can_approve && canWrite">
+          <div class="mb-md flex flex-wrap items-center justify-between gap-md rounded-card border-hair border-warning/40 bg-warning-bg p-lg">
+            <div class="min-w-0">
+              <p class="text-bodysm font-semibold text-warning">Verify the company first.</p>
+              <p class="mt-[2px] text-caption text-ink-secondary">
+                <span x-text="jobDetail.data.employer?.name || 'This company'"></span>
+                is not verified yet. Check its business document and verify it — then this job can be approved.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-sm">
+              <template x-if="jobDetail.data.employer">
+                <button @click="openOrganisation(jobDetail.data.employer.id)"
+                        class="inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
+                               bg-primary text-ink-onPrimary shadow-button transition-[background-color,transform] duration-micro ease-out
+                               hover:bg-primary-dark active:scale-[0.97]">
+                  <span x-html="ICONS.badgeCheck" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
+                  <span>Open company</span>
+                </button>
+              </template>
+              <button @click="rejectJob()"
+                      class="inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
+                             bg-surface text-danger border-btn border-danger transition-[background-color,transform] duration-micro ease-out
+                             hover:bg-danger-bg active:scale-[0.97]">
+                <span>Reject</span>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="jobDetail.data.job.awaiting_review && jobDetail.data.job.can_approve && canWrite">
           <div class="mb-md flex flex-wrap items-center justify-between gap-md rounded-card border-hair border-primary-line bg-primary-light p-lg">
             <div class="min-w-0">
-              <p class="text-bodysm font-semibold text-primary-dark">This posting is waiting for review.</p>
-              <p class="mt-[2px] text-caption text-ink-secondary">Candidates cannot see it until it is approved.</p>
+              <p class="text-bodysm font-semibold text-primary-dark">This job is waiting for approval.</p>
+              <p class="mt-[2px] text-caption text-ink-secondary">The company is verified. Candidates cannot see this job until it is approved.</p>
             </div>
             <div class="flex flex-wrap items-center gap-sm">
               <button @click="approveJob()"
@@ -181,8 +226,26 @@
                 @include('admin.partials.field', ['label' => 'Shift', 'value' => 'jobDetail.data.job.shift'])
                 @include('admin.partials.field', ['label' => 'Experience', 'value' => 'jobDetail.data.job.experience'])
                 @include('admin.partials.field', ['label' => 'Salary', 'value' => 'jobDetail.data.job.salary'])
+                @include('admin.partials.field', ['label' => 'Openings', 'value' => 'jobDetail.data.job.openings'])
+                @include('admin.partials.field', ['label' => 'Minimum education', 'value' => 'jobDetail.data.job.min_education'])
+                @include('admin.partials.field', ['label' => 'Gender', 'value' => 'jobDetail.data.job.preferred_gender'])
+                @include('admin.partials.field', ['label' => 'State', 'value' => 'jobDetail.data.job.state'])
+                @include('admin.partials.field', ['label' => 'Locality', 'value' => 'jobDetail.data.job.locality'])
                 @include('admin.partials.field', ['label' => 'Pincode', 'value' => 'jobDetail.data.job.pincode'])
+                @include('admin.partials.field', ['label' => 'Candidates contact via', 'value' => 'jobDetail.data.job.contact_mode_label'])
+                @include('admin.partials.field', ['label' => 'Contact number', 'value' => 'jobDetail.data.job.contact_phone'])
+                @include('admin.partials.field', ['label' => 'WhatsApp number', 'value' => 'jobDetail.data.job.whatsapp_phone'])
+                @include('admin.partials.field', ['label' => 'Plan', 'value' => 'jobDetail.data.job.plan'])
+                @include('admin.partials.field', ['label' => 'Stage', 'value' => 'jobDetail.data.job.stage_label'])
               </div>
+
+              {{-- Charging candidates is allowed but worth a second look. --}}
+              <template x-if="jobDetail.data.job.charges_fee">
+                <div class="mt-lg flex items-center gap-sm rounded-field bg-warning-bg px-md py-sm">
+                  <span x-html="ICONS.alert" class="[&>svg]:h-4 [&>svg]:w-4 shrink-0 text-warning"></span>
+                  <p class="text-caption text-ink">The employer says they charge candidates a fee for this job.</p>
+                </div>
+              </template>
 
               {{-- No coordinates and no city fallback means the posting
                    silently drops out of distance sorting for every candidate. --}}
@@ -203,9 +266,9 @@
               <template x-for="group in [
                   { label: 'DUTIES', items: jobDetail.data.job.duties },
                   { label: 'QUALIFICATIONS', items: jobDetail.data.job.qualifications },
-                  {{-- No SKILLS row: `job_postings.skills` was dropped with the
-                       section, and this group only stayed invisible because an
-                       undefined list happens to fail the length guard below. --}}
+                  { label: 'SKILLS', items: jobDetail.data.job.skills },
+                  {{-- Older postings only: Post a Job no longer asks for
+                       duties or benefits, and an empty list is hidden. --}}
                   { label: 'BENEFITS', items: jobDetail.data.job.benefits },
                 ]" :key="group.label">
                 <template x-if="(group.items || []).length">
@@ -299,7 +362,7 @@
             </template>
 
             <div class="rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card p-lg">
-              <div class="flex items-end gap-md mb-md"><h2 class="flex-1 text-h3 text-ink">Employer</h2></div>
+              <div class="flex items-end gap-md mb-md"><h2 class="flex-1 text-h3 text-ink">Company</h2></div>
               <template x-if="jobDetail.data.employer">
                 <button @click="openOrganisation(jobDetail.data.employer.id)"
                         class="flex w-full items-center gap-md rounded-field p-sm -m-sm text-left transition-colors duration-micro hover:bg-canvas-alt">
@@ -312,6 +375,12 @@
                   <span class="inline-flex items-center rounded-field px-md py-[5px] text-tag whitespace-nowrap"
                         :class="jobDetail.data.employer.verified ? 'bg-primary-light text-primary-dark' : 'bg-surface-muted text-ink-secondary'"
                         x-text="jobDetail.data.employer.verified ? 'Verified' : 'Unverified'"></span>
+                </button>
+              </template>
+              <template x-if="jobDetail.data.employer">
+                <button @click="viewCompanyJobs(jobDetail.data.employer)"
+                        class="mt-md block text-bodysm font-semibold text-primary-dark hover:underline">
+                  All jobs of this company →
                 </button>
               </template>
               <template x-if="jobDetail.data.posted_by">

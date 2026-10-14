@@ -15,6 +15,7 @@ use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -142,14 +143,28 @@ class OrganisationController extends ApiController
                     ])->all(),
             ],
 
-            'jobs' => $org->jobPostings->map(fn ($j) => [
+            // Every job this company has posted, newest first, with where each
+            // one stands — the company page is where its jobs are approved.
+            'jobs' => $org->jobPostings->sortByDesc('posted_at')->values()->map(fn ($j) => [
                 'id' => PublicId::encode('j', $j->id),
                 'code' => $j->code,
                 'title' => $j->title,
                 'city' => $j->city,
                 'status' => $j->posting_status->value,
+                'status_label' => $j->posting_status->label(),
+                'stage' => $j->hiringStage(),
+                'stage_label' => $j->hiringStageLabel(),
+                'paid' => $j->isPaid(),
+                'awaiting_review' => $j->posting_status->isAwaitingReview(),
+                'applicants' => $j->applications()->count(),
                 'posted_at' => $j->posted_at->toIso8601String(),
             ])->all(),
+
+            // Postings that only need an admin's approval once the company is
+            // verified — what "Approve all waiting jobs" would publish.
+            'jobs_waiting' => $org->jobPostings
+                ->filter(fn ($j) => $j->posting_status->isAwaitingReview())
+                ->count(),
 
             'duplicate_gst_matches' => filled($org->gst_number)
                 ? Organisation::where('gst_number', $org->gst_number)
@@ -243,11 +258,65 @@ class OrganisationController extends ApiController
                 'postings_now_visible' => $activated,
                 'paid_postings_published' => $published,
             ],
-            $activated > 0
-                ? "Employer verified. {$activated} posting(s) are now visible to candidates"
-                    .($published > 0 ? ", {$published} of them paid posting(s) published automatically." : '.')
-                : 'Employer verified.',
+            ($activated > 0
+                ? "Company verified. {$activated} job(s) are now visible to candidates"
+                    .($published > 0 ? ", {$published} of them paid job(s) published automatically." : '.')
+                : 'Company verified.')
+                .$this->waitingNote($org),
         );
+    }
+
+    /**
+     * POST /admin/organisations/{organisationId}/approve-jobs
+     *
+     * Approves every job of this company that is waiting for review. Only
+     * once the company itself is verified — the company comes first, then
+     * its jobs.
+     */
+    public function approveJobs(Request $request, string $organisationId): JsonResponse
+    {
+        $org = $this->findOrganisation($organisationId);
+
+        if (! $org->verified) {
+            throw ValidationException::withMessages([
+                'organisation' => ['Verify the company first, then approve its jobs.'],
+            ]);
+        }
+
+        $waiting = $org->jobPostings()
+            ->where('posting_status', JobPostingStatus::PendingApproval->value)
+            ->get();
+
+        foreach ($waiting as $job) {
+            $job->markApproved((int) $request->user()->id);
+            $this->notifier->jobApproved($job);
+            $this->notifier->jobAlertsMatching($job);
+        }
+
+        $this->auditor->log(
+            action: 'organisation.approve_jobs',
+            summary: "Approved {$waiting->count()} waiting job(s) of {$org->name}",
+            subjectType: 'Organisation',
+            subjectId: PublicId::encode('org', $org->id),
+            changes: ['approved_jobs' => ['from' => null, 'to' => $waiting->pluck('code')->all()]],
+        );
+
+        return ApiResponse::data(
+            ['approved' => $waiting->count()],
+            $waiting->isEmpty()
+                ? 'No jobs of this company are waiting for approval.'
+                : "{$waiting->count()} job(s) approved and published.",
+        );
+    }
+
+    /** " 2 job(s) still waiting for approval." — or nothing. */
+    private function waitingNote(Organisation $org): string
+    {
+        $waiting = $org->jobPostings()
+            ->where('posting_status', JobPostingStatus::PendingApproval->value)
+            ->count();
+
+        return $waiting > 0 ? " {$waiting} job(s) still waiting for your approval." : '';
     }
 
     /**

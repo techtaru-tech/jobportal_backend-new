@@ -40,8 +40,9 @@
       keywords: ['jobs', 'vacancies', 'listings', 'postings'] },
     { key: 'applications', label: 'Applications', icon: 'clipboard',
       keywords: ['applicants', 'pipeline', 'shortlist', 'applied'] },
-    { key: 'organisations', label: 'Employers', icon: 'badgeCheck', badge: 'pending_verification',
-      keywords: ['organisations', 'companies', 'hospitals', 'verification', 'verify', 'gst'] },
+    { key: 'organisations', label: 'Companies', icon: 'badgeCheck', badge: 'pending_verification',
+      keywords: ['organisations', 'employers', 'companies', 'hospitals', 'verification', 'verify',
+                 'gst', 'business document'] },
     { key: 'notifications', label: 'Notifications', icon: 'bell', badge: true,
       keywords: ['alerts', 'notifications', 'registered', 'signups', 'new employer',
                  'new job', 'approval', 'push', 'delivery', 'read rate'] },
@@ -199,7 +200,7 @@
       JOB_STATUSES, APP_STATUSES,
 
       QUICK_ACTIONS: [
-        { label: 'Verify employers', hint: 'Review GST documents', icon: 'badgeCheck',
+        { label: 'Verify companies', hint: 'Review business documents', icon: 'badgeCheck',
           view: 'organisations', filter: { state: 'pending' } },
         { label: 'Unstick applications', hint: 'No movement in a while', icon: 'clipboard',
           view: 'applications', filter: { stuck: true } },
@@ -219,7 +220,10 @@
       users: { q: '', side: '', sort: '', data: [], meta: null, busy: false, error: false },
       userDetail: { data: null, busy: false },
 
+      // `org` / `orgName`: set when the list is opened from a company page,
+      // to show only that company's jobs.
       jobs: { q: '', status: '', stage: '', zero: false, unverified: false, missingCoords: false,
+              org: '', orgName: '',
               data: [], meta: null, busy: false, error: false },
       jobDetail: { data: null, busy: false },
       /** Paid-posting pipeline counts, for the stage pills above the list. */
@@ -567,7 +571,7 @@
           { key: 'jobs', label: 'Active jobs', to: 'jobs',
             value: fmtNumber(t.jobs.active), delta: `of ${fmtNumber(t.jobs.total)} posted`,
             icon: 'briefcase', spark: s.jobs.map((d) => d.count), trend: this.trendOf(s.jobs) },
-          { key: 'orgs', label: 'Verified employers', to: 'organisations',
+          { key: 'orgs', label: 'Verified companies', to: 'organisations',
             value: fmtNumber(t.organisations.verified),
             delta: `of ${fmtNumber(t.organisations.total)} registered`,
             icon: 'badgeCheck', spark: null, trend: null },
@@ -839,7 +843,23 @@
           zero_applicants: this.jobs.zero,
           unverified_employer: this.jobs.unverified,
           missing_coordinates: this.jobs.missingCoords,
+          organisation: this.jobs.org,
         }, page)
+      },
+
+      /** All of one company's jobs, from its page. */
+      viewCompanyJobs(org) {
+        Object.assign(this.jobs, {
+          org: org.id, orgName: org.name, q: '', status: '', stage: '',
+          zero: false, unverified: false, missingCoords: false,
+        })
+        this.go('jobs')
+      },
+
+      clearJobCompany() {
+        this.jobs.org = ''
+        this.jobs.orgName = ''
+        this.loadJobs(1)
       },
 
       /** Payment × business document — the client's posting statuses. */
@@ -1008,6 +1028,23 @@
         const id = this.orgDetail.data.organisation.id
         this.api('/admin/organisations/' + id + '/verify', { method: 'POST' })
           .then((res) => { this.showToast(res.message || 'Verified.'); this.openOrganisation(id); this.loadNotifications() })
+          .catch((e) => this.showToast(e.message, true))
+      },
+
+      /** Approves one waiting job from the company page, and stays there. */
+      approveCompanyJob(jobId) {
+        const id = this.orgDetail.data.organisation.id
+        this.api('/admin/jobs/' + jobId + '/approve', { method: 'POST' })
+          .then((res) => { this.showToast(res.message || 'Approved.'); this.openOrganisation(id); this.loadNotifications() })
+          .catch((e) => this.showToast(e.message, true))
+      },
+
+      /** Approves every waiting job of a verified company. */
+      approveAllCompanyJobs() {
+        const org = this.orgDetail.data.organisation
+        if (!confirm(`Approve and publish all ${this.orgDetail.data.jobs_waiting} waiting job(s) of ${org.name}?`)) return
+        this.api('/admin/organisations/' + org.id + '/approve-jobs', { method: 'POST' })
+          .then((res) => { this.showToast(res.message || 'Approved.'); this.openOrganisation(org.id); this.loadNotifications() })
           .catch((e) => this.showToast(e.message, true))
       },
 
