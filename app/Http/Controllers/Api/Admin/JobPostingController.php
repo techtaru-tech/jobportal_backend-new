@@ -40,7 +40,7 @@ class JobPostingController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $query = JobPosting::query()
-            ->with('organisationRecord:id,name,verified')
+            ->with('organisationRecord:id,name,verified,document_path')
             ->withCount('applications');
 
         if ($term = trim((string) $request->query('query', ''))) {
@@ -71,6 +71,13 @@ class JobPostingController extends ApiController
 
         if ($request->boolean('unverified_employer')) {
             $query->whereHas('organisationRecord', fn (Builder $q) => $q->where('verified', false));
+        }
+
+        // Payment × business document, in the client's own status wording —
+        // see JobPosting::hiringStage().
+        if (($stage = (string) $request->query('stage', '')) !== ''
+            && array_key_exists($stage, JobPosting::hiringStageLabels())) {
+            $query->atHiringStage($stage);
         }
 
         $sort = match ($request->query('sort')) {
@@ -365,7 +372,29 @@ class JobPostingController extends ApiController
             // the review queue's whole audit surface in the row itself.
             'reviewed_at' => $job->reviewed_at?->toIso8601String(),
             'rejection_reason' => $job->rejection_reason,
+            'stage' => $job->hiringStage(),
+            'stage_label' => $job->hiringStageLabel(),
+            'paid' => $job->isPaid(),
+            'plan' => $job->plan_tier === null ? null : ucfirst($job->plan_tier).' · '.ucfirst((string) $job->plan_reach),
         ];
+    }
+
+    /**
+     * GET /admin/jobs/stages — how many postings sit at each stage of the
+     * paid-posting pipeline, for the tabs above the list.
+     */
+    public function stages(): JsonResponse
+    {
+        return ApiResponse::data([
+            'stages' => collect(JobPosting::hiringStageLabels())
+                ->map(fn (string $label, string $stage) => [
+                    'id' => $stage,
+                    'label' => $label,
+                    'count' => JobPosting::query()->atHiringStage($stage)->count(),
+                ])
+                ->values()
+                ->all(),
+        ]);
     }
 
     private function findJob(string $jobId): JobPosting

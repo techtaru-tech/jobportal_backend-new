@@ -2,12 +2,17 @@
 
 namespace App\Services\Payments;
 
+use App\Enums\JobPostingStatus;
 use App\Enums\NotificationAudience;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Models\JobCredit;
+use App\Models\JobPosting;
 use App\Models\PaymentOrder;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\JobPlanCatalog;
+use App\Services\JobPostingFlow;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,10 +28,76 @@ use Illuminate\Validation\ValidationException;
  */
 class PaymentService
 {
+    /** `plan_id` of an order for job postings; what it buys is in `meta`. */
+    public const JOB_PLAN = 'job_plan';
+
     public function __construct(
         private readonly PaymentGateway $gateway,
         private readonly SubscriptionService $subscriptions,
+        private readonly JobPlanCatalog $jobPlans,
+        private readonly JobPostingFlow $postingFlow,
     ) {}
+
+    /**
+     * Opens an order for [$quantity] postings at [$tier] / [$reach], paying
+     * for [$job] first.
+     *
+     * [$job] must be one of [$user]'s saved, unpaid postings — the plan step
+     * is only ever reached with one.
+     */
+    public function openJobPlanOrder(
+        User $user,
+        JobPosting $job,
+        string $tier,
+        string $reach,
+        int $quantity,
+        PaymentMethod $method,
+    ): PaymentOrder {
+        if ($job->user_id !== $user->id) {
+            abort(403, 'That posting does not belong to your account.');
+        }
+        if ($job->isPaid() || ! in_array($job->posting_status, [JobPostingStatus::Draft, JobPostingStatus::Rejected], true)) {
+            throw ValidationException::withMessages([
+                'job_id' => ['That posting has already been paid for.'],
+            ])->status(422);
+        }
+
+        $amount = $this->jobPlans->requireTotal($tier, $reach, $quantity);
+
+        $attributes = [
+            'plan_id' => self::JOB_PLAN,
+            'meta' => [
+                'tier' => $tier,
+                'reach' => $reach,
+                'quantity' => $quantity,
+                'job_posting_id' => $job->id,
+            ],
+            'amount_paise' => $amount,
+            'method' => $method,
+            'gateway' => $this->gateway->name(),
+        ];
+
+        // Re-picking (or backing out of the payment sheet and coming back)
+        // reuses the open attempt, as subscription orders do.
+        $existing = PaymentOrder::open()
+            ->where('user_id', $user->id)
+            ->where('audience', NotificationAudience::Recruiter->value)
+            ->latest()
+            ->first();
+
+        if ($existing !== null) {
+            $existing->fill($attributes)->save();
+
+            return $existing;
+        }
+
+        return PaymentOrder::create($attributes + [
+            'user_id' => $user->id,
+            'audience' => NotificationAudience::Recruiter->value,
+            'currency' => 'INR',
+            'status' => PaymentStatus::Created,
+        ]);
+    }
 
     /**
      * Opens an order for [$plan].
@@ -120,6 +191,10 @@ class PaymentService
             return $order;
         }
 
+        if ($order->plan_id === self::JOB_PLAN) {
+            return $this->captureJobPlan($order, $result->reference);
+        }
+
         // A one-off grants an entitlement and leaves the subscription alone —
         // buying the watermark-free resume must not read as "this account is
         // on Pro now".
@@ -175,6 +250,55 @@ class PaymentService
                 $plan,
             );
         });
+
+        return $order->refresh();
+    }
+
+    /**
+     * Marks a job-plan order paid, records the postings it bought, and spends
+     * one on the posting it was opened for — which sends that posting for
+     * review (or straight live, see [JobPostingFlow::approveIfReady]).
+     *
+     * The credit is created in the same transaction that marks the order
+     * paid, so there is no paid order without the postings it bought.
+     */
+    private function captureJobPlan(PaymentOrder $order, ?string $reference): PaymentOrder
+    {
+        $meta = $order->meta ?? [];
+
+        $credit = DB::transaction(function () use ($order, $meta, $reference) {
+            $order->fill([
+                'status' => PaymentStatus::Paid,
+                'gateway_ref' => $reference,
+                'failure_reason' => null,
+                'paid_at' => now(),
+            ])->save();
+
+            $days = (int) config('job_plans.credit_validity_days', 90);
+
+            return JobCredit::create([
+                'user_id' => $order->user_id,
+                'payment_order_id' => $order->id,
+                'tier' => $meta['tier'] ?? 'basic',
+                'reach' => $meta['reach'] ?? 'district',
+                'total' => max(1, (int) ($meta['quantity'] ?? 1)),
+                'used' => 0,
+                'expires_at' => $days > 0 ? now()->addDays($days) : null,
+            ]);
+        });
+
+        // Outside the transaction: the money is settled whatever happens to
+        // the posting. A posting deleted or already submitted in the meantime
+        // simply leaves the whole credit for the next one.
+        $job = JobPosting::query()
+            ->where('user_id', $order->user_id)
+            ->find($meta['job_posting_id'] ?? 0);
+
+        if ($job !== null
+            && ! $job->isPaid()
+            && in_array($job->posting_status, [JobPostingStatus::Draft, JobPostingStatus::Rejected], true)) {
+            $this->postingFlow->useCredit($job, $credit);
+        }
 
         return $order->refresh();
     }

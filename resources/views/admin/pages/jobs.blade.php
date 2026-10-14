@@ -13,6 +13,21 @@
       'description' => 'Every posting in every status. Nothing reaches candidates until it is approved here.',
     ])
 
+    {{--
+      The paid-posting pipeline: has the employer paid, and have they given
+      their business document. Tap a stage to list only those postings.
+    --}}
+    <div class="mb-md flex flex-wrap gap-sm" x-show="jobStages.length">
+      <template x-for="stage in jobStages" :key="stage.id">
+        <button @click="pickJobStage(stage.id)"
+                :class="jobs.stage === stage.id ? 'ring-2 ring-primary ' + stageTone(stage.id) : stageTone(stage.id)"
+                class="inline-flex items-center gap-xs rounded-chip px-md py-[6px] text-chip whitespace-nowrap transition-shadow duration-150">
+          <span x-text="stage.label"></span>
+          <span class="rounded-full bg-surface px-[6px] text-caption font-semibold tabular-nums" x-text="stage.count"></span>
+        </button>
+      </template>
+    </div>
+
     @include('admin.partials.list-shell', [
       'state' => 'jobs',
       'loader' => 'loadJobs',
@@ -76,6 +91,8 @@
             </td>
             <td class="px-lg py-md align-middle text-bodysm">
               <span x-html="statusDot(row.status, \'job\')"></span>
+              <span class="mt-[2px] block text-caption text-ink-secondary" x-text="row.stage_label"></span>
+              <span x-show="row.plan" class="block text-caption text-ink-muted" x-text="row.plan"></span>
             </td>
             <td class="px-lg py-md align-middle text-bodysm text-right tabular-nums" x-text="row.applicants"></td>
             <td class="px-lg py-md align-middle text-right hidden lg:table-cell">

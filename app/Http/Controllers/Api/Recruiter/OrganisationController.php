@@ -164,6 +164,10 @@ class OrganisationController extends ApiController
             'website' => ['nullable', 'url', 'max:255'],
             'gst_number' => ['nullable', 'string', 'max:30'],
             'about' => ['nullable', 'string', 'max:2000'],
+            // Asked on Post a Job ▸ Company details, where the app requires
+            // it; optional here so older builds and the web area keep saving.
+            'email' => ['nullable', 'email', 'max:190'],
+            'hiring_type' => ['nullable', Rule::in(array_keys(config('options.hiring_types', [])))],
         ]);
     }
 

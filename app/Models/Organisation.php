@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * see `markUnverified()` and the note on the controller.
  */
 #[Fillable([
-    'name', 'industry', 'size', 'address', 'city', 'pincode', 'latitude', 'longitude',
+    'name', 'email', 'hiring_type', 'industry', 'size', 'address', 'city', 'pincode', 'latitude', 'longitude',
     'website', 'gst_number', 'about',
     'logo_path', 'document_name', 'document_path',
 ])]

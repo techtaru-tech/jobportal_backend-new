@@ -379,6 +379,45 @@ return [
     ],
 
     /*
+    |--------------------------------------------------------------------------
+    | Post a Job — the selection lists behind steps 1–3
+    |--------------------------------------------------------------------------
+    |
+    | All closed (validated with Rule::in) and all picked, never typed: the
+    | client's rule for the employer flow is that only a name, a mobile
+    | number and an email are ever keyed in.
+    */
+
+    // Step 2 · the lowest level of schooling the job will consider.
+    'education_levels' => [
+        '10th',
+        '10+2',
+        'Diploma / ITI',
+        'Graduate',
+        'Post Graduate',
+    ],
+
+    // Step 2 · who the employer would prefer — "Any" is a real answer.
+    'gender_preferences' => [
+        'Male',
+        'Female',
+        'Any',
+    ],
+
+    // Step 2 · how candidates reach the employer: id => label.
+    'contact_modes' => [
+        'calls' => 'Calls only',
+        'calls_whatsapp' => 'Calls & WhatsApp',
+        'apply_only' => 'Apply only',
+    ],
+
+    // Step 3 · who the employer is hiring for: id => [label, explanation].
+    'hiring_types' => [
+        'company' => ['label' => 'Company', 'description' => 'I hire for my own company / store'],
+        'consultancy' => ['label' => 'Consultancy / Manpower firm', 'description' => 'I hire for third-party companies'],
+    ],
+
+    /*
     | Marital status, offered on the candidate's personal-information form.
     | Closed — validated with Rule::in(), same as `genders` above.
     */

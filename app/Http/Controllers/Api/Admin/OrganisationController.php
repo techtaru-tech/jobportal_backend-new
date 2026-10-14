@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\AdminAuditLog;
 use App\Models\Organisation;
 use App\Services\AdminAuditor;
+use App\Services\JobPostingFlow;
 use App\Services\Notifier;
 use App\Support\ApiResponse;
 use App\Support\PrivateFiles;
@@ -42,6 +43,7 @@ class OrganisationController extends ApiController
     public function __construct(
         private readonly AdminAuditor $auditor,
         private readonly Notifier $notifier,
+        private readonly JobPostingFlow $postingFlow,
     ) {}
 
     /** GET /admin/organisations */
@@ -201,6 +203,11 @@ class OrganisationController extends ApiController
 
         $org->markVerified();
 
+        // "From business proof to live", automated: paid postings that were
+        // only waiting on this document are published now rather than left
+        // for a second click in the job queue.
+        $published = $this->postingFlow->organisationVerified($org);
+
         $note = trim((string) ($validated['note'] ?? ''));
         $postings = $org->jobPostings()->count();
 
@@ -234,9 +241,11 @@ class OrganisationController extends ApiController
                 // Echoed so the panel can confirm the actual effect rather
                 // than restating the estimate it showed before the click.
                 'postings_now_visible' => $activated,
+                'paid_postings_published' => $published,
             ],
             $activated > 0
-                ? "Employer verified. {$activated} posting(s) are now visible to candidates."
+                ? "Employer verified. {$activated} posting(s) are now visible to candidates"
+                    .($published > 0 ? ", {$published} of them paid posting(s) published automatically." : '.')
                 : 'Employer verified.',
         );
     }

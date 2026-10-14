@@ -30,6 +30,8 @@ class OrganisationResource extends JsonResource
         return [
             'id' => PublicId::encode('org', $this->id),
             'name' => $this->name,
+            'email' => $this->email,
+            'hiring_type' => $this->hiring_type,
             'industry' => $this->industry?->value,
             'size' => $this->size?->value,
             'address' => $this->address,

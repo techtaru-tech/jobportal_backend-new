@@ -47,6 +47,9 @@
                  'new job', 'approval', 'push', 'delivery', 'read rate'] },
     { key: 'subscriptions', label: 'Plans', icon: 'creditCard',
       keywords: ['subscriptions', 'billing', 'pricing', 'paid', 'free'] },
+    { key: 'jobPlans', label: 'Job plans', icon: 'creditCard',
+      keywords: ['job plans', 'posting price', 'basic', 'silver', 'gold', 'district',
+                 'state', 'price', 'mrp', 'discount', 'per posting'] },
     { key: 'optionLists', label: 'Reference data', icon: 'sliders',
       keywords: ['skills', 'cities', 'qualifications', 'categories', 'options', 'lists',
                  'shifts', 'job types'] },
@@ -216,9 +219,13 @@
       users: { q: '', side: '', sort: '', data: [], meta: null, busy: false, error: false },
       userDetail: { data: null, busy: false },
 
-      jobs: { q: '', status: '', zero: false, unverified: false, missingCoords: false,
+      jobs: { q: '', status: '', stage: '', zero: false, unverified: false, missingCoords: false,
               data: [], meta: null, busy: false, error: false },
       jobDetail: { data: null, busy: false },
+      /** Paid-posting pipeline counts, for the stage pills above the list. */
+      jobStages: [],
+      /** Post a Job ▸ Choose plan — the price grid an operator edits. */
+      jobPlans: { data: null, busy: false, saving: false },
       jobStatusPick: '',
       jobExpiryPick: '',
 
@@ -824,13 +831,73 @@
 
       // ── jobs ────────────────────────────────────────────────────────
       loadJobs(page = 1) {
+        this.loadJobStages()
         return this.loadList(this.jobs, '/admin/jobs', {
           query: this.jobs.q,
           status: this.jobs.status,
+          stage: this.jobs.stage,
           zero_applicants: this.jobs.zero,
           unverified_employer: this.jobs.unverified,
           missing_coordinates: this.jobs.missingCoords,
         }, page)
+      },
+
+      /** Payment × business document — the client's posting statuses. */
+      loadJobStages() {
+        this.api('/admin/jobs/stages')
+          .then((res) => { this.jobStages = res.data.stages || [] })
+          .catch(() => {})
+      },
+
+      pickJobStage(stage) {
+        this.jobs.stage = this.jobs.stage === stage ? '' : stage
+        this.loadJobs(1)
+      },
+
+      /** Colour of a stage pill — red where the employer owes something. */
+      stageTone(stage) {
+        return {
+          payment_pending: 'bg-warning-bg text-warning',
+          paid_document_missing: 'bg-danger-bg text-danger',
+          posted_document_missing: 'bg-danger-bg text-danger',
+          document_under_review: 'bg-warning-bg text-warning',
+          document_verified: 'bg-primary-light text-primary-dark',
+          live: 'bg-success-bg text-success',
+        }[stage] || 'bg-surface-muted text-ink-secondary'
+      },
+
+      // ── job plans ───────────────────────────────────────────────────
+      loadJobPlans() {
+        this.jobPlans.busy = true
+        this.api('/admin/job-plans')
+          .then((res) => { this.jobPlans.data = res.data })
+          .catch((e) => this.showToast(e.message, true))
+          .finally(() => { this.jobPlans.busy = false })
+      },
+
+      /** The editable cell for tier × reach × postings (created if missing). */
+      planCell(tier, reach, quantity) {
+        const prices = this.jobPlans.data.prices
+        let cell = prices.find((p) => p.tier === tier && p.reach === reach && p.quantity === quantity)
+        if (!cell) {
+          cell = { tier, reach, quantity, price: null, mrp: null }
+          prices.push(cell)
+        }
+        return cell
+      },
+
+      saveJobPlans() {
+        const prices = this.jobPlans.data.prices
+          .filter((p) => p.price !== null && p.price !== '')
+          .map((p) => ({
+            tier: p.tier, reach: p.reach, quantity: p.quantity,
+            price: Number(p.price), mrp: p.mrp === null || p.mrp === '' ? null : Number(p.mrp),
+          }))
+        this.jobPlans.saving = true
+        this.api('/admin/job-plans', { method: 'PUT', body: { prices } })
+          .then((res) => { this.jobPlans.data = res.data; this.showToast(res.message || 'Saved.') })
+          .catch((e) => this.showToast(e.message, true))
+          .finally(() => { this.jobPlans.saving = false })
       },
 
       openJob(id) {

@@ -79,6 +79,13 @@ class ConfigController extends ApiController
             'professional_skills' => config('options.professional_skills'),
             'hobby_interests' => config('options.hobby_interests'),
             'education_types' => config('options.education_types'),
+
+            // Post a Job — selection lists for its four steps.
+            'education_levels' => config('options.education_levels'),
+            'gender_preferences' => config('options.gender_preferences'),
+            'contact_modes' => (object) config('options.contact_modes'),
+            'hiring_types' => (object) config('options.hiring_types'),
+
             'passing_years' => $this->passingYears(),
             'city_coordinates' => (object) $this->options->cityCoordinates(),
 

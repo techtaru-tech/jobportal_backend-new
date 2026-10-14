@@ -8,10 +8,15 @@ use App\Enums\NotificationAudience;
 use App\Enums\ProfileField;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\JobResource;
+use App\Enums\PaymentMethod;
+use App\Models\JobCredit;
 use App\Models\JobPosting;
 use App\Models\Organisation;
+use App\Services\JobPlanCatalog;
+use App\Services\JobPostingFlow;
 use App\Services\Notifier;
 use App\Services\OptionListService;
+use App\Services\Payments\PaymentService;
 use App\Services\SubscriptionService;
 use App\Support\ApiResponse;
 use App\Support\Display;
@@ -28,22 +33,52 @@ class JobController extends ApiController
     public function __construct(
         private readonly Notifier $notifier,
         private readonly SubscriptionService $subscriptions,
+        private readonly JobPlanCatalog $jobPlans,
+        private readonly JobPostingFlow $postingFlow,
+        private readonly PaymentService $payments,
     ) {}
 
-    /** POST /recruiter/jobs (§8.1) */
+    /**
+     * POST /recruiter/jobs (§8.1)
+     *
+     * With `save_as_draft`, the reworked Post a Job flow: the posting is
+     * saved once Company details is done ("Your post has been saved! Add a
+     * plan to make it live") and only goes for review once a plan pays for
+     * it — see [useCredit] and [openOrder]. A saved draft takes no plan slot
+     * and is invisible to candidates.
+     *
+     * Without it, the original single-step submit (still used by the web
+     * employer area): straight to review, under the account's subscription.
+     */
     public function store(Request $request): JsonResponse
     {
-        $this->assertCanPostAnother($request);
+        $asDraft = $request->boolean('save_as_draft');
+
+        if (! $asDraft) {
+            $this->assertCanPostAnother($request);
+        }
 
         $validated = $this->validated($request);
         $organisation = $this->ownedOrganisation($request, $validated['organisation_id']);
         unset($validated['organisation_id']);
 
-        $job = $request->user()->jobPostings()->create($validated + [
+        $job = $request->user()->jobPostings()->make($validated + [
             'organisation_id' => $organisation->id,
             // Denormalised so the candidate-facing card renders without a join.
             'organisation' => $organisation->name,
         ]);
+        if ($asDraft) {
+            $job->posting_status = JobPostingStatus::Draft;
+        }
+        $job->save();
+
+        if ($asDraft) {
+            return ApiResponse::data(
+                new JobResource($job->load('organisationRecord')),
+                'Your post has been saved! Add a plan to make it live.',
+                201,
+            );
+        }
 
         $this->notifier->jobPosted($job->load('organisationRecord'));
 
@@ -210,6 +245,85 @@ class JobController extends ApiController
         return ApiResponse::data(new JobResource($job->load('organisationRecord')), 'Job status updated.');
     }
 
+    /** GET /recruiter/job-plans — tiers, reaches, the price grid and postings left. */
+    public function plans(Request $request): JsonResponse
+    {
+        return ApiResponse::data($this->jobPlans->toApi($request->user()));
+    }
+
+    /**
+     * POST /recruiter/jobs/{jobId}/use-credit — sends a saved posting for
+     * review on a posting left over from an earlier pack, with no payment.
+     */
+    public function useCredit(Request $request, string $jobId): JsonResponse
+    {
+        $job = $this->findOwned($request, $jobId);
+
+        $validated = $request->validate([
+            'credit_id' => ['nullable', 'integer'],
+        ]);
+
+        $credits = $this->jobPlans->usableCredits($request->user());
+        $credit = isset($validated['credit_id'])
+            ? $credits->firstWhere('id', (int) $validated['credit_id'])
+            : $credits->first();
+
+        if (! $credit instanceof JobCredit) {
+            throw ValidationException::withMessages([
+                'credit_id' => ['You have no postings left on a plan — choose a plan to continue.'],
+            ])->status(422);
+        }
+
+        $job = $this->postingFlow->useCredit($job, $credit);
+
+        return ApiResponse::data(
+            new JobResource($job->load('organisationRecord')),
+            $this->submittedMessage($job),
+        );
+    }
+
+    /**
+     * POST /recruiter/jobs/{jobId}/orders — opens a payment for [quantity]
+     * postings at [tier] / [reach], the first of which is this one. The app
+     * then confirms it through `/payments/orders/{order}/confirm`, exactly as
+     * it does a subscription.
+     */
+    public function openOrder(Request $request, string $jobId): JsonResponse
+    {
+        $job = $this->findOwned($request, $jobId);
+
+        $validated = $request->validate([
+            'tier' => ['required', 'string', 'max:20'],
+            'reach' => ['required', 'string', 'max:20'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'method' => ['required', Rule::in(PaymentMethod::values())],
+        ]);
+
+        $order = $this->payments->openJobPlanOrder(
+            $request->user(),
+            $job,
+            $validated['tier'],
+            $validated['reach'],
+            (int) $validated['quantity'],
+            PaymentMethod::from($validated['method']),
+        );
+
+        return ApiResponse::data([
+            'order' => $order->toApi(),
+            'checkout' => $this->payments->checkoutFor($order),
+        ]);
+    }
+
+    /** What the employer is told once a posting has gone for review. */
+    private function submittedMessage(JobPosting $job): string
+    {
+        return match ($job->hiringStage()) {
+            'live' => 'Your post is live.',
+            'paid_document_missing', 'posted_document_missing' => 'Your post is under review. Upload your business document to get it live.',
+            default => 'Your post is under review.',
+        };
+    }
+
     /** GET /recruiter/jobs/{jobId}/stats (§8.4) */
     public function stats(Request $request, string $jobId): JsonResponse
     {
@@ -266,11 +380,45 @@ class JobController extends ApiController
             // Must be a subset of the eight ProfileField values (§8.1).
             'required_fields' => ['nullable', 'array'],
             'required_fields.*' => [Rule::in(ProfileField::values())],
+
+            // ── Post a Job, reworked — all optional on the wire, so the web
+            // employer area and older builds keep posting as they did.
+            'openings' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'charges_fee' => ['nullable', 'boolean'],
+            'state' => ['nullable', Rule::in(config('options.states', []))],
+            'locality' => ['nullable', 'string', 'max:120'],
+            'min_education' => ['nullable', Rule::in(config('options.education_levels', []))],
+            'preferred_gender' => ['nullable', Rule::in(config('options.gender_preferences', []))],
+            'skills' => ['nullable', 'array'],
+            'skills.*' => ['string', 'max:60'],
+            'contact_mode' => ['nullable', Rule::in(array_keys(config('options.contact_modes', [])))],
+            // A number candidates can actually call — required once the
+            // employer chose to be called.
+            'contact_phone' => [
+                'nullable',
+                'digits:10',
+                Rule::requiredIf(fn () => in_array($request->input('contact_mode'), ['calls', 'calls_whatsapp'], true)),
+            ],
+            'whatsapp_phone' => ['nullable', 'digits:10'],
         ], [
             'salary_max.gte' => 'The maximum salary must be at least the minimum salary.',
+            'contact_phone.required' => 'Add the number candidates should call.',
+            'contact_phone.digits' => 'The contact number must be 10 digits.',
+            'whatsapp_phone.digits' => 'The WhatsApp number must be 10 digits.',
         ]);
 
-        foreach (['qualifications', 'duties', 'benefits', 'required_fields'] as $list) {
+        // Picked from the state's own list once a state is given, the same
+        // rule the candidate's Current city follows.
+        if (filled($validated['state'] ?? null) && filled($validated['city'] ?? null)) {
+            $cities = config('options.state_cities.'.$validated['state'], []);
+            if ($cities !== [] && ! in_array($validated['city'], $cities, true)) {
+                throw ValidationException::withMessages([
+                    'city' => ["Pick a city in {$validated['state']}."],
+                ])->status(422);
+            }
+        }
+
+        foreach (['qualifications', 'duties', 'benefits', 'required_fields', 'skills'] as $list) {
             if (array_key_exists($list, $validated)) {
                 $validated[$list] = Display::cleanList($validated[$list]);
             }

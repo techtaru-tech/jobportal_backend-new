@@ -136,6 +136,13 @@ Route::prefix('v1')->group(function () {
             Route::patch('jobs/{jobId}/status', [Recruiter\JobController::class, 'updateStatus']);
             Route::get('jobs/{jobId}/stats', [Recruiter\JobController::class, 'stats']);
 
+            // Post a Job ▸ Choose plan: the price grid and any postings left
+            // from an earlier pack, then either spend one of those on a saved
+            // posting or open an order that pays for it.
+            Route::get('job-plans', [Recruiter\JobController::class, 'plans']);
+            Route::post('jobs/{jobId}/use-credit', [Recruiter\JobController::class, 'useCredit']);
+            Route::post('jobs/{jobId}/orders', [Recruiter\JobController::class, 'openOrder']);
+
             Route::get('jobs/{jobId}/applicants', [Recruiter\ApplicantController::class, 'index']);
             Route::get('jobs/{jobId}/applicants/facets', [Recruiter\ApplicantController::class, 'facets']);
             Route::get('jobs/{jobId}/applicants/{applicationId}', [Recruiter\ApplicantController::class, 'show']);
@@ -217,6 +224,7 @@ Route::prefix('v1')->group(function () {
             Route::get('users/{userId}', [Admin\UserController::class, 'show']);
 
             Route::get('jobs', [Admin\JobPostingController::class, 'index']);
+            Route::get('jobs/stages', [Admin\JobPostingController::class, 'stages']);
             Route::get('jobs/{jobId}', [Admin\JobPostingController::class, 'show']);
 
             Route::get('applications', [Admin\ApplicationController::class, 'index']);
@@ -254,6 +262,9 @@ Route::prefix('v1')->group(function () {
             Route::get('subscriptions', [Admin\SubscriptionController::class, 'index']);
             Route::get('subscriptions/plans', [Admin\SubscriptionController::class, 'plans']);
 
+            // Post a Job ▸ Choose plan — the price grid.
+            Route::get('job-plans', [Admin\JobPlanController::class, 'index']);
+
             Route::get('option-lists', [Admin\OptionListController::class, 'index']);
             Route::get('option-lists/{list}', [Admin\OptionListController::class, 'show']);
 
@@ -277,6 +288,8 @@ Route::prefix('v1')->group(function () {
                 // and reaches candidates only through `approve`.
                 Route::post('jobs/{jobId}/approve', [Admin\JobPostingController::class, 'approve']);
                 Route::post('jobs/{jobId}/reject', [Admin\JobPostingController::class, 'reject']);
+
+                Route::put('job-plans', [Admin\JobPlanController::class, 'update']);
 
                 Route::patch('applications/{reference}/status', [Admin\ApplicationController::class, 'updateStatus']);
 

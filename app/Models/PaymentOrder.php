@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\NotificationAudience;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Services\JobPlanCatalog;
+use App\Services\Payments\PaymentService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * client-driven "I paid, honest" request from granting a subscription.
  */
 #[Fillable([
-    'user_id', 'audience', 'plan_id', 'amount_paise', 'currency',
+    'user_id', 'audience', 'plan_id', 'meta', 'amount_paise', 'currency',
     'method', 'status', 'gateway', 'gateway_ref', 'failure_reason', 'paid_at',
 ])]
 class PaymentOrder extends Model
@@ -31,6 +33,7 @@ class PaymentOrder extends Model
             'method' => PaymentMethod::class,
             'status' => PaymentStatus::class,
             'amount_paise' => 'integer',
+            'meta' => 'array',
             'paid_at' => 'datetime',
         ];
     }
@@ -51,6 +54,22 @@ class PaymentOrder extends Model
         return Subscription::planById($this->audience, $this->plan_id);
     }
 
+    /** What the order buys, as the receipt and the admin list show it. */
+    public function planName(): string
+    {
+        if ($this->plan_id === PaymentService::JOB_PLAN) {
+            $meta = $this->meta ?? [];
+
+            return app(JobPlanCatalog::class)->label(
+                (string) ($meta['tier'] ?? 'basic'),
+                (string) ($meta['reach'] ?? 'district'),
+                (int) ($meta['quantity'] ?? 1),
+            );
+        }
+
+        return $this->plan()['name'] ?? $this->plan_id;
+    }
+
     /** `9900` -> `₹99`. Display only; the gateway is charged in paise. */
     public function amountLabel(): string
     {
@@ -66,7 +85,8 @@ class PaymentOrder extends Model
             'id' => $this->id,
             'audience' => $this->audience->value,
             'plan_id' => $this->plan_id,
-            'plan_name' => $this->plan()['name'] ?? $this->plan_id,
+            'plan_name' => $this->planName(),
+            'meta' => $this->meta,
             'amount_paise' => $this->amount_paise,
             'amount_label' => $this->amountLabel(),
             'currency' => $this->currency,

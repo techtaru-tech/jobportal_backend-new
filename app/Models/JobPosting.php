@@ -17,6 +17,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'city', 'pincode', 'latitude', 'longitude',
     'salary_min', 'salary_max', 'experience', 'type', 'shift',
     'required_fields', 'about', 'duties', 'qualifications', 'benefits',
+    'openings', 'charges_fee', 'state', 'locality',
+    'min_education', 'preferred_gender', 'skills',
+    'contact_mode', 'contact_phone', 'whatsapp_phone',
 ])]
 class JobPosting extends Model
 {
@@ -36,6 +39,10 @@ class JobPosting extends Model
             'duties' => 'array',
             'qualifications' => 'array',
             'benefits' => 'array',
+            'skills' => 'array',
+            'openings' => 'integer',
+            'charges_fee' => 'boolean',
+            'submitted_at' => 'datetime',
         ];
     }
 
@@ -81,6 +88,113 @@ class JobPosting extends Model
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class);
+    }
+
+    public function credit(): BelongsTo
+    {
+        return $this->belongsTo(JobCredit::class, 'job_credit_id');
+    }
+
+    /** Paid for with a job-plan credit (bought now, or left over from a pack). */
+    public function isPaid(): bool
+    {
+        return $this->job_credit_id !== null;
+    }
+
+    /**
+     * Where this posting is in the paid-posting pipeline, joining the two
+     * things that decide whether it can go live: has it been paid for, and
+     * has the employer's business document been given and checked.
+     *
+     * The admin panel filters on these and the employer sees the label on
+     * My Jobs. The labels are the client's own wording.
+     *
+     * Reads `organisationRecord` — eager-load it for lists.
+     */
+    public function hiringStage(): string
+    {
+        $org = $this->organisationRecord;
+        $document = match (true) {
+            $org === null, (bool) $org?->verified => 'verified',
+            $org->hasDocument() => 'submitted',
+            default => 'missing',
+        };
+
+        return match ($this->posting_status) {
+            JobPostingStatus::Draft => 'payment_pending',
+            JobPostingStatus::Rejected => 'rejected',
+            JobPostingStatus::Closed, JobPostingStatus::Expired => 'closed',
+            JobPostingStatus::Active, JobPostingStatus::Paused => match ($document) {
+                'verified' => 'live',
+                'submitted' => 'document_under_review',
+                default => 'posted_document_missing',
+            },
+            JobPostingStatus::PendingApproval => match ($document) {
+                'verified' => 'document_verified',
+                'submitted' => 'document_under_review',
+                default => $this->isPaid() ? 'paid_document_missing' : 'posted_document_missing',
+            },
+        };
+    }
+
+    /** @return array<string, string> stage => label */
+    public static function hiringStageLabels(): array
+    {
+        return [
+            'payment_pending' => 'Saved – Payment pending',
+            'paid_document_missing' => 'Paid – Document not given',
+            'posted_document_missing' => 'Ad posted – Document not given',
+            'document_under_review' => 'Document submitted – Under review',
+            'document_verified' => 'Document verified – Awaiting approval',
+            'live' => 'Approved – Live',
+            'rejected' => 'Rejected',
+            'closed' => 'Closed',
+        ];
+    }
+
+    /**
+     * Narrows to postings at [$stage] — the same rules as [hiringStage],
+     * written as a query so the admin list can filter and count on it.
+     */
+    public function scopeAtHiringStage(Builder $query, string $stage): Builder
+    {
+        $verified = fn (Builder $q) => $q->whereNull('organisation_id')
+            ->orWhereHas('organisationRecord', fn (Builder $o) => $o->where('verified', true));
+        $documentSubmitted = fn (Builder $q) => $q->whereHas(
+            'organisationRecord',
+            fn (Builder $o) => $o->where('verified', false)->whereNotNull('document_path'),
+        );
+        $documentMissing = fn (Builder $q) => $q->whereHas(
+            'organisationRecord',
+            fn (Builder $o) => $o->where('verified', false)->whereNull('document_path'),
+        );
+        $inReview = JobPostingStatus::PendingApproval->value;
+        $out = [JobPostingStatus::Active->value, JobPostingStatus::Paused->value];
+
+        return match ($stage) {
+            'payment_pending' => $query->where('posting_status', JobPostingStatus::Draft->value),
+            'paid_document_missing' => $query->where('posting_status', $inReview)
+                ->whereNotNull('job_credit_id')->where($documentMissing),
+            'posted_document_missing' => $query->where(fn (Builder $q) => $q
+                ->where(fn (Builder $p) => $p->where('posting_status', $inReview)->whereNull('job_credit_id'))
+                ->orWhereIn('posting_status', $out))
+                ->where($documentMissing),
+            'document_under_review' => $query->whereIn('posting_status', [$inReview, ...$out])
+                ->where($documentSubmitted),
+            'document_verified' => $query->where('posting_status', $inReview)->where($verified),
+            'live' => $query->whereIn('posting_status', $out)->where($verified),
+            'rejected' => $query->where('posting_status', JobPostingStatus::Rejected->value),
+            'closed' => $query->whereIn('posting_status', [
+                JobPostingStatus::Closed->value,
+                JobPostingStatus::Expired->value,
+            ]),
+            default => $query,
+        };
+    }
+
+    public function hiringStageLabel(): string
+    {
+        return self::hiringStageLabels()[$this->hiringStage()] ?? $this->hiringStage();
     }
 
     public function savedBy(): HasMany
@@ -211,7 +325,7 @@ class JobPosting extends Model
     }
 
     /** Publishes a posting that was waiting on review. */
-    public function markApproved(int $adminId): void
+    public function markApproved(?int $adminId): void
     {
         $this->forceFill([
             'posting_status' => JobPostingStatus::Active,

@@ -84,6 +84,36 @@ class JobResource extends JsonResource
             'qualifications' => $this->qualifications ?? [],
             'benefits' => $this->benefits ?? [],
 
+            // Post a Job, reworked.
+            'openings' => $this->openings,
+            'charges_fee' => $this->charges_fee,
+            'state' => $this->state,
+            'locality' => $this->locality,
+            'min_education' => $this->min_education,
+            'preferred_gender' => $this->preferred_gender,
+            'skills' => $this->skills ?? [],
+            'contact_mode' => $this->contact_mode,
+            // Shown only where the employer asked to be called — "Apply only"
+            // means exactly that, and the number stays private.
+            'contact_phone' => in_array($this->contact_mode, ['calls', 'calls_whatsapp'], true)
+                ? $this->contact_phone
+                : null,
+            'whatsapp_phone' => $this->contact_mode === 'calls_whatsapp'
+                ? ($this->whatsapp_phone ?: $this->contact_phone)
+                : null,
+
+            // The employer's own view of where a paid posting stands.
+            'plan_tier' => $this->plan_tier,
+            'plan_reach' => $this->plan_reach,
+            'hiring_stage' => $this->when(
+                $request->user() !== null && $this->user_id === $request->user()->id,
+                fn () => $this->hiringStage(),
+            ),
+            'hiring_stage_label' => $this->when(
+                $request->user() !== null && $this->user_id === $request->user()->id,
+                fn () => $this->hiringStageLabel(),
+            ),
+
             // Present only where the caller's saved/applied state was eager-loaded.
             'is_saved' => $this->when($this->is_saved !== null, fn () => (bool) $this->is_saved),
             'has_applied' => $this->when($this->has_applied !== null, fn () => (bool) $this->has_applied),
