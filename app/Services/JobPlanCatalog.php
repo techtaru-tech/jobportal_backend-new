@@ -84,9 +84,17 @@ class JobPlanCatalog
     public function label(string $tier, string $reach, int $quantity): string
     {
         $name = $this->tiers()[$tier]['name'] ?? ucfirst($tier);
+        $count = "{$quantity} ".($quantity === 1 ? 'posting' : 'postings');
+
+        // District is the only reach the app sells, so it goes unsaid; a
+        // State plan (older purchases) still says so.
+        if ($reach === 'district') {
+            return "{$name} · {$count}";
+        }
+
         $area = $this->reaches()[$reach]['name'] ?? ucfirst($reach);
 
-        return "{$name} · {$area} · {$quantity} ".($quantity === 1 ? 'posting' : 'postings');
+        return "{$name} · {$area} · {$count}";
     }
 
     /** @return Collection<int, JobCredit> */

@@ -90,7 +90,7 @@ class Notifier
         $this->create(
             $job->recruiter,
             NotificationAudience::Recruiter,
-            "Your {$job->title} posting for {$job->organisation} was submitted and is awaiting approval.",
+            "Your {$job->title} job post for {$job->organisation} was submitted and is awaiting approval.",
             NotificationType::System,
             ['job_posting_id' => $job->id],
         );
@@ -115,8 +115,8 @@ class Notifier
             $job->recruiter,
             NotificationAudience::Recruiter,
             $wasVisible
-                ? "Your edit to {$job->title} needs approval, so the posting is paused for candidates until an admin reviews it."
-                : "Your updated {$job->title} posting has been resubmitted for approval.",
+                ? "Your edit to {$job->title} needs approval, so the post is paused for candidates until an admin reviews it."
+                : "Your updated {$job->title} job post has been resubmitted for approval.",
             NotificationType::System,
             ['job_posting_id' => $job->id],
         );
@@ -134,7 +134,7 @@ class Notifier
         $this->create(
             $job->recruiter,
             NotificationAudience::Recruiter,
-            "Approved — your {$job->title} posting for {$job->organisation} is now live.",
+            "Approved — your {$job->title} job post for {$job->organisation} is now live.",
             NotificationType::JobMatch,
             ['job_posting_id' => $job->id],
         );
@@ -205,7 +205,7 @@ class Notifier
         $this->create(
             $job->recruiter,
             NotificationAudience::Recruiter,
-            "Your {$job->title} posting was not approved: {$reason}",
+            "Your {$job->title} job post was not approved: {$reason}",
             NotificationType::System,
             ['job_posting_id' => $job->id],
         );
@@ -229,10 +229,10 @@ class Notifier
         }
 
         $reach = $postings === 1
-            ? 'Your posting is now visible to candidates.'
+            ? 'Your job post is now visible to candidates.'
             : ($postings > 1
-                ? "Your {$postings} postings are now visible to candidates."
-                : 'Postings you publish will now be visible to candidates.');
+                ? "Your {$postings} job posts are now visible to candidates."
+                : 'Job posts you publish will now be visible to candidates once approved.');
 
         $this->create(
             $organisation->recruiter,
@@ -256,7 +256,7 @@ class Notifier
             $organisation->recruiter,
             NotificationAudience::Recruiter,
             "Verification for {$organisation->name} was withdrawn: {$reason} "
-                .'Your postings are hidden from candidates until this is resolved.',
+                .'Your job posts are hidden from candidates until this is resolved.',
             NotificationType::System,
         );
     }

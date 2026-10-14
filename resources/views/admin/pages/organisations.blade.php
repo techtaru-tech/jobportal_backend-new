@@ -11,7 +11,7 @@
     @include('admin.partials.page-header', [
       'kicker' => 'Companies',
       'title' => 'Companies',
-      'description' => 'Step 1: check the business document and verify the company. Step 2: approve its jobs — from its page or the Job postings tab.',
+      'description' => 'Step 1: check the company document and verify the company. Step 2: approve its jobs — from its page or the Job postings tab.',
     ])
 
     @include('admin.partials.list-shell', [
@@ -127,7 +127,7 @@
                   <span>This company is not verified.</span>
                 </template>
               </p>
-              <p class="mt-[2px] text-caption text-ink-secondary">Verify after checking the business document. Its paid jobs go live automatically; other waiting jobs can then be approved below.</p>
+              <p class="mt-[2px] text-caption text-ink-secondary">Verify after checking the company document. Its paid jobs go live automatically; other waiting jobs can then be approved below.</p>
             </div>
             {{-- No document link here: the certificate has its own card below,
                  which is reachable whatever the verification state. --}}
@@ -177,9 +177,9 @@
             <div class="rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card">
               <div class="flex flex-wrap items-center justify-between gap-md border-b border-hairline-divider px-lg py-md">
                 <div class="min-w-0">
-                  <h2 class="text-h3 text-ink">Business document</h2>
+                  <h2 class="text-h3 text-ink">Company document</h2>
                   <p class="mt-[2px] truncate text-caption text-ink-muted"
-                     x-text="orgDetail.data.organisation.document_name || 'Business document'"></p>
+                     x-text="orgDetail.data.organisation.document_name || 'Company document'"></p>
                 </div>
                 <template x-if="orgDetail.data.organisation.document_url">
                   <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener"
@@ -197,7 +197,7 @@
               <template x-if="!orgDetail.data.organisation.document_url">
                 @include('admin.partials.empty-state', [
                   'icon' => 'fileText', 'title' => 'No document on file',
-                  'message' => 'This company has not uploaded a business document yet (GST certificate, shop licence or registration), so there is nothing to verify against. Ask them to upload one before deciding.',
+                  'message' => 'This company has not uploaded a company document yet (GST certificate, shop licence or registration), so there is nothing to verify against. Ask them to upload one before deciding.',
                 ])
               </template>
 
@@ -206,7 +206,7 @@
                      white and would otherwise dissolve into the card. --}}
                 <div class="bg-canvas-alt p-lg">
                   <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener" class="block">
-                    <img :src="orgDetail.data.organisation.document_url" alt="Business document"
+                    <img :src="orgDetail.data.organisation.document_url" alt="Company document"
                          class="mx-auto max-h-[520px] w-auto max-w-full rounded-field border-hair border-hairline bg-surface object-contain shadow-card">
                   </a>
                 </div>

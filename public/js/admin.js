@@ -200,7 +200,7 @@
       JOB_STATUSES, APP_STATUSES,
 
       QUICK_ACTIONS: [
-        { label: 'Verify companies', hint: 'Review business documents', icon: 'badgeCheck',
+        { label: 'Verify companies', hint: 'Review company documents', icon: 'badgeCheck',
           view: 'organisations', filter: { state: 'pending' } },
         { label: 'Unstick applications', hint: 'No movement in a while', icon: 'clipboard',
           view: 'applications', filter: { stuck: true } },

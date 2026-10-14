@@ -322,7 +322,7 @@ class AdminPanelTest extends TestCase
             ->firstOrFail();
 
         $this->assertStringContainsString('Sunrise Hospital is verified', $notification->text);
-        $this->assertStringContainsString('2 postings', $notification->text);
+        $this->assertStringContainsString('2 job posts', $notification->text);
     }
 
     /** Withdrawal carries the reason, since "your jobs vanished" is not actionable. */

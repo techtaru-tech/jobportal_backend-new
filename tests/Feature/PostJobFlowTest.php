@@ -21,7 +21,7 @@ class PostJobFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function recruiterWithOrg(bool $verified = false, bool $withDocument = false): array
+    private function recruiterWithOrg(bool $verified = false, bool $withDocument = true): array
     {
         $recruiter = $this->actingAsRecruiter();
         $factory = Organisation::factory()->for($recruiter, 'recruiter');
@@ -117,7 +117,7 @@ class PostJobFlowTest extends TestCase
         $this->assertSame([], $plans['credits']);
     }
 
-    public function test_paying_sends_the_post_for_review_and_asks_for_the_business_document(): void
+    public function test_paying_sends_the_post_for_review_while_the_document_is_checked(): void
     {
         [$recruiter, $org] = $this->recruiterWithOrg();
         $job = $this->saveDraft($org);
@@ -126,17 +126,31 @@ class PostJobFlowTest extends TestCase
 
         $this->assertSame('paid', $order['status']);
         $this->assertSame(229900, $order['amount_paise']);
-        $this->assertSame('Silver · District · 1 posting', $order['plan_name']);
+        $this->assertSame('Silver · 1 posting', $order['plan_name']);
 
         $saved = JobPosting::find((int) substr($job['id'], 2));
         $this->assertSame(JobPostingStatus::PendingApproval, $saved->posting_status);
         $this->assertSame('silver', $saved->plan_tier);
-        $this->assertSame('paid_document_missing', $saved->hiringStage());
-        $this->assertSame('Paid – Document not given', $saved->hiringStageLabel());
+        $this->assertSame('document_under_review', $saved->hiringStage());
+        $this->assertSame('Document submitted – Under review', $saved->hiringStageLabel());
 
-        $this->assertTrue(AppNotification::where('user_id', $recruiter->id)
-            ->where('text', 'like', '%Upload your business verification document%')
+        // The document is already in, so nobody is asked for it again.
+        $this->assertFalse(AppNotification::where('user_id', $recruiter->id)
+            ->where('text', 'like', '%Upload your company document%')
             ->exists());
+    }
+
+    public function test_no_plan_is_paid_for_without_a_company_document(): void
+    {
+        [, $org] = $this->recruiterWithOrg(withDocument: false);
+        $job = $this->saveDraft($org);
+
+        $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/orders", [
+            'tier' => 'silver', 'reach' => 'district', 'quantity' => 1, 'method' => 'upi',
+        ])->assertStatus(422)
+            ->assertJsonPath('errors.organisation.0', 'Upload your company document first — it is needed to post a job.');
+
+        $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/use-credit")->assertStatus(422);
     }
 
     public function test_a_pack_leaves_postings_for_the_next_job_with_no_payment(): void
@@ -225,14 +239,14 @@ class PostJobFlowTest extends TestCase
         $stages = collect($this->getJson("{$this->api}/admin/jobs/stages")->assertOk()->json('data.stages'))
             ->keyBy('id');
         $this->assertSame(1, $stages['payment_pending']['count']);
-        $this->assertSame(1, $stages['paid_document_missing']['count']);
+        $this->assertSame(1, $stages['document_under_review']['count']);
         $this->assertSame('Paid – Document not given', $stages['paid_document_missing']['label']);
 
-        $this->getJson("{$this->api}/admin/jobs?stage=paid_document_missing")
+        $this->getJson("{$this->api}/admin/jobs?stage=document_under_review")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Paid Technician')
-            ->assertJsonPath('data.0.stage_label', 'Paid – Document not given')
+            ->assertJsonPath('data.0.stage_label', 'Document submitted – Under review')
             ->assertJsonPath('data.0.plan', 'Silver · District');
     }
 

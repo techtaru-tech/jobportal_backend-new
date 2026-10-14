@@ -20,11 +20,11 @@
 
     <template x-if="jobPlans.data">
       <div>
-        <template x-for="reach in jobPlans.data.reaches" :key="reach.id">
+        <template x-for="reach in jobPlans.data.reaches.filter((r) => r.id === 'district')" :key="reach.id">
           <div class="mb-xl rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card">
             <div class="border-b border-hairline-divider px-lg py-md">
-              <span class="block text-kicker text-ink-secondary" x-text="reach.name.toUpperCase()"></span>
-              <span class="block text-caption text-ink-muted" x-text="reach.description"></span>
+              <span class="block text-kicker text-ink-secondary">PRICE PER POSTING</span>
+              <span class="block text-caption text-ink-muted">What the app charges for each posting, by tier and number of postings.</span>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left">

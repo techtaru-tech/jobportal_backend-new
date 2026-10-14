@@ -258,6 +258,7 @@ class JobController extends ApiController
     public function useCredit(Request $request, string $jobId): JsonResponse
     {
         $job = $this->findOwned($request, $jobId);
+        $this->requireCompanyDocument($job);
 
         $validated = $request->validate([
             'credit_id' => ['nullable', 'integer'],
@@ -291,6 +292,7 @@ class JobController extends ApiController
     public function openOrder(Request $request, string $jobId): JsonResponse
     {
         $job = $this->findOwned($request, $jobId);
+        $this->requireCompanyDocument($job);
 
         $validated = $request->validate([
             'tier' => ['required', 'string', 'max:20'],
@@ -319,7 +321,7 @@ class JobController extends ApiController
     {
         return match ($job->hiringStage()) {
             'live' => 'Your post is live.',
-            'paid_document_missing', 'posted_document_missing' => 'Your post is under review. Upload your business document to get it live.',
+            'paid_document_missing', 'posted_document_missing' => 'Your post is under review. Upload your company document to get it live.',
             default => 'Your post is under review.',
         };
     }
@@ -433,10 +435,25 @@ class JobController extends ApiController
         $organisation = $request->user()->organisations()->find(PublicId::decode('org', $organisationId));
 
         if (! $organisation) {
-            abort(403, 'That organisation does not belong to your account.');
+            abort(403, 'That company does not belong to your account.');
         }
 
         return $organisation;
+    }
+
+    /**
+     * Post a Job asks for the company document at Company details; no plan
+     * is paid for (or credit spent) on a company without one.
+     */
+    private function requireCompanyDocument(JobPosting $job): void
+    {
+        $org = $job->organisationRecord;
+
+        if ($org !== null && ! $org->hasDocument()) {
+            throw ValidationException::withMessages([
+                'organisation' => ['Upload your company document first — it is needed to post a job.'],
+            ]);
+        }
     }
 
     private function findOwned(Request $request, string $jobId): JobPosting

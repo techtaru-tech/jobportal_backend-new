@@ -96,7 +96,7 @@ class OrganisationController extends ApiController
         $request->validate([
             'file' => ['required', 'file', 'mimes:'.implode(',', $limits['mimes']), 'max:'.$limits['max_kb']],
         ], [
-            'file.mimes' => 'Upload your GST certificate or registration document as a PDF, JPG, or PNG.',
+            'file.mimes' => 'Upload your company document (GST certificate, shop licence or registration) as a PDF, JPG, or PNG.',
             'file.max' => 'The document must be smaller than 10 MB.',
         ]);
 
@@ -176,7 +176,7 @@ class OrganisationController extends ApiController
         $organisation = $request->user()->organisations()->find(PublicId::decode('org', $organisationId));
 
         if (! $organisation) {
-            throw new NotFoundHttpException('That organisation was not found.');
+            throw new NotFoundHttpException('That company was not found.');
         }
 
         return $organisation;

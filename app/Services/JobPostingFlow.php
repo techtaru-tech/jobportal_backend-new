@@ -120,13 +120,13 @@ class JobPostingFlow
         return $published;
     }
 
-    /** "Upload your business document to get this post live." */
+    /** "Upload your company document to get this post live." */
     public function documentNeeded(JobPosting $job): void
     {
         $this->notifier->create(
             $job->recruiter,
             NotificationAudience::Recruiter,
-            "Your {$job->title} post is under review. Upload your business verification document "
+            "Your {$job->title} post is under review. Upload your company document "
                 ."for {$job->organisation} to get it live.",
             NotificationType::System,
             ['job_posting_id' => $job->id],

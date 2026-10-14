@@ -15,7 +15,7 @@
 
     {{--
       The paid-posting pipeline: has the employer paid, and have they given
-      their business document. Tap a stage to list only those postings.
+      their company document. Tap a stage to list only those postings.
     --}}
     <div class="mb-md flex flex-wrap gap-sm" x-show="jobStages.length">
       <template x-for="stage in jobStages" :key="stage.id">
@@ -161,7 +161,7 @@
               <p class="text-bodysm font-semibold text-warning">Verify the company first.</p>
               <p class="mt-[2px] text-caption text-ink-secondary">
                 <span x-text="jobDetail.data.employer?.name || 'This company'"></span>
-                is not verified yet. Check its business document and verify it — then this job can be approved.
+                is not verified yet. Check its company document and verify it — then this job can be approved.
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-sm">
