@@ -49,6 +49,8 @@ class CandidateProfileResource extends JsonResource
 
             'qualification' => $this->qualification,
             'experience' => $this->experience,
+            // "Have you managed a team?" — null until answered.
+            'managed_team' => $this->managed_team,
             'experience_min_years' => $this->experience_min_years,
             'experience_max_years' => $this->experience_max_years,
             // Informational cross-check, not what Smart Apply gates on — see

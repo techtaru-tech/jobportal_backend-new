@@ -86,6 +86,7 @@ class CandidateProfileController extends ApiController
 
             'qualification' => ['sometimes', 'nullable', 'string', 'max:120'],
             'experience' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'managed_team' => ['sometimes', 'nullable', 'boolean'],
             'location' => ['sometimes', 'nullable', 'array'],
             'location.*' => ['string', 'max:80'],
         ]);
