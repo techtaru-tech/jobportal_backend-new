@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\JobPosting;
+use App\Services\JobMatcher;
 use App\Support\JobShareLink;
 use App\Support\PublicId;
 use Illuminate\Http\Request;
@@ -126,6 +127,34 @@ class JobResource extends JsonResource
                 $this->applications_count !== null,
                 fn () => (int) $this->applications_count,
             ),
+
+            // How well this job fits the signed-in candidate — see JobMatcher.
+            // Absent for guests, for the caller's own postings, and where the
+            // profile says too little to judge.
+            ...$this->matchFields($request),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function matchFields(Request $request): array
+    {
+        $user = $request->user();
+        if ($user === null || $this->user_id === $user->id || ! $user instanceof \App\Models\User) {
+            return [];
+        }
+
+        $matcher = app(JobMatcher::class);
+        $profile = $matcher->profileFor($user);
+        $match = $profile === null ? null : $matcher->score($this->resource, $profile);
+
+        if ($match === null) {
+            return [];
+        }
+
+        return [
+            'match_percent' => $match['percent'],
+            'match_reasons' => $match['matched'],
+            'missing_skills' => $match['missing_skills'],
         ];
     }
 }

@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Resources\JobResource;
 use App\Models\JobPosting;
+use App\Services\JobMatcher;
 use App\Services\OptionListService;
 use App\Support\ApiResponse;
 use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -18,6 +20,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class JobController extends ApiController
 {
+    /** How many of the newest postings "Recommended" ranks by match. */
+    private const RECOMMEND_POOL = 500;
+
     public function __construct(private readonly OptionListService $options) {}
 
     /** GET /jobs (§4.1) */
@@ -45,6 +50,37 @@ class JobController extends ApiController
         // the board still gets a feed, just not a personalised one. Filtering
         // would have shown them an empty screen and no way to tell why.
         if ($request->boolean('recommended')) {
+            // Best match first, by the same score the card shows — skills,
+            // role, location, education, experience, type, shift. Newest first
+            // among equals. Scored in PHP over the most recent postings: the
+            // signals are JSON lists and degree names, not columns SQL can
+            // weigh.
+            $matcher = app(JobMatcher::class);
+            $profile = $matcher->profileFor($request->user());
+
+            if ($profile !== null) {
+                $jobs = $query->latest('posted_at')->limit(self::RECOMMEND_POOL)->get()
+                    ->map(fn (JobPosting $job) => [
+                        'job' => $job,
+                        'score' => $matcher->score($job, $profile)['percent'] ?? -1,
+                    ])
+                    ->sortBy([['score', 'desc'], [fn ($a, $b) => $b['job']->posted_at <=> $a['job']->posted_at]])
+                    ->pluck('job')
+                    ->values();
+
+                $perPage = $this->perPage($request);
+                $page = max(1, (int) $request->integer('page', 1));
+                $paginator = new LengthAwarePaginator(
+                    $jobs->forPage($page, $perPage)->values(),
+                    $jobs->count(),
+                    $perPage,
+                    $page,
+                    ['path' => $request->url(), 'query' => $request->query()],
+                );
+
+                return ApiResponse::paginated($paginator, JobResource::class);
+            }
+
             $this->applyPreferenceRanking($query, $request);
         }
 
