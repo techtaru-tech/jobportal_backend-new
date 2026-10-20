@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Site;
 
 use App\Enums\JobPostingStatus;
+use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\JobResource;
 use App\Models\ContentPage;
 use App\Models\Faq;
 use App\Models\JobPosting;
@@ -34,6 +36,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class SiteController extends Controller
 {
+    /** One page of the browse list — the same size the page script asks for. */
+    private const JOBS_PER_PAGE = 20;
+
     public function __construct(private readonly OptionListService $options) {}
 
     public function home(): View
@@ -52,56 +57,60 @@ class SiteController extends Controller
     }
 
     /**
-     * The browse page.
+     * The browse page — a split view (filters · results · the selected job)
+     * that the browser drives from here on.
      *
-     * Filters live in the query string rather than in component state so a
-     * filtered view can be linked, shared and indexed — the same reason the
-     * admin panel keeps its own filters in the URL.
+     * The first page of results is rendered on the server from the very same
+     * `GET /api/v1/jobs` action the app and the page's script call, so the
+     * crawlable list, the shared-link list and the live list cannot disagree
+     * about what a filter means. Filters live in the query string with the
+     * API's own names (`city[]=`, `job_type[]=`, `min_salary=`), which keeps a
+     * filtered view linkable and makes the page's URL the API query.
+     *
+     * Older links still work: `role` reads as `category`, `type` as
+     * `job_type`, and a single `city=Jaipur` as `city[]=Jaipur`.
      */
     public function jobs(Request $request): View
     {
-        $query = JobPosting::query()->publiclyVisible()->withOrganisation();
+        $groups = $this->options->jobFilterGroups();
 
-        $term = trim((string) $request->query('q', ''));
-        if ($term !== '') {
-            $query->search($term);
-        }
+        $state = [
+            'q' => trim((string) $request->query('q', '')),
+            'category' => trim((string) ($request->query('category') ?? $request->query('role') ?? '')),
+            'sort' => $request->query('sort') === 'newest' ? 'newest' : 'relevant',
+            'page' => max(1, (int) $request->query('page', 1)),
+            'job' => (string) $request->query('job', ''),
+            'filters' => [],
+        ];
 
-        foreach (['role' => 'role', 'city' => 'city', 'type' => 'type', 'shift' => 'shift'] as $param => $column) {
-            if ($value = trim((string) $request->query($param, ''))) {
-                $query->where($column, $value);
+        $legacy = ['job_type' => 'type'];
+        foreach ($groups as $group) {
+            $param = $group['param'];
+            $raw = $request->query($param) ?? (isset($legacy[$param]) ? $request->query($legacy[$param]) : null);
+            if ($group['type'] === 'min') {
+                $state['filters'][$param] = is_scalar($raw) && (int) $raw > 0 ? (string) (int) $raw : '';
+            } else {
+                $values = is_array($raw) ? $raw : (is_scalar($raw) && $raw !== '' ? [$raw] : []);
+                $state['filters'][$param] = array_values(array_filter(array_map(fn ($v) => trim((string) $v), $values), 'strlen'));
             }
         }
 
-        if ($request->filled('min_salary')) {
-            // The job's floor must clear the candidate's floor, not merely its
-            // ceiling — same rule as §4.1 on the API.
-            $query->where('salary_min', '>=', (int) $request->integer('min_salary'));
-        }
+        $apiQuery = array_filter([
+            'query' => $state['q'] ?: null,
+            'category' => $state['category'] ?: null,
+            'page' => $state['page'],
+            'per_page' => self::JOBS_PER_PAGE,
+        ] + $state['filters'], fn ($v) => $v !== null && $v !== '' && $v !== []);
 
-        $sort = match ($request->query('sort')) {
-            'salary' => ['salary_max', 'desc'],
-            'oldest' => ['posted_at', 'asc'],
-            default => ['posted_at', 'desc'],
-        };
+        $result = app(JobController::class)
+            ->index(Request::create('/api/v1/jobs', 'GET', $apiQuery))
+            ->getData(true);
 
         return view('site.pages.jobs', [
-            'jobs' => $query->orderBy($sort[0], $sort[1])->paginate(12)->withQueryString(),
-            'filters' => [
-                'q' => $term,
-                'role' => $request->query('role', ''),
-                'city' => $request->query('city', ''),
-                'type' => $request->query('type', ''),
-                'shift' => $request->query('shift', ''),
-                'min_salary' => $request->query('min_salary', ''),
-                'sort' => $request->query('sort', ''),
-            ],
-            'options' => [
-                'roles' => $this->options->list('categories'),
-                'cities' => $this->options->list('cities'),
-                'types' => $this->options->list('job_types'),
-                'shifts' => $this->options->list('shifts'),
-            ],
+            'initial' => ['list' => $result['data'] ?? [], 'meta' => $result['meta'] ?? []],
+            'state' => $state,
+            'groups' => $groups,
+            'categories' => $this->options->list('categories'),
         ]);
     }
 
@@ -110,7 +119,9 @@ class SiteController extends Controller
      *
      * Addressed by `code` (`MC-45530`), not by an encoded id: that is what both
      * sides of the app call a job, what a shared link already carries, and what
-     * reads sensibly in a URL somebody might paste.
+     * reads sensibly in a URL somebody might paste. The page also carries the
+     * API's own shape of the job (`apiJob`) so its Apply rail starts from the
+     * same data the app sees, before any signed-in extras arrive.
      */
     public function job(string $code): View
     {
@@ -129,6 +140,7 @@ class SiteController extends Controller
 
         return view('site.pages.job', [
             'job' => $job,
+            'apiJob' => (new JobResource($job))->resolve(Request::create('/api/v1/jobs/'.$job->code)),
             'similar' => JobPosting::query()
                 ->publiclyVisible()
                 ->withOrganisation()

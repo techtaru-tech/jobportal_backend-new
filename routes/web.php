@@ -66,26 +66,48 @@ Route::get('/get-app/go', Site\AppDownloadController::class)->name('site.app-dow
 
 /*
 |--------------------------------------------------------------------------
-| The web app
+| Account and employer dashboard
 |--------------------------------------------------------------------------
 |
-| The mobile app's screens on the web: sign in with phone + OTP, build a
-| profile, apply, track, chat — and on the hiring side post, pay, review
-| applicants. Client-rendered over `/api/v1`, the same endpoints the app
-| calls, so every rule (Smart Apply's field gate, ownership, the approval
-| queue, plans and credits) is enforced in exactly one place.
+| Everything the app does, as website pages: a job seeker's profile,
+| applications, saved jobs, alerts and messages under /account, and the
+| hiring side under /employer.
 |
-| Hash-routed (`/app#/job/j_12`), so one shell serves every screen.
+| The pages are shells — the data is the signed-in visitor's own, so it is
+| fetched in the browser from `/api/v1` with the same bearer token the app
+| uses (js/site/core.js). Every rule (Smart Apply's gate, ownership,
+| approvals, plans and credits) stays in the API, enforced in one place.
+| Sign-in is a popup on any page; nothing here redirects to a login screen.
 */
-Route::get('/app', fn () => view('webapp.app'))->name('webapp');
+Route::prefix('account')->name('account.')->group(function () {
+    Route::view('/', 'site.account.profile')->name('profile');
+    Route::view('/setup', 'site.account.setup')->name('setup');
+    Route::view('/resume', 'site.account.resume')->name('resume');
+    Route::view('/applications', 'site.account.applications')->name('applications');
+    Route::get('/applications/{id}', fn (string $id) => view('site.account.application', ['applicationId' => $id]))->name('application');
+    Route::view('/saved', 'site.account.saved')->name('saved');
+    Route::view('/alerts', 'site.account.alerts')->name('alerts');
+    Route::view('/messages', 'site.account.messages')->name('messages');
+    Route::view('/notifications', 'site.account.notifications')->name('notifications');
+    Route::view('/plan', 'site.account.plan')->name('plan');
+});
 
-/*
-| The old employer area now lives inside the web app. Kept as a redirect
-| because `/employer` is linked from emails and printed material.
-*/
-Route::get('/employer/{any?}', fn () => redirect('/app#/r/post'))
-    ->where('any', '.*')
-    ->name('site.post-job');
+Route::prefix('employer')->name('employer.')->group(function () {
+    Route::view('/', 'site.employer.dashboard')->name('dashboard');
+    Route::view('/jobs', 'site.employer.jobs')->name('jobs');
+    Route::get('/jobs/new', fn () => view('site.employer.post', ['jobId' => null]))->name('post');
+    Route::get('/jobs/{id}/edit', fn (string $id) => view('site.employer.post', ['jobId' => $id]))->name('edit');
+    Route::get('/jobs/{id}/checkout', fn (string $id) => view('site.employer.checkout', ['jobId' => $id]))->name('checkout');
+    Route::get('/jobs/{id}', fn (string $id) => view('site.employer.job', ['jobId' => $id]))->name('job');
+    Route::view('/companies', 'site.employer.companies')->name('companies');
+    Route::view('/messages', 'site.employer.messages')->name('messages');
+    Route::view('/plan', 'site.employer.plan')->name('plan');
+    Route::view('/settings', 'site.employer.settings')->name('settings');
+});
+
+// Old names and paths, kept working.
+Route::get('/post-job', fn () => redirect()->route('employer.post'))->name('site.post-job');
+Route::get('/app', fn () => redirect()->route('account.profile'));
 
 /*
 |--------------------------------------------------------------------------

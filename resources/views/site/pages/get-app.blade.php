@@ -17,7 +17,7 @@
                 <span class="text-primary">pocket</span>
             </h1>
             <p class="mx-auto mt-lg max-w-[540px] text-body text-ink-secondary">
-                Everything works on the web too — <a href="{{ url('/app') }}#/home" class="font-semibold text-primary-dark hover:underline">sign in here</a>.
+                Everything works on the web too — <button type="button" @click="signIn()" class="font-semibold text-primary-dark hover:underline">sign in here</button>.
                 The app adds instant alerts when a job matches you and when an employer replies.
             </p>
 
@@ -77,7 +77,7 @@
                 Employers post and manage openings on the web — no app needed.
             </p>
         </div>
-        <a href="{{ route('site.post-job') }}"
+        <a href="{{ route('employer.post') }}"
            class="inline-flex h-[50px] shrink-0 items-center justify-center rounded-button border-btn border-primary bg-surface px-xl text-btn font-semibold text-primary
                   transition-colors duration-micro hover:bg-primary-light">
             Post a job

@@ -240,12 +240,27 @@
       /** Mobile nav drawer. */
       menuOpen: false,
 
-      /**
-       * Whether this browser holds a web-app session, so the header can say
-       * "My account" instead of "Sign in". Read-only: the session itself is
-       * owned by /app (public/js/webapp/core.js).
-       */
-      signedIn: (() => { try { return !!localStorage.getItem('inthes.token') } catch (e) { return false } })(),
+      /** Header menus. */
+      accountOpen: false,
+
+      // ── Helpers every page's markup (and the shared form partials in
+      //    site/ui) can call. Page components nest inside this one, so these
+      //    are in scope everywhere. Session and API live in js/site/core.js.
+      opt(key) { return Inthes.opt(key) },
+      citiesOf(state) { return Inthes.citiesOf(state) },
+      toggleIn(list, value, max) { Inthes.toggleIn(list, value, max) },
+      fmtNumber: (v) => Inthes.fmtNumber(v),
+      rupees: (p) => Inthes.rupees(p),
+      timeAgo: (iso) => Inthes.timeAgo(iso),
+      fmtDate: (iso, t) => Inthes.fmtDate(iso, t),
+      initials: (n) => Inthes.initials(n),
+      signIn(reason) { return Inthes.signIn(reason) },
+      storeUrl() { return Inthes.storeUrl() },
+      /** Back within the site, or to `fallback` when there is no history. */
+      back(fallback = '/') {
+        if (history.length > 1 && document.referrer.startsWith(location.origin)) history.back()
+        else location.href = fallback
+      },
 
       /**
        * Submits the filter form.

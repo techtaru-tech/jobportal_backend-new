@@ -66,6 +66,10 @@
 </script>
 @endpush
 
+@push('page-scripts')
+<script defer src="{{ asset('js/site/pages/jobs-detail.js') }}?v={{ filemtime(public_path('js/site/pages/jobs-detail.js')) }}"></script>
+@endpush
+
 @section('content')
 <div class="mx-auto max-w-[1200px] px-page py-xl lg:px-xl">
 
@@ -77,7 +81,8 @@
         <span class="truncate text-ink-secondary">{{ $job->title }}</span>
     </nav>
 
-    <div class="grid grid-cols-1 gap-md lg:grid-cols-[1fr,340px]">
+    {{-- Live layer (js/site/pages/jobs-detail.js): Apply / Save / match, from the API copy of this job. --}}
+    <div x-data="jobPage(@js(['job' => $apiJob]))" class="grid grid-cols-1 gap-md lg:grid-cols-[1fr,340px]">
 
         {{-- ── the posting ──────────────────────────────────────────────── --}}
         <div class="space-y-md">
@@ -134,6 +139,9 @@
                     </div>
                 @endif
             </article>
+
+            {{-- Signed in: why this job fits (or does not). --}}
+            @include('site.jobs.match')
 
             @if ($job->about)
                 <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card">
@@ -255,36 +263,32 @@
 
         {{-- ── apply rail ───────────────────────────────────────────────── --}}
         <aside class="space-y-md lg:sticky lg:top-[88px] lg:self-start">
+            {{-- Apply, live: Quick Apply in a popup — sign in, fill only what
+                 this job still needs, submit — without leaving the page. --}}
             <div class="rounded-card border-hair border-primary-line bg-primary-light p-xl">
                 <span class="block text-kicker text-primary-dark">APPLY</span>
                 <h2 class="mt-xs text-h3 text-ink">Apply for this job</h2>
                 <p class="mt-sm text-bodysm text-ink-secondary">
-                    Sign in with your mobile number, fill in anything this job needs on your
-                    profile, and apply — then track the employer's reply right here.
+                    One OTP to sign in, then only the details this job asks for — and you
+                    can track the employer's reply right here.
                 </p>
-
-                {{-- The web app's apply flow — the same steps as the app's. --}}
-                <a href="{{ url('/app') }}#/apply/j_{{ $job->id }}"
-                   class="mt-lg flex h-[50px] w-full items-center justify-center gap-sm rounded-button bg-primary text-btn font-semibold text-ink-onPrimary shadow-button
-                          transition-[background-color,transform] duration-micro ease-out hover:bg-primary-dark active:scale-[0.97]">
-                    Apply now
-                </a>
-                <a href="{{ url('/app') }}#/job/j_{{ $job->id }}"
-                   class="mt-sm flex h-10 w-full items-center justify-center gap-sm rounded-button text-btnghost font-semibold text-primary-dark transition-colors hover:bg-surface/60">
-                    @include('admin.partials.icon', ['name' => 'bookmark', 'class' => 'h-4 w-4'])
-                    Save job &amp; see your match
-                </a>
-
-                {{-- The app stays one scan away for anyone who would rather
-                     apply from their phone. --}}
-                <div class="mt-lg flex items-center gap-lg border-t border-primary-line pt-lg">
-                    @include('site.partials.qr-card', ['size' => 'w-[92px]', 'caption' => null])
-                    <p class="text-caption text-ink-secondary">
-                        Prefer the app? Scan with your phone camera to download Inthes — same
-                        account, same applications.
-                    </p>
+                <div class="mt-lg">
+                    @include('site.jobs.apply-actions', ['full' => true])
                 </div>
+                <noscript>
+                    <a href="{{ route('site.get-app') }}" class="mt-lg flex h-[50px] w-full items-center justify-center rounded-button bg-primary text-btn font-semibold text-ink-onPrimary">Apply in the app</a>
+                </noscript>
             </div>
+
+            <template x-if="kit.canCall(job) || kit.canWhatsapp(job)">
+                <div class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card">
+                    <h2 class="text-h4 text-ink">Contact the employer</h2>
+                    <div class="mt-md grid grid-cols-2 gap-sm">
+                        <a x-show="kit.canCall(job)" :href="'tel:+91' + job.contact_phone" class="wa-btn-ghost-sm"><span x-html="ICONS.phone" class="[&>svg]:h-4 [&>svg]:w-4"></span>Call HR</a>
+                        <a x-show="kit.canWhatsapp(job)" :href="kit.whatsappLink(job)" target="_blank" rel="noopener" class="wa-btn-ghost-sm !border-success !text-success hover:!bg-success-bg"><span x-html="ICONS.whatsapp" class="[&>svg]:h-4 [&>svg]:w-4"></span>WhatsApp</a>
+                    </div>
+                </div>
+            </template>
 
             <div class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card">
                 <h2 class="text-h4 text-ink">Share this job</h2>
@@ -306,8 +310,39 @@
                     </button>
                 </div>
             </div>
+
+            {{-- The app stays one scan away for anyone who would rather apply
+                 from their phone — a side card, never a blocker. --}}
+            <div class="hidden items-center gap-lg rounded-card border-hair border-hairline bg-surface p-xl shadow-card sm:flex">
+                @include('site.partials.qr-card', ['size' => 'w-[92px]', 'caption' => null])
+                <div>
+                    <h2 class="text-h5 text-ink">Prefer the app?</h2>
+                    <p class="mt-xs text-caption text-ink-secondary">
+                        Scan with your phone camera to download Inthes — same account, same
+                        applications, instant alerts.
+                    </p>
+                </div>
+            </div>
         </aside>
+
+        {{-- Phones: Apply stays in reach while the posting scrolls. --}}
+        <div class="fixed inset-x-0 bottom-0 z-30 border-t border-hairline-divider bg-surface/95 px-page py-md backdrop-blur-md lg:hidden" style="padding-bottom: max(12px, env(safe-area-inset-bottom))">
+            <template x-if="$store.auth.signedIn && job.own_posting">
+                <a :href="'/employer/jobs/' + encodeURIComponent(job.id)" class="wa-btn w-full">View applicants</a>
+            </template>
+            <template x-if="$store.auth.signedIn && !job.own_posting && $store.jobs.hasApplied(job)">
+                <a :href="$store.jobs.appFor(job) ? '/account/applications/' + encodeURIComponent($store.jobs.appFor(job).id) : '/account/applications'" class="wa-btn w-full !bg-success-bg !text-success !shadow-none">Applied ✓ · Track application</a>
+            </template>
+            <template x-if="!($store.auth.signedIn && (job.own_posting || $store.jobs.hasApplied(job)))">
+                <div class="flex items-center gap-sm">
+                    <button type="button" @click="$store.jobs.toggleSave(job)" :aria-label="$store.jobs.isSaved(job) ? 'Remove from saved jobs' : 'Save job'" :class="$store.jobs.isSaved(job) ? '!border-primary text-primary' : 'text-ink'" class="inline-flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-button border-btn border-hairline-strong bg-surface"><span x-html="ICONS.bookmark" :class="$store.jobs.isSaved(job) && '[&>svg]:fill-current'" class="[&>svg]:h-5 [&>svg]:w-5"></span></button>
+                    <button type="button" @click="Inthes.quickApply(job)" class="wa-btn flex-1">Apply now</button>
+                </div>
+            </template>
+            <p class="mt-xs text-center text-caption text-ink-secondary" x-text="kit.readiness(job)"></p>
+        </div>
     </div>
+    <div class="h-[96px] lg:hidden" aria-hidden="true"></div>
 
     {{-- ── similar ──────────────────────────────────────────────────────── --}}
     @if ($similar->isNotEmpty())

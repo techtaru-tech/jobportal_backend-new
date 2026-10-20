@@ -3,6 +3,10 @@
 @section('title', 'Inthes — Nursing, lab & pharmacy jobs across India')
 @section('description', 'Browse verified healthcare employers hiring nurses, lab technicians, pharmacists and allied staff. Apply free on the web or from the Inthes app.')
 
+@push('page-scripts')
+<script defer src="{{ asset('js/site/pages/jobs-home.js') }}?v={{ filemtime(public_path('js/site/pages/jobs-home.js')) }}"></script>
+@endpush
+
 @section('content')
 
 {{-- ── hero ─────────────────────────────────────────────────────────────── --}}
@@ -154,6 +158,65 @@
         </div>
     </div>
 </section>
+
+{{-- ── signed in: for you ──────────────────────────────────────────────────
+     Only for a signed-in candidate (js/site/pages/jobs-home.js); a visitor
+     never sees it, and the page they get stays fully server-rendered. --}}
+<div x-data="homeForYou()" x-show="$store.auth.signedIn" x-cloak>
+    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl">
+        <div class="grid gap-lg lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div class="min-w-0">
+                <div class="mb-md flex items-end justify-between gap-md">
+                    <div>
+                        <span class="block text-kicker text-ink-secondary" x-text="$store.auth.firstName ? 'HI ' + $store.auth.firstName.toUpperCase() : 'FOR YOU'"></span>
+                        <h2 class="mt-[2px] text-h2 text-ink">Recommended for you</h2>
+                    </div>
+                    <a href="{{ route('site.jobs') }}" class="text-btnghost font-semibold text-primary-dark hover:underline">See all jobs</a>
+                </div>
+                <template x-if="busy">@include('site.ui.spinner')</template>
+                <template x-if="!busy && !jobs.length">
+                    @include('site.ui.empty', ['icon' => 'briefcase', 'title' => 'No matches yet', 'text' => 'Add your preferred roles and cities to your profile and we will pick jobs for you.'])
+                </template>
+                <div class="grid gap-sm sm:grid-cols-2 xl:grid-cols-3" x-show="!busy && jobs.length">
+                    <template x-for="job in jobs" :key="job.id">
+                        @include('site.jobs.row')
+                    </template>
+                </div>
+            </div>
+
+            <aside class="wa-card self-start !p-lg">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-h4 text-ink">Your applications</h2>
+                    <a href="{{ url('/account/applications') }}" class="text-caption font-semibold text-primary-dark hover:underline">View all</a>
+                </div>
+                <div class="mt-md grid grid-cols-4 gap-xs text-center">
+                    @foreach ([['applied', 'Applied'], ['shortlisted', 'Shortlisted'], ['selected', 'Selected'], ['rejected', 'Closed']] as [$status, $label])
+                        <a href="{{ url('/account/applications?status='.$status) }}" class="rounded-field bg-surface-muted px-xs py-sm hover:bg-hairline">
+                            <span class="block text-h3 tabular-nums text-ink" x-text="count('{{ $status }}')">0</span>
+                            <span class="block text-[10.5px] font-medium text-ink-secondary">{{ $label }}</span>
+                        </a>
+                    @endforeach
+                </div>
+                <template x-if="!apps.length">
+                    <p class="mt-md text-bodysm text-ink-secondary">No applications yet — apply to a job above in one click.</p>
+                </template>
+                <ul class="mt-md divide-y divide-hairline-divider" x-show="apps.length">
+                    <template x-for="a in apps.slice(0, 3)" :key="a.id">
+                        <li>
+                            <a :href="'/account/applications/' + encodeURIComponent(a.id)" class="flex items-center gap-sm py-sm hover:text-primary-dark">
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-bodysm font-semibold text-ink" x-text="a.job?.title"></span>
+                                    <span class="block truncate text-caption text-ink-muted" x-text="a.job?.organisation"></span>
+                                </span>
+                                <span class="wa-pill shrink-0" :class="kit.appStatus(a.status).tone" x-text="kit.appStatus(a.status).label"></span>
+                            </a>
+                        </li>
+                    </template>
+                </ul>
+            </aside>
+        </div>
+    </section>
+</div>
 
 {{-- ── trust strip ──────────────────────────────────────────────────────── --}}
 <section class="border-b border-hairline-divider bg-canvas-alt">
@@ -324,7 +387,7 @@
                         Your profile, resume and every application you have sent, in one place —
                         on the web and in the app, with the same account.
                     </p>
-                    <a href="{{ url('/app') }}#/home" class="mt-md inline-flex h-11 items-center justify-center rounded-button bg-primary px-xl text-btn font-semibold text-ink-onPrimary shadow-button transition-colors hover:bg-primary-dark">Sign in &amp; apply</a>
+                    <a href="{{ route('site.jobs') }}" class="mt-md inline-flex h-11 items-center justify-center rounded-button bg-primary px-xl text-btn font-semibold text-ink-onPrimary shadow-button transition-colors hover:bg-primary-dark">Browse &amp; apply</a>
                     <p class="mt-md text-caption text-ink-secondary">Prefer your phone? Get the app:
                     </p>
                     @include('site.partials.store-buttons')
@@ -345,7 +408,7 @@
                     applicant arrives with a complete profile.
                 </p>
             </div>
-            <a href="{{ route('site.post-job') }}"
+            <a href="{{ route('employer.post') }}"
                class="sheen relative mt-lg inline-flex h-[50px] items-center justify-center rounded-button bg-white px-xl text-btn font-semibold text-ink
                       transition-transform duration-micro ease-out hover:bg-white/90 active:scale-[0.97]">
                 Post a job

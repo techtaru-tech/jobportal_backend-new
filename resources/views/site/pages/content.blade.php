@@ -47,7 +47,7 @@
                 applications — on the web or in the app, with the same account.
             </p>
             <div class="mt-lg flex flex-wrap gap-sm">
-                <a href="{{ url('/app') }}#/r/post"
+                <a href="{{ route('employer.post') }}"
                    class="inline-flex h-[46px] items-center justify-center rounded-button bg-primary px-lg text-btn font-semibold text-ink-onPrimary shadow-button
                           transition-[background-color,transform] duration-micro hover:bg-primary-dark active:scale-[0.97]">
                     Post a job

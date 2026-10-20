@@ -61,9 +61,9 @@
     <div class="mt-auto flex items-center justify-between gap-md pt-lg">
         <span class="text-caption text-ink-muted">{{ $job->posted_at->diffForHumans() }}</span>
 
-        {{-- Into the web app's apply flow: sign in, finish whatever the job
-             needs on the profile, submit — the same steps as the app. --}}
-        <a href="{{ url('/app') }}#/apply/j_{{ $job->id }}" @click.stop
+        {{-- `?apply=1` opens Quick Apply on the job page: sign in, fill only
+             what the job still needs, submit — the same rules as the app. --}}
+        <a href="{{ route('site.job', $job->code) }}?apply=1" @click.stop
            class="relative z-10 inline-flex h-9 items-center justify-center rounded-button border-btn border-primary bg-surface px-lg text-btnghost font-semibold text-primary
                   transition-colors duration-micro hover:bg-primary-light">
             Apply

@@ -142,9 +142,12 @@
 }
 </style>
 
+@include('site.partials.components')
+<script>window.INTHES_CONFIG = { storeUrl: @json(\App\Support\StoreQr::storeUrl()) };</script>
+
 @stack('head')
 </head>
-<body class="bg-canvas text-ink" x-data="siteApp()">
+<body class="@yield('body_class', 'bg-canvas') text-ink" x-data="siteApp()" @hasSection('requires_auth') data-requires-auth="1" @endif>
 
 @include('site.partials.header')
 
@@ -152,10 +155,22 @@
     @yield('content')
 </main>
 
+@unless (View::hasSection('hide_footer'))
 @include('site.partials.footer')
+@endunless
+@include('site.partials.signin-modal')
+@include('site.partials.overlays')
+@include('site.partials.quick-apply')
 
-{{-- Registers `siteApp`, then Alpine — order matters, see partials/alpine. --}}
+{{-- core (session, stores) → site behaviour → the page's own component →
+     Alpine. Deferred scripts run in order; everything registering on
+     `alpine:init` must come before Alpine itself. --}}
+<script defer src="{{ asset('js/site/core.js') }}?v={{ filemtime(public_path('js/site/core.js')) }}"></script>
 <script defer src="{{ asset('js/site.js') }}?v={{ filemtime(public_path('js/site.js')) }}"></script>
+<script defer src="{{ asset('js/site/quick-apply.js') }}?v={{ filemtime(public_path('js/site/quick-apply.js')) }}"></script>
+<script defer src="{{ asset('js/site/notifications.js') }}?v={{ filemtime(public_path('js/site/notifications.js')) }}"></script>
+<script defer src="{{ asset('js/site/profile-nudge.js') }}?v={{ filemtime(public_path('js/site/profile-nudge.js')) }}"></script>
+@stack('page-scripts')
 @include('partials.alpine')
 
 @stack('scripts')

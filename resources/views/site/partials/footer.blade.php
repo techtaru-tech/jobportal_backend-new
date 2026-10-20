@@ -33,8 +33,8 @@
       <div>
         <span class="block text-kicker text-ink-secondary">FOR EMPLOYERS</span>
         <ul class="mt-md space-y-sm text-bodysm">
-          <li><a href="{{ route('site.post-job') }}" class="text-ink-secondary transition-colors hover:text-primary-dark">Post a job</a></li>
-          <li><a href="{{ route('site.post-job') }}" class="text-ink-secondary transition-colors hover:text-primary-dark">Manage postings</a></li>
+          <li><a href="{{ route('employer.post') }}" class="text-ink-secondary transition-colors hover:text-primary-dark">Post a job</a></li>
+          <li><a href="{{ route('employer.jobs') }}" class="text-ink-secondary transition-colors hover:text-primary-dark">Manage postings</a></li>
           <li><a href="{{ route('site.page', 'contact') }}" class="text-ink-secondary transition-colors hover:text-primary-dark">Contact us</a></li>
         </ul>
       </div>
