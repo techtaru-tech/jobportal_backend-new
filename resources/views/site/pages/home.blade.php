@@ -1,7 +1,7 @@
 @extends('site.layout')
 
 @section('title', 'Inthes — Nursing, lab & pharmacy jobs across India')
-@section('description', 'Browse verified healthcare employers hiring nurses, lab technicians, pharmacists and allied staff. Apply free from the Inthes app.')
+@section('description', 'Browse verified healthcare employers hiring nurses, lab technicians, pharmacists and allied staff. Apply free on the web or from the Inthes app.')
 
 @section('content')
 
@@ -38,7 +38,7 @@
 
                 <p class="mt-lg max-w-[520px] text-body text-ink-secondary">
                     Nursing, lab, pharmacy and allied roles from employers we verify before their
-                    postings go live. Browse here, apply in seconds from the app.
+                    postings go live. Browse and apply right here, or from the Inthes app.
                 </p>
 
                 {{-- A real GET form to the browse page, so it works before any
@@ -252,7 +252,7 @@
         <div class="grid grid-cols-1 gap-md md:grid-cols-3" data-reveal-group="90">
             @foreach ([
                 ['n' => '01', 'title' => 'Find the role', 'body' => 'Filter by city, shift and salary. Every employer here has passed a document check before their jobs went live.'],
-                ['n' => '02', 'title' => 'Get the app', 'body' => 'Scan the code, sign in with your phone number. Your profile is built once and reused for every application.'],
+                ['n' => '02', 'title' => 'Sign in once', 'body' => 'Sign in with your phone number — here or in the app. Your profile is built once and reused for every application.'],
                 ['n' => '03', 'title' => 'Apply in seconds', 'body' => 'Smart Apply sends only what the employer asked for, and you can track every application in one place.'],
             ] as $i => $step)
                 <div class="lift relative rounded-card border-hair border-hairline bg-surface p-lg shadow-card" data-reveal>
@@ -289,7 +289,7 @@
         <div class="min-w-0" data-reveal>
             <h2 class="text-[28px] font-bold leading-[1.15] tracking-[-0.5px] text-ink-onPrimary sm:text-[36px]">Ready to find your next role?</h2>
             <p class="mt-sm max-w-[560px] text-body text-white/85">
-                Free for candidates, always. Browse every opening here, then apply in seconds
+                Free for candidates, always. Browse every opening and apply right here — or
                 from the app.
             </p>
         </div>
@@ -319,10 +319,13 @@
             <div class="relative flex flex-col items-start gap-lg sm:flex-row sm:items-center">
                 <div class="min-w-0 flex-1">
                     <span class="block text-kicker text-primary-dark">FOR CANDIDATES</span>
-                    <h2 class="mt-xs text-h2 text-ink">Applying happens in the app</h2>
+                    <h2 class="mt-xs text-h2 text-ink">Apply here, or in the app</h2>
                     <p class="mt-sm max-w-[420px] text-bodysm text-ink-secondary">
                         Your profile, resume and every application you have sent, in one place —
-                        and employers reply to you there too.
+                        on the web and in the app, with the same account.
+                    </p>
+                    <a href="{{ url('/app') }}#/home" class="mt-md inline-flex h-11 items-center justify-center rounded-button bg-primary px-xl text-btn font-semibold text-ink-onPrimary shadow-button transition-colors hover:bg-primary-dark">Sign in &amp; apply</a>
+                    <p class="mt-md text-caption text-ink-secondary">Prefer your phone? Get the app:
                     </p>
                     @include('site.partials.store-buttons')
                 </div>

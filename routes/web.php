@@ -17,9 +17,10 @@ use Illuminate\Support\Facades\Route;
 | Named routes throughout, because the layout and the job cards link to each
 | other constantly and hard-coded paths are what makes a URL change a hunt.
 |
-| Applying is deliberately absent: it needs a profile, a resume and Smart
-| Apply's field gating, none of which exist on the web. The job page offers the
-| app instead — see `StoreQr`.
+| Applying happens in the web app (`/app`, below): every Apply button here
+| links to `/app#/apply/j_<id>`, which signs the visitor in, gates on the
+| profile exactly as the app does, and submits. The app download stays on
+| offer beside it — see `StoreQr`.
 */
 Route::controller(Site\SiteController::class)->group(function () {
     Route::get('/', 'home')->name('site.home');
@@ -63,7 +64,26 @@ Route::controller(Site\SiteController::class)->group(function () {
 */
 Route::get('/get-app/go', Site\AppDownloadController::class)->name('site.app-download');
 
-Route::get('/employer/{any?}', fn () => view('site.employer'))
+/*
+|--------------------------------------------------------------------------
+| The web app
+|--------------------------------------------------------------------------
+|
+| The mobile app's screens on the web: sign in with phone + OTP, build a
+| profile, apply, track, chat — and on the hiring side post, pay, review
+| applicants. Client-rendered over `/api/v1`, the same endpoints the app
+| calls, so every rule (Smart Apply's field gate, ownership, the approval
+| queue, plans and credits) is enforced in exactly one place.
+|
+| Hash-routed (`/app#/job/j_12`), so one shell serves every screen.
+*/
+Route::get('/app', fn () => view('webapp.app'))->name('webapp');
+
+/*
+| The old employer area now lives inside the web app. Kept as a redirect
+| because `/employer` is linked from emails and printed material.
+*/
+Route::get('/employer/{any?}', fn () => redirect('/app#/r/post'))
     ->where('any', '.*')
     ->name('site.post-job');
 

@@ -36,10 +36,17 @@
     </nav>
 
     <div class="ml-auto flex items-center gap-sm md:ml-0">
-      {{-- The one call to action in the header, and it is the employer one:
-           candidates are sent to the app, and a second primary button beside
-           this would make neither look like the main thing. --}}
-      <a href="{{ route('site.post-job') }}"
+      {{-- Sign in leads into the web app — the same account as the Android
+           app. Once signed in it reads "My account". --}}
+      <a href="{{ url('/app') }}#/home"
+         class="hidden h-10 items-center justify-center gap-sm rounded-button border-btn border-hairline-strong bg-surface px-lg text-btnghost font-semibold text-ink
+                transition-colors duration-micro hover:bg-surface-muted sm:inline-flex">
+        @include('admin.partials.icon', ['name' => 'user', 'class' => 'h-4 w-4'])
+        <span x-text="signedIn ? 'My account' : 'Sign in'">Sign in</span>
+      </a>
+      {{-- The primary call to action stays the employer one: a second red
+           button beside it would make neither look like the main thing. --}}
+      <a href="{{ url('/app') }}#/r/post"
          class="hidden h-10 items-center justify-center gap-sm rounded-button bg-primary px-lg text-btn font-semibold text-ink-onPrimary shadow-button
                 transition-[background-color,transform] duration-micro ease-out hover:bg-primary-dark active:scale-[0.97] sm:inline-flex">
         Post a job
@@ -74,7 +81,11 @@
           {{ $item['label'] }}
         </a>
       @endforeach
-      <a href="{{ route('site.post-job') }}"
+      <a href="{{ url('/app') }}#/home"
+         class="mt-sm flex h-[46px] items-center justify-center rounded-button border-btn border-hairline-strong bg-surface text-btn font-semibold text-ink">
+        <span x-text="signedIn ? 'My account' : 'Sign in'">Sign in</span>
+      </a>
+      <a href="{{ url('/app') }}#/r/post"
          class="mt-sm flex h-[46px] items-center justify-center rounded-button bg-primary text-btn font-semibold text-ink-onPrimary shadow-button">
         Post a job
       </a>

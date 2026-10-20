@@ -76,7 +76,8 @@
             likelier action for whoever is actually reading it. "Open in the
             app" stays second for the case that verification silently failed.
         --}}
-        <a class="btn btn-primary" href="{{ $storeUrl }}">Get the app to apply</a>
+        <a class="btn btn-primary" href="{{ url('/app') }}#/apply/j_{{ $job->id }}">Apply on the web</a>
+        <a class="btn btn-secondary" href="{{ $storeUrl }}">Get the app</a>
         <a class="btn btn-secondary" id="open-app" href="{{ $appUrl }}">Open in the app</a>
     </div>
 @endsection

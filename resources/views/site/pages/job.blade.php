@@ -257,26 +257,31 @@
         <aside class="space-y-md lg:sticky lg:top-[88px] lg:self-start">
             <div class="rounded-card border-hair border-primary-line bg-primary-light p-xl">
                 <span class="block text-kicker text-primary-dark">APPLY</span>
-                <h2 class="mt-xs text-h3 text-ink">Apply from the app</h2>
+                <h2 class="mt-xs text-h3 text-ink">Apply for this job</h2>
                 <p class="mt-sm text-bodysm text-ink-secondary">
-                    Your profile and resume live in the app, so applying takes one tap — and you
-                    can track the employer's reply there too.
+                    Sign in with your mobile number, fill in anything this job needs on your
+                    profile, and apply — then track the employer's reply right here.
                 </p>
 
-                <button type="button" @click="openApply(@js($job->title))"
-                        class="mt-lg flex h-[50px] w-full items-center justify-center gap-sm rounded-button bg-primary text-btn font-semibold text-ink-onPrimary shadow-button
-                               transition-[background-color,transform] duration-micro ease-out hover:bg-primary-dark active:scale-[0.97]">
-                    Apply for this job
-                </button>
+                {{-- The web app's apply flow — the same steps as the app's. --}}
+                <a href="{{ url('/app') }}#/apply/j_{{ $job->id }}"
+                   class="mt-lg flex h-[50px] w-full items-center justify-center gap-sm rounded-button bg-primary text-btn font-semibold text-ink-onPrimary shadow-button
+                          transition-[background-color,transform] duration-micro ease-out hover:bg-primary-dark active:scale-[0.97]">
+                    Apply now
+                </a>
+                <a href="{{ url('/app') }}#/job/j_{{ $job->id }}"
+                   class="mt-sm flex h-10 w-full items-center justify-center gap-sm rounded-button text-btnghost font-semibold text-primary-dark transition-colors hover:bg-surface/60">
+                    @include('admin.partials.icon', ['name' => 'bookmark', 'class' => 'h-4 w-4'])
+                    Save job &amp; see your match
+                </a>
 
-                {{-- The QR is on the page as well as in the dialog: a visitor who
-                     has already decided should not need a second click to reach
-                     the thing that gets them there. --}}
-                <div class="mt-lg flex items-center gap-lg">
+                {{-- The app stays one scan away for anyone who would rather
+                     apply from their phone. --}}
+                <div class="mt-lg flex items-center gap-lg border-t border-primary-line pt-lg">
                     @include('site.partials.qr-card', ['size' => 'w-[92px]', 'caption' => null])
                     <p class="text-caption text-ink-secondary">
-                        Scan with your phone camera — the code sends Android and iPhone to the
-                        right store automatically.
+                        Prefer the app? Scan with your phone camera to download Inthes — same
+                        account, same applications.
                     </p>
                 </div>
             </div>

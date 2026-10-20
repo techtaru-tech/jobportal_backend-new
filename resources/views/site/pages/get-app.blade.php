@@ -13,12 +13,12 @@
 
             <span class="mt-lg block text-kicker text-ink-secondary">THE INTHES APP</span>
             <h1 class="mt-xs text-[32px] font-bold leading-[1.15] tracking-[-0.4px] text-ink sm:text-[40px]">
-                Everything after “apply”<br class="hidden sm:block">
-                happens <span class="text-primary">here</span>
+                Your jobs, in your<br class="hidden sm:block">
+                <span class="text-primary">pocket</span>
             </h1>
             <p class="mx-auto mt-lg max-w-[540px] text-body text-ink-secondary">
-                Browsing works fine on the web. Applying needs your profile, your resume and a
-                place for the employer to reply — so that part lives in the app.
+                Everything works on the web too — <a href="{{ url('/app') }}#/home" class="font-semibold text-primary-dark hover:underline">sign in here</a>.
+                The app adds instant alerts when a job matches you and when an employer replies.
             </p>
 
             <div class="mt-xl flex flex-col items-center gap-lg">

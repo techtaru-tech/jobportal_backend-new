@@ -10,7 +10,7 @@ REM  Just double-click this file. Nothing to paste, nothing to
 REM  configure. Press Ctrl+C in the window to stop the server.
 REM ---------------------------------------------------------------
 
-set "PATH=C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64;C:\laragon\bin\composer;C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin;%PATH%"
+set "PATH=C:\laragon\bin\php\php-8.3.33-Win32-vs16-x64;C:\laragon\bin\composer;C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin;%PATH%"
 
 cd /d "%~dp0"
 

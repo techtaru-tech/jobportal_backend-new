@@ -43,11 +43,11 @@
         <div class="mt-md rounded-card border-hair border-primary-line bg-primary-light p-xl">
             <h2 class="text-h4 text-ink">Hiring, or need help with an application?</h2>
             <p class="mt-xs text-bodysm text-ink-secondary">
-                Employers can post and manage jobs on the web. Candidates are best served in the
-                app, where their applications and messages already live.
+                Employers can post and manage jobs, and candidates can apply and track
+                applications — on the web or in the app, with the same account.
             </p>
             <div class="mt-lg flex flex-wrap gap-sm">
-                <a href="{{ route('site.post-job') }}"
+                <a href="{{ url('/app') }}#/r/post"
                    class="inline-flex h-[46px] items-center justify-center rounded-button bg-primary px-lg text-btn font-semibold text-ink-onPrimary shadow-button
                           transition-[background-color,transform] duration-micro hover:bg-primary-dark active:scale-[0.97]">
                     Post a job

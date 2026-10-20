@@ -153,7 +153,6 @@
 </main>
 
 @include('site.partials.footer')
-@include('site.partials.apply-dialog')
 
 {{-- Registers `siteApp`, then Alpine — order matters, see partials/alpine. --}}
 <script defer src="{{ asset('js/site.js') }}?v={{ filemtime(public_path('js/site.js')) }}"></script>

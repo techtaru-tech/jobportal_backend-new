@@ -1,5 +1,5 @@
 /**
- * The public site's behaviour: the mobile drawer, the apply dialog, and the
+ * The public site's behaviour: the mobile drawer, the signed-in hint, and the
  * motion system.
  *
  * These pages are server-rendered — the markup arrives finished, which is what
@@ -240,30 +240,12 @@
       /** Mobile nav drawer. */
       menuOpen: false,
 
-      /** The apply dialog, and which posting opened it. */
-      applyOpen: false,
-      applyJob: '',
-
       /**
-       * Opens the "apply in the app" dialog.
-       *
-       * Takes the job title so the dialog can name what the visitor was
-       * reading. A dialog that says only "download the app" reads like an
-       * advert; one that says "applying for Staff Nurse happens in the app"
-       * reads like an answer to what they just tried to do.
+       * Whether this browser holds a web-app session, so the header can say
+       * "My account" instead of "Sign in". Read-only: the session itself is
+       * owned by /app (public/js/webapp/core.js).
        */
-      openApply(title) {
-        this.applyJob = title || ''
-        this.applyOpen = true
-        this.menuOpen = false
-        // The page behind a modal must not scroll under it.
-        document.body.style.overflow = 'hidden'
-      },
-
-      closeApply() {
-        this.applyOpen = false
-        document.body.style.overflow = ''
-      },
+      signedIn: (() => { try { return !!localStorage.getItem('inthes.token') } catch (e) { return false } })(),
 
       /**
        * Submits the filter form.

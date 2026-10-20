@@ -61,10 +61,12 @@
     <div class="mt-auto flex items-center justify-between gap-md pt-lg">
         <span class="text-caption text-ink-muted">{{ $job->posted_at->diffForHumans() }}</span>
 
-        <button type="button" @click.prevent.stop="openApply(@js($job->title))"
-                class="relative z-10 inline-flex h-9 items-center justify-center rounded-button border-btn border-primary bg-surface px-lg text-btnghost font-semibold text-primary
-                       transition-colors duration-micro hover:bg-primary-light">
+        {{-- Into the web app's apply flow: sign in, finish whatever the job
+             needs on the profile, submit — the same steps as the app. --}}
+        <a href="{{ url('/app') }}#/apply/j_{{ $job->id }}" @click.stop
+           class="relative z-10 inline-flex h-9 items-center justify-center rounded-button border-btn border-primary bg-surface px-lg text-btnghost font-semibold text-primary
+                  transition-colors duration-micro hover:bg-primary-light">
             Apply
-        </button>
+        </a>
     </div>
 </article>
