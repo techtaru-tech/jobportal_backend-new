@@ -50,6 +50,15 @@ class JobController extends ApiController
         // the board still gets a feed, just not a personalised one. Filtering
         // would have shown them an empty screen and no way to tell why.
         if ($request->boolean('recommended')) {
+            // Never recommend someone their own posting. One account holds
+            // both sides, so an employer who also browses would otherwise see
+            // the jobs they posted top their own "Recommended for you" — a
+            // perfect "match" on the role they wrote. The plain browse list
+            // still shows them (marked `own_posting`); only the feed skips them.
+            if ($user = $request->user()) {
+                $query->where('user_id', '!=', $user->id);
+            }
+
             // Best match first, by the same score the card shows — skills,
             // role, location, education, experience, type, shift. Newest first
             // among equals. Scored in PHP over the most recent postings: the

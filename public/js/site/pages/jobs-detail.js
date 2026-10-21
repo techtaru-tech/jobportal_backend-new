@@ -7,6 +7,11 @@
  * re-reads it with the visitor's token for match %, saved and applied state.
  */
 document.addEventListener('alpine:init', () => {
+  // Whether the visitor posted this job. Read outside the component too: the
+  // "Similar openings" row under the posting is for job seekers, and showing
+  // an employer other employers' openings under their own post is noise.
+  Alpine.store('ownPosting', false)
+
   Alpine.data('jobPage', (props) => ({
     kit: Inthes.jobsKit,
     job: props.job,
@@ -24,13 +29,14 @@ document.addEventListener('alpine:init', () => {
         if (wantsApply) Inthes.quickApply(this.job)
       })
       window.addEventListener('inthes:signed-in', () => this.refresh())
-      window.addEventListener('inthes:signed-out', () => { this.job = { ...this.job, own_posting: false, has_applied: false, match_percent: null } })
+      window.addEventListener('inthes:signed-out', () => { this.job = { ...this.job, own_posting: false, has_applied: false, match_percent: null }; Alpine.store('ownPosting', false) })
       window.addEventListener('inthes:applied', (e) => { if (e.detail.job_id === this.job.id) this.job.has_applied = true })
     },
 
     async refresh() {
       this.$store.jobs.ensure().catch(() => {})
       try { this.job = (await Inthes.api('/jobs/' + encodeURIComponent(this.job.id))).data } catch (e) { /* keep the server copy */ }
+      Alpine.store('ownPosting', !!this.job.own_posting)
     },
   }))
 })

@@ -16,7 +16,7 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-start gap-sm">
         <h3 class="line-clamp-2 flex-1 text-h5 text-ink group-hover:text-primary-dark" x-text="job.title"></h3>
-        <button type="button" @click.prevent.stop="$store.jobs.toggleSave(job)" :title="$store.jobs.isSaved(job) ? 'Saved — click to remove' : 'Save job'"
+        <button type="button" x-show="!job.own_posting" @click.prevent.stop="$store.jobs.toggleSave(job)" :title="$store.jobs.isSaved(job) ? 'Saved — click to remove' : 'Save job'"
                 :aria-label="$store.jobs.isSaved(job) ? 'Remove from saved jobs' : 'Save job'"
                 :class="$store.jobs.isSaved(job) ? 'text-primary' : 'text-ink-muted hover:text-ink'"
                 class="relative z-10 -mr-xs -mt-xs inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-field hover:bg-surface-muted">
@@ -41,7 +41,8 @@
         <template x-if="!($store.auth.signedIn && job.match_percent != null) && kit.isNew(job)">
           <span class="wa-pill bg-primary-light text-primary-dark">New</span>
         </template>
-        <span x-show="$store.auth.signedIn && $store.jobs.hasApplied(job)" class="wa-pill bg-success-bg text-success">Applied ✓</span>
+        <span x-show="$store.auth.signedIn && job.own_posting" class="wa-pill bg-info-bg text-info">Your posting</span>
+        <span x-show="$store.auth.signedIn && !job.own_posting && $store.jobs.hasApplied(job)" class="wa-pill bg-success-bg text-success">Applied ✓</span>
         <span class="ml-auto text-caption text-ink-muted" x-text="timeAgo(job.posted_at)"></span>
       </div>
     </div>

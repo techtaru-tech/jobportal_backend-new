@@ -67,7 +67,7 @@
                     class="flex items-center gap-sm rounded-full py-[3px] pl-[3px] pr-sm transition-colors hover:bg-surface-muted">
               <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-light text-[12px] font-semibold text-primary-dark">
                 <template x-if="$store.auth.me?.photo_url"><img :src="$store.auth.me.photo_url" alt="" class="h-full w-full object-cover"></template>
-                <template x-if="!$store.auth.me?.photo_url"><span x-text="initials($store.auth.name || $store.auth.phone)"></span></template>
+                <template x-if="!$store.auth.me?.photo_url"><span x-html="initials($store.auth.name) || ICONS.user" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span></template>
               </span>
               <span class="hidden max-w-[120px] truncate text-bodysm font-semibold text-ink lg:block" x-text="$store.auth.firstName || 'Account'"></span>
               @include('admin.partials.icon', ['name' => 'chevronDown', 'class' => 'hidden h-4 w-4 text-ink-muted lg:block'])

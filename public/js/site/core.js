@@ -63,9 +63,13 @@
     return d.toLocaleString('en-IN', o)
   }
 
+  /**
+   * Two letters for an avatar. Words without a letter are skipped, so a phone
+   * number never becomes "81" — callers show a person icon when this is ''.
+   */
   function initials(name) {
-    const p = String(name ?? '').trim().split(/\s+/).filter(Boolean)
-    if (!p.length) return '?'
+    const p = String(name ?? '').trim().split(/\s+/).filter((w) => /\p{L}/u.test(w)).map((w) => w.replace(/[^\p{L}]/gu, ''))
+    if (!p.length) return ''
     if (p.length === 1) return p[0].slice(0, 2).toUpperCase()
     return (p[0][0] + p[1][0]).toUpperCase()
   }

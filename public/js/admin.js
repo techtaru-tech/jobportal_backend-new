@@ -156,9 +156,10 @@
    * Initials from a display name, matching `Helpers.initials` in the app:
    * first letters of the first two words, uppercased.
    */
+  /** Words without a letter are skipped, so a phone number never reads as "81". */
   function initials(name) {
-    const parts = (name ?? '').trim().split(/\s+/).filter(Boolean)
-    if (parts.length === 0) return '?'
+    const parts = String(name ?? '').trim().split(/\s+/).filter((w) => /\p{L}/u.test(w)).map((w) => w.replace(/[^\p{L}]/gu, ''))
+    if (parts.length === 0) return ''
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
     return (parts[0][0] + parts[1][0]).toUpperCase()
   }

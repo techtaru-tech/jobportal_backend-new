@@ -63,10 +63,15 @@
 
         {{-- `?apply=1` opens Quick Apply on the job page: sign in, fill only
              what the job still needs, submit — the same rules as the app. --}}
+        {{-- On the employer's own posting it becomes "Manage" instead
+             (`$store.myJobIds`, filled by the signed-in home strip). --}}
+        @php $publicId = 'j_'.$job->id; @endphp
         <a href="{{ route('site.job', $job->code) }}?apply=1" @click.stop
+           x-data="{ get mine() { return ($store.myJobIds || []).includes(@js($publicId)) } }"
+           :href="mine ? @js(url('/employer/jobs/'.$publicId)) : @js(route('site.job', $job->code).'?apply=1')"
            class="relative z-10 inline-flex h-9 items-center justify-center rounded-button border-btn border-primary bg-surface px-lg text-btnghost font-semibold text-primary
                   transition-colors duration-micro hover:bg-primary-light">
-            Apply
+            <span x-text="mine ? 'Manage' : 'Apply'">Apply</span>
         </a>
     </div>
 </article>

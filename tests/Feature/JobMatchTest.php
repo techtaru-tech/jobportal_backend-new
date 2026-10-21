@@ -65,6 +65,24 @@ class JobMatchTest extends TestCase
             ->assertJsonPath('meta.total', 2);
     }
 
+    public function test_recommended_never_includes_your_own_posting(): void
+    {
+        $user = $this->actingAsCandidate(['preferred_roles' => ['Nurse'], 'location' => ['Jaipur']]);
+        $own = $this->job(['user_id' => $user->id]);
+        $other = $this->job();
+
+        $this->getJson("{$this->api}/jobs?recommended=1&per_page=5")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', "j_{$other->id}")
+            ->assertJsonPath('meta.total', 1);
+
+        // The plain browse list still shows it, marked as theirs.
+        $this->getJson("{$this->api}/jobs?per_page=5")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonFragment(['id' => "j_{$own->id}", 'own_posting' => true]);
+    }
+
     public function test_a_job_is_not_marked_down_for_what_it_never_asked(): void
     {
         // No skills, education or experience asked; the candidate wants this

@@ -70,7 +70,7 @@
                 class="relative flex w-full items-center gap-md border-b border-hairline-divider px-lg py-md text-left transition-colors">
           <span x-show="c.conversation_id === activeId" class="absolute inset-y-0 left-0 w-[3px] bg-primary"></span>
           <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-light text-[14px] font-semibold text-primary-dark"
-                x-text="initials(c.title)"></span>
+                x-html="initials(c.title) || ICONS.user" :class="!initials(c.title) && '[&>svg]:h-5 [&>svg]:w-5'"></span>
           <span class="min-w-0 flex-1">
             <span class="flex items-baseline gap-sm">
               <span class="min-w-0 flex-1 truncate text-bodysm font-semibold text-ink" x-text="c.title"></span>
@@ -118,7 +118,7 @@
             @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-6 w-6'])
           </button>
           <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-[14px] font-semibold text-primary-dark"
-                x-text="initials(title)"></span>
+                x-html="initials(title) || ICONS.user" :class="!initials(title) && '[&>svg]:h-5 [&>svg]:w-5'"></span>
           <div class="min-w-0 flex-1">
             <p class="flex items-center gap-sm">
               <span class="truncate text-h5 text-ink" x-text="title"></span>

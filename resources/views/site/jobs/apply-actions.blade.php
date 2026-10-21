@@ -22,7 +22,7 @@
     </template>
 
     @if (!$full)
-      <button type="button" @click="$store.jobs.toggleSave(job)" :aria-label="$store.jobs.isSaved(job) ? 'Remove from saved jobs' : 'Save job'"
+      <button type="button" x-show="!job.own_posting" @click="$store.jobs.toggleSave(job)" :aria-label="$store.jobs.isSaved(job) ? 'Remove from saved jobs' : 'Save job'"
               :class="$store.jobs.isSaved(job) ? '!border-primary !text-primary' : ''"
               class="inline-flex h-[50px] items-center justify-center gap-sm rounded-button border-btn border-hairline-strong bg-surface px-lg text-btnghost font-semibold text-ink transition-colors hover:bg-surface-muted">
         <span x-html="ICONS.bookmark" :class="$store.jobs.isSaved(job) && '[&>svg]:fill-current'" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
@@ -34,7 +34,7 @@
       </button>
     @else
       <div class="grid w-full grid-cols-2 gap-sm">
-        <button type="button" @click="$store.jobs.toggleSave(job)"
+        <button type="button" x-show="!job.own_posting" @click="$store.jobs.toggleSave(job)"
                 :class="$store.jobs.isSaved(job) ? '!border-primary !text-primary' : ''"
                 class="inline-flex h-10 items-center justify-center gap-sm rounded-button border-btn border-hairline-strong bg-surface text-btnghost font-semibold text-ink transition-colors hover:bg-surface-muted">
           <span x-html="ICONS.bookmark" :class="$store.jobs.isSaved(job) && '[&>svg]:fill-current'" class="[&>svg]:h-4 [&>svg]:w-4"></span>

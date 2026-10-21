@@ -59,7 +59,7 @@
             <div class="flex items-center gap-md">
               <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-light text-[13px] font-semibold text-primary-dark">
                 <template x-if="$store.auth.me?.photo_url"><img :src="$store.auth.me.photo_url" alt="" class="h-full w-full object-cover"></template>
-                <template x-if="!$store.auth.me?.photo_url"><span x-text="initials($store.auth.name || $store.auth.phone)"></span></template>
+                <template x-if="!$store.auth.me?.photo_url"><span x-html="initials($store.auth.name) || ICONS.user" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span></template>
               </span>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-h5 text-ink" x-text="$store.auth.name"></p>

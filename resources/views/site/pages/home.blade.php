@@ -163,7 +163,37 @@
      Only for a signed-in candidate (js/site/pages/jobs-home.js); a visitor
      never sees it, and the page they get stays fully server-rendered. --}}
 <div x-data="homeForYou()" x-show="$store.auth.signedIn" x-cloak>
-    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl">
+    {{-- An employer's own hiring, for anyone who has posted a job. --}}
+    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl" x-show="postedTotal > 0">
+        <div class="wa-card flex flex-col gap-lg lg:flex-row lg:items-center">
+            <div class="min-w-0 flex-1">
+                <span class="block text-kicker text-ink-secondary" x-text="$store.auth.firstName ? 'HI ' + $store.auth.firstName.toUpperCase() : 'YOUR HIRING'"></span>
+                <h2 class="mt-[2px] text-h2 text-ink">Your hiring</h2>
+                <p class="mt-xs text-bodysm text-ink-secondary">Your job posts and the people who applied, in the employer dashboard.</p>
+            </div>
+            <div class="grid grid-cols-3 gap-sm text-center lg:w-[360px]">
+                <a href="{{ url('/employer/jobs?status=active') }}" class="rounded-field bg-surface-muted px-sm py-md hover:bg-hairline">
+                    <span class="block text-h2 tabular-nums text-ink" x-text="activeCount">0</span>
+                    <span class="block text-caption text-ink-secondary">Live jobs</span>
+                </a>
+                <a href="{{ url('/employer/jobs?status=pending_approval') }}" class="rounded-field bg-surface-muted px-sm py-md hover:bg-hairline">
+                    <span class="block text-h2 tabular-nums text-ink" x-text="pendingCount">0</span>
+                    <span class="block text-caption text-ink-secondary">In review</span>
+                </a>
+                <a href="{{ url('/employer/jobs') }}" class="rounded-field bg-surface-muted px-sm py-md hover:bg-hairline">
+                    <span class="block text-h2 tabular-nums text-ink" x-text="applicantsCount">0</span>
+                    <span class="block text-caption text-ink-secondary">Applicants</span>
+                </a>
+            </div>
+            <div class="flex gap-sm lg:w-[170px] lg:shrink-0 lg:flex-col">
+                <a href="{{ url('/employer') }}" class="wa-btn-sm flex-1 lg:flex-none">Open dashboard</a>
+                <a href="{{ url('/employer/jobs/new') }}" class="wa-btn-ghost-sm flex-1 lg:flex-none">Post a job</a>
+            </div>
+        </div>
+    </section>
+
+    {{-- The job-seeker side: hidden for someone who only hires. --}}
+    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl" x-show="!hiringOnly">
         <div class="grid gap-lg lg:grid-cols-[minmax(0,1fr)_300px]">
             <div class="min-w-0">
                 <div class="mb-md flex items-end justify-between gap-md">
@@ -177,7 +207,7 @@
                 <template x-if="!busy && !jobs.length">
                     @include('site.ui.empty', ['icon' => 'briefcase', 'title' => 'No matches yet', 'text' => 'Add your preferred roles and cities to your profile and we will pick jobs for you.'])
                 </template>
-                <div class="grid gap-sm sm:grid-cols-2 xl:grid-cols-3" x-show="!busy && jobs.length">
+                <div class="grid gap-sm sm:grid-cols-2" x-show="!busy && jobs.length">
                     <template x-for="job in jobs" :key="job.id">
                         @include('site.jobs.row')
                     </template>

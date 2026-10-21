@@ -56,7 +56,7 @@
             <td class="relative px-lg py-md align-middle text-bodysm text-ink">
               <span aria-hidden="true" class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-primary transition-transform duration-micro ease-out group-hover:scale-y-100"></span>
               <div class="flex items-center gap-md">
-                <span aria-hidden="true" x-text="initials(row.name || row.phone)" style="font-size:11.6px"
+                <span aria-hidden="true" x-html="initials(row.name) || ICONS.users.replace('<svg', '<svg style=width:15px;height:15px')" style="font-size:11.6px"
                       class="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-logo bg-primary-light font-semibold text-primary-dark"></span>
                 <div class="min-w-0">
                   <span class="block truncate font-semibold text-ink" x-text="row.name || \'—\'"></span>
@@ -106,7 +106,7 @@
 
         <div class="mb-lg flex flex-wrap items-end justify-between gap-md">
           <div class="flex min-w-0 items-center gap-lg">
-            <span aria-hidden="true" x-text="initials(userDetail.data.account.name || userDetail.data.account.phone)"
+            <span aria-hidden="true" x-html="initials(userDetail.data.account.name) || ICONS.users.replace('<svg', '<svg style=width:15px;height:15px')"
                   style="font-size:17px"
                   class="inline-flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-logo bg-primary-light font-semibold text-primary-dark"></span>
             <div class="min-w-0">

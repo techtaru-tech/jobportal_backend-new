@@ -346,7 +346,8 @@
 
     {{-- ── similar ──────────────────────────────────────────────────────── --}}
     @if ($similar->isNotEmpty())
-        <section class="mt-xxl">
+        {{-- For job seekers — hidden from the employer viewing their own post. --}}
+        <section class="mt-xxl" x-data x-show="!$store.ownPosting">
             @include('site.partials.section-heading', [
                 'kicker' => 'You might also like',
                 'title' => 'Similar openings',

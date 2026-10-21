@@ -319,7 +319,7 @@
                 <template x-for="row in dash.data.recent.users" :key="row.id">
                   <li class="border-b border-hairline-divider last:border-0">
                     <button @click="openUser(row.id)" class="flex w-full items-center gap-md px-lg py-md text-left transition-colors duration-micro hover:bg-canvas-alt">
-                      <span aria-hidden="true" x-text="initials(row.name || row.phone)" style="font-size:11.6px"
+                      <span aria-hidden="true" x-html="initials(row.name) || ICONS.users.replace('<svg', '<svg style=width:15px;height:15px')" style="font-size:11.6px"
                             class="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-logo bg-primary-light font-semibold text-primary-dark"></span>
                       <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-md">
