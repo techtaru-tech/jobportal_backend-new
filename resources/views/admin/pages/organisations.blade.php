@@ -173,6 +173,10 @@
               The URL is a signed, ~15-minute link minted per request off the
               private disk. It must never be cached or persisted — by the time
               a stored copy were reused it would already have expired.
+
+              `data?.` because these nested x-ifs re-evaluate before the outer
+              one tears down when the page reloads its record (data -> null),
+              which threw a TypeError after every verify/withdraw.
             --}}
             <div class="rounded-card overflow-hidden bg-surface border-hair border-hairline shadow-card">
               <div class="flex flex-wrap items-center justify-between gap-md border-b border-hairline-divider px-lg py-md">
@@ -181,8 +185,8 @@
                   <p class="mt-[2px] truncate text-caption text-ink-muted"
                      x-text="orgDetail.data.organisation.document_name || 'Company document'"></p>
                 </div>
-                <template x-if="orgDetail.data.organisation.document_url">
-                  <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener"
+                <template x-if="orgDetail.data?.organisation.document_url">
+                  <a :href="orgDetail.data?.organisation.document_url" target="_blank" rel="noopener"
                      class="inline-flex h-9 shrink-0 items-center justify-center gap-sm rounded-button px-md text-btnghost font-semibold
                             bg-surface text-primary border-btn border-primary transition-colors duration-micro hover:bg-primary-light">
                     <span x-html="ICONS.fileText" class="[&>svg]:h-4 [&>svg]:w-4"></span>
@@ -194,19 +198,19 @@
               {{-- Nothing uploaded is a different conversation from a document
                    that fails review, so it gets its own state rather than an
                    empty frame. --}}
-              <template x-if="!orgDetail.data.organisation.document_url">
+              <template x-if="!orgDetail.data?.organisation.document_url">
                 @include('admin.partials.empty-state', [
                   'icon' => 'fileText', 'title' => 'No document on file',
                   'message' => 'This company has not uploaded a company document yet (GST certificate, shop licence or registration), so there is nothing to verify against. Ask them to upload one before deciding.',
                 ])
               </template>
 
-              <template x-if="orgDetail.data.organisation.document_url && docKind(orgDetail.data.organisation) === 'image'">
+              <template x-if="orgDetail.data?.organisation.document_url && docKind(orgDetail.data.organisation) === 'image'">
                 {{-- Checkered-neutral ground, since scans are usually white on
                      white and would otherwise dissolve into the card. --}}
                 <div class="bg-canvas-alt p-lg">
-                  <a :href="orgDetail.data.organisation.document_url" target="_blank" rel="noopener" class="block">
-                    <img :src="orgDetail.data.organisation.document_url" alt="Company document"
+                  <a :href="orgDetail.data?.organisation.document_url" target="_blank" rel="noopener" class="block">
+                    <img :src="orgDetail.data?.organisation.document_url" alt="Company document"
                          class="mx-auto max-h-[520px] w-auto max-w-full rounded-field border-hair border-hairline bg-surface object-contain shadow-card">
                   </a>
                 </div>
@@ -215,9 +219,9 @@
               {{-- PDFs get an inline viewer rather than a forced download: most
                    certificates are one page and opening a tab per employer is
                    the slowest part of working this queue. --}}
-              <template x-if="orgDetail.data.organisation.document_url && docKind(orgDetail.data.organisation) === 'pdf'">
+              <template x-if="orgDetail.data?.organisation.document_url && docKind(orgDetail.data.organisation) === 'pdf'">
                 <div class="bg-canvas-alt p-lg">
-                  <object :data="orgDetail.data.organisation.document_url" type="application/pdf"
+                  <object :data="orgDetail.data?.organisation.document_url" type="application/pdf"
                           class="h-[520px] w-full rounded-field border-hair border-hairline bg-surface">
                     <p class="p-lg text-bodysm text-ink-secondary">
                       This browser will not display the PDF inline — use “Open full size” above.
@@ -226,7 +230,7 @@
                 </div>
               </template>
 
-              <template x-if="orgDetail.data.organisation.document_url && docKind(orgDetail.data.organisation) === 'other'">
+              <template x-if="orgDetail.data?.organisation.document_url && docKind(orgDetail.data.organisation) === 'other'">
                 <div class="p-lg">
                   <p class="text-bodysm text-ink-secondary">
                     This file type cannot be previewed here — use “Open full size” to download it.
@@ -368,7 +372,7 @@
                 <p class="p-lg text-bodysm text-ink-muted">No admin has acted on this company yet.</p>
               </template>
               <ul class="max-h-[320px] overflow-y-auto thin-scrollbar">
-                <template x-for="log in orgDetail.data.audit" :key="log.at">
+                <template x-for="(log, i) in orgDetail.data.audit" :key="i + log.at">
                   <li class="border-b border-hairline-divider px-lg py-md last:border-0">
                     <p class="text-bodysm text-ink" x-text="log.summary"></p>
                     <p class="mt-[2px] text-caption text-ink-muted"

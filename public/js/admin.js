@@ -71,6 +71,20 @@
     optionListDetail: 'optionLists',
   }
 
+  /**
+   * Which loader re-opens a detail view from the URL. The view lives in the
+   * hash (`#/jobs`, `#/jobDetail/j_12`) so a reload, a shared link or the
+   * browser's Back button lands where the operator was rather than on the
+   * dashboard.
+   */
+  const DETAIL_OPENERS = {
+    userDetail: 'openUser',
+    jobDetail: 'openJob',
+    applicationDetail: 'openApplication',
+    organisationDetail: 'openOrganisation',
+    optionListDetail: 'openOptionList',
+  }
+
   const ACTIVITY_TABS = [
     { key: 'applications', label: 'Applications' },
     { key: 'users', label: 'New users' },
@@ -277,6 +291,23 @@
         this.collapsed = localStorage.getItem(COLLAPSE_KEY) === '1'
         this.token = localStorage.getItem(TOKEN_KEY) || ''
 
+        // Cmd/Ctrl+K from anywhere — the shortcut every operator expects.
+        // Registered before the signed-out early return below: it used to sit
+        // after it, so after a fresh sign-in the shortcut did nothing until a
+        // reload. `$refs` cannot reach into the `x-if` that holds the top bar,
+        // hence the plain query.
+        document.addEventListener('keydown', (event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+            const input = document.querySelector('[x-ref="menuSearch"]')
+            if (!input) return
+            event.preventDefault()
+            input.focus()
+          }
+        })
+
+        // Browser Back/Forward and hand-edited URLs.
+        window.addEventListener('hashchange', () => { if (this.admin) this._applyHash() })
+
         const cached = localStorage.getItem(ADMIN_KEY)
         if (cached) {
           try { this.admin = JSON.parse(cached) } catch (e) { /* ignore */ }
@@ -289,24 +320,41 @@
         }
 
         // Confirm the token still resolves before trusting the cached profile:
-        // an admin sign-in elsewhere retires this one's tokens.
+        // an admin sign-in elsewhere retires this one's tokens. Nothing is
+        // rendered or fetched until it does — the cached profile used to show
+        // the dashboard (and fire its requests) under a dead token first.
+        const cachedAdmin = this.admin
+        this.admin = null
         this.api('/admin/auth/me')
           .then((res) => {
-            this.admin = res.data.admin
+            this.admin = res.data.admin || cachedAdmin
             localStorage.setItem(ADMIN_KEY, JSON.stringify(this.admin))
+            this._applyHash()
             this.loadNotifications()
             this._startPolling()
           })
           .catch(() => { this.clearSession() })
           .finally(() => { this.isRestoring = false })
+      },
 
-        // Cmd/Ctrl+K from anywhere — the shortcut every operator expects.
-        document.addEventListener('keydown', (event) => {
-          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-            event.preventDefault()
-            this.$refs.menuSearch && this.$refs.menuSearch.focus()
-          }
-        })
+      // ── URL hash routing ────────────────────────────────────────────
+      _routeId: null,
+
+      /** Opens whatever `#/view[/id]` names; false when it names nothing. */
+      _applyHash() {
+        const m = location.hash.match(/^#\/([A-Za-z]+)(?:\/(.+))?$/)
+        if (!m) return false
+        const [, view, rawId] = m
+        const id = rawId ? decodeURIComponent(rawId) : null
+        if (view === this.view && id === this._routeId) return true
+        if (DETAIL_OPENERS[view] && id) { this[DETAIL_OPENERS[view]](id); return true }
+        if (NAV.some((n) => n.key === view)) { this.go(view); return true }
+        return false
+      },
+
+      _writeHash() {
+        const hash = '#/' + this.view + (this._routeId ? '/' + encodeURIComponent(this._routeId) : '')
+        if (location.hash !== hash) location.hash = hash
       },
 
       // ── fetch ───────────────────────────────────────────────────────
@@ -377,7 +425,8 @@
           localStorage.setItem(TOKEN_KEY, this.token)
           localStorage.setItem(ADMIN_KEY, JSON.stringify(this.admin))
           this.loginForm = { email: '', password: '' }
-          this.view = 'dashboard'
+          // A deep link opened while signed out is honoured after sign-in.
+          if (!this._applyHash()) this.go('dashboard')
           this.loadNotifications()
           this._startPolling()
         } catch (e) {
@@ -389,6 +438,9 @@
       logout() {
         if (this.token) this.api('/admin/auth/logout', { method: 'POST' }).catch(() => {})
         this.clearSession()
+        // A deliberate sign-out forgets where it was; an expired session
+        // (clearSession alone) keeps the hash so signing back in returns there.
+        history.replaceState(null, '', location.pathname + location.search)
       },
 
       clearSession() {
@@ -405,11 +457,14 @@
         localStorage.removeItem(TOKEN_KEY)
         localStorage.removeItem(ADMIN_KEY)
         this.view = 'dashboard'
+        this._routeId = null
       },
 
       // ── navigation ──────────────────────────────────────────────────
-      go(key) {
+      go(key, id = null) {
         this.view = key
+        this._routeId = id
+        this._writeHash()
         this.drawerOpen = false
         this.bellOpen = false
         this.profileOpen = false
@@ -818,8 +873,10 @@
       },
 
       openUser(id) {
-        this.go('userDetail')
-        this.userDetail.data = null
+        this.go('userDetail', id)
+        // Only blanked for a different record: a refresh after an action keeps
+        // the page up instead of flashing back to the loader.
+        if (this.userDetail.data?.account?.id !== id) this.userDetail.data = null
         this.userDetail.busy = true
         this.api('/admin/users/' + id)
           .then((res) => { this.userDetail.data = res.data })
@@ -922,13 +979,18 @@
       },
 
       openJob(id) {
-        this.go('jobDetail')
-        this.jobDetail.data = null
+        this.go('jobDetail', id)
+        if (this.jobDetail.data?.job?.id !== id) this.jobDetail.data = null  // see openUser
         this.jobDetail.busy = true
         this.jobStatusPick = ''
         this.jobExpiryPick = ''
         this.api('/admin/jobs/' + id)
-          .then((res) => { this.jobDetail.data = res.data })
+          .then((res) => {
+            this.jobDetail.data = res.data
+            // Prefilled with the current expiry: the date is shown nowhere
+            // else, and an empty box made "Save" silently clear it.
+            this.jobExpiryPick = (res.data.job.expires_at || '').slice(0, 10)
+          })
           .catch((e) => this.showToast(e.message, true))
           .finally(() => { this.jobDetail.busy = false })
       },
@@ -980,8 +1042,8 @@
       },
 
       openApplication(reference) {
-        this.go('applicationDetail')
-        this.appDetail.data = null
+        this.go('applicationDetail', reference)
+        if (this.appDetail.data?.application?.reference !== reference) this.appDetail.data = null  // see openUser
         this.appDetail.busy = true
         this.appStatusPick = ''
         this.appStatusReason = ''
@@ -1015,8 +1077,8 @@
       },
 
       openOrganisation(id) {
-        this.go('organisationDetail')
-        this.orgDetail.data = null
+        this.go('organisationDetail', id)
+        if (this.orgDetail.data?.organisation?.id !== id) this.orgDetail.data = null  // see openUser
         this.orgDetail.busy = true
         this.orgUnverifyReason = ''
         this.api('/admin/organisations/' + id)
@@ -1113,9 +1175,13 @@
       },
 
       openOptionList(key) {
+        // A different list starts blank; the same one keeps its rows while it
+        // refreshes after an edit. Without this, opening Shifts showed the
+        // previous list (title and rows) until the request landed.
+        if (this.optionListDetail.key !== key) this.optionListDetail.data = null
         this.optionListDetail.key = key
         this.optionListDetail.busy = true
-        this.go('optionListDetail')
+        this.go('optionListDetail', key)
         this.api('/admin/option-lists/' + key)
           .then((res) => { this.optionListDetail.data = res.data })
           .catch((e) => this.showToast(e.message, true))

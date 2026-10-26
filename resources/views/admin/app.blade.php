@@ -16,7 +16,9 @@
 <script defer src="{{ asset('js/admin.js') }}?v={{ filemtime(public_path('js/admin.js')) }}"></script>
 @include('partials.alpine')
 </head>
-<body x-data="adminApp()" x-init="init()" x-cloak>
+{{-- No x-init: Alpine already calls a data object's init(); naming it here ran
+     it twice (two auth/me calls, two key listeners). --}}
+<body x-data="adminApp()" x-cloak>
 
 {{--
   The blank-page guard. Everything else here is inside a `<template>` and so

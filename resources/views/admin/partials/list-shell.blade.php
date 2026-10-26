@@ -17,7 +17,10 @@
       <div class="relative w-full sm:max-w-sm">
         <span x-html="ICONS.search" aria-hidden="true"
               class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 [&>svg]:h-[18px] [&>svg]:w-[18px] text-ink-muted"></span>
-        <input type="search" x-model.debounce.400ms="{{ $state }}.q" @input="{{ $loader }}(1)"
+        {{-- The debounce sits on the fetch, not the model: debouncing the
+             model while @input fetched at once sent the *previous* query, so
+             the last characters typed were never searched for. --}}
+        <input type="search" x-model="{{ $state }}.q" @input.debounce.400ms="{{ $loader }}(1)"
                placeholder="{{ $placeholder ?? 'Search…' }}"
                class="w-full h-[46px] rounded-field bg-surface-muted pl-[42px] pr-md text-input text-ink placeholder:text-ink-muted
                       border-hair border-transparent outline-none transition-[border-color,box-shadow] duration-micro
