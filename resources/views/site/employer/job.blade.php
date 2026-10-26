@@ -21,12 +21,12 @@
   <template x-if="!loading && job">
     <div>
       {{-- ── header ─────────────────────────────────────────────────── --}}
-      <a href="{{ url('/employer/jobs') }}" class="mb-sm inline-flex items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
+      <a href="{{ url('/employer/jobs') }}" class="mb-sm inline-flex min-h-[32px] items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
         @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-4 w-4']) Jobs
       </a>
       <div class="wa-card !p-lg sm:!p-xl">
         <div class="flex flex-wrap items-start gap-md">
-          <div class="min-w-0 flex-1">
+          <div class="min-w-0 basis-full sm:basis-0 sm:flex-1">
             <div class="flex flex-wrap items-center gap-sm">
               <h1 class="text-h1 text-ink" x-text="job.title"></h1>
               <span class="wa-pill" :class="statusPill(job.posting_status)" x-text="statusLabel(job.posting_status)"></span>

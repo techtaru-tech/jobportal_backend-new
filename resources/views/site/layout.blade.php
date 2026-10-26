@@ -81,6 +81,12 @@
 /* Variants, for sections where a vertical rise is the wrong direction. */
 .reveal[data-reveal="left"]{transform:translateX(-22px)}
 .reveal[data-reveal="right"]{transform:translateX(22px)}
+/* Sideways reveals only where there is room: on a phone or tablet a card
+   waiting off-screen to slide in widens the page and lets it scroll sideways. */
+@media (max-width:1279px){.reveal[data-reveal="left"],.reveal[data-reveal="right"]{transform:translateY(16px)}}
+/* Belt and braces: decoration (orbs, washes, shadows) may never make the page
+   scroll sideways. `clip`, not `hidden`, so sticky sidebars keep working. */
+main{overflow-x:clip}
 .reveal[data-reveal="scale"]{transform:scale(0.965)}
 
 /* ── first paint ───────────────────────────────────────────────────────── */

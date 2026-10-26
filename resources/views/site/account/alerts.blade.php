@@ -55,7 +55,7 @@
                 @include('admin.partials.icon', ['name' => 'bell', 'class' => 'h-5 w-5'])
               </span>
               <div class="min-w-0 flex-1">
-                <a :href="browseUrl(a)" class="block truncate text-h5 text-ink hover:text-primary-dark" x-text="a.summary" title="See matching jobs"></a>
+                <a :href="browseUrl(a)" class="block truncate py-[6px] text-h5 text-ink hover:text-primary-dark" x-text="a.summary" title="See matching jobs"></a>
                 <div class="mt-[2px] flex flex-wrap items-center gap-sm">
                   <span class="wa-pill" :class="a.is_active ? 'bg-primary-light text-primary-dark' : 'border-hair border-hairline-strong text-ink-secondary'" x-text="a.is_active ? 'Active' : 'Paused'"></span>
                   <span class="text-caption text-ink-muted" x-text="a.last_notified_at ? 'Last match ' + timeAgo(a.last_notified_at) : 'No matches yet'"></span>

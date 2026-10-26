@@ -128,7 +128,9 @@
         ? Math.max(0, ...order.map((s, i) => (at[s] ? i : -1)))
         : order.indexOf(app.status)
       return order.map((stage, i) => ({
-        stage, label: APP_STATUS[stage].label, at: at[stage] || null,
+        // A stage not reached has no date, even if the timeline once recorded it
+        // (the employer moved the application back).
+        stage, label: APP_STATUS[stage].label, at: i <= reached ? (at[stage] || null) : null,
         done: i <= reached, current: i === reached && app.status !== 'rejected',
       }))
     },

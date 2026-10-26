@@ -13,6 +13,7 @@
 document.addEventListener('alpine:init', () => {
   const RECENT_KEY = 'inthes.recentSearches'
   const PER_PAGE = 20
+  const jobCount = (n) => (n === 1 ? '1 job' : n + ' jobs')
 
   Alpine.data('jobsBrowse', (props) => ({
     kit: Inthes.jobsKit,
@@ -239,10 +240,10 @@ document.addEventListener('alpine:init', () => {
     },
     /** What the dropdown shows: suggestions while typing, else recent + trending. */
     get sugRows() {
-      if (this.q.trim()) return this.sugItems.map((s) => ({ term: s.term, meta: s.job_count + ' jobs', icon: 'search' }))
+      if (this.q.trim()) return this.sugItems.map((s) => ({ term: s.term, meta: jobCount(s.job_count), icon: 'search' }))
       return [
         ...this.recent.slice(0, 4).map((t) => ({ term: t, meta: 'Recent', icon: 'history' })),
-        ...this.trending.filter((t) => !this.recent.includes(t.term)).map((t) => ({ term: t.term, meta: t.job_count + ' jobs', icon: 'trendingUp' })),
+        ...this.trending.filter((t) => !this.recent.includes(t.term)).map((t) => ({ term: t.term, meta: jobCount(t.job_count), icon: 'trendingUp' })),
       ]
     },
     sugKey(ev) {
@@ -250,6 +251,10 @@ document.addEventListener('alpine:init', () => {
       if (ev.key === 'ArrowDown') { ev.preventDefault(); this.sugOpen = true; this.sugIdx = n ? (this.sugIdx + 1) % n : -1 }
       else if (ev.key === 'ArrowUp') { ev.preventDefault(); this.sugIdx = n ? (this.sugIdx - 1 + n) % n : -1 }
       else if (ev.key === 'Escape') { this.sugOpen = false }
+      // Picked with the arrows: search it here. Left to the form, Enter's implicit
+      // submit clicks the Search button first — outside the box, so @click.outside
+      // closes the list and the typed text is searched instead of the pick.
+      else if (ev.key === 'Enter' && this.sugOpen && this.sugIdx >= 0 && this.sugRows[this.sugIdx]) { ev.preventDefault(); this.runSearch(this.sugRows[this.sugIdx].term) }
     },
     runSearch(term) {
       if (term === undefined && this.sugOpen && this.sugIdx >= 0 && this.sugRows[this.sugIdx]) term = this.sugRows[this.sugIdx].term

@@ -152,7 +152,7 @@
       <section id="sec-personal" class="wa-card scroll-mt-[92px] !p-lg sm:!p-xl">
         @include('site.profile.card-head', ['id' => 'personal', 'title' => 'Personal information', 'icon' => 'user', 'edit' => 'personal'])
         <template x-if="editing !== 'personal'">
-          <dl class="mt-lg grid grid-cols-2 gap-x-lg gap-y-md sm:gap-x-xl">
+          <dl class="mt-lg grid grid-cols-1 gap-x-lg gap-y-md min-[400px]:grid-cols-2 sm:gap-x-xl [&_dd]:break-words">
             @include('site.profile.field', ['label' => 'Full name', 'value' => 'me?.name'])
             <div class="min-w-0">
               <dt class="text-caption text-ink-muted">Mobile number</dt>
@@ -312,7 +312,7 @@
       <section id="sec-preferences" class="wa-card scroll-mt-[92px] !p-lg sm:!p-xl">
         @include('site.profile.card-head', ['id' => 'preferences', 'title' => 'Job preferences', 'icon' => 'target', 'edit' => 'preferences'])
         <template x-if="editing !== 'preferences'">
-          <dl class="mt-lg grid grid-cols-2 gap-x-lg gap-y-md sm:gap-x-xl">
+          <dl class="mt-lg grid grid-cols-1 gap-x-lg gap-y-md min-[400px]:grid-cols-2 sm:gap-x-xl [&_dd]:break-words">
             @include('site.profile.chips-field', ['label' => 'Preferred cities', 'value' => 'me?.location'])
             @include('site.profile.chips-field', ['label' => 'Preferred roles', 'value' => 'me?.preferred_roles'])
             @include('site.profile.chips-field', ['label' => 'Job type', 'value' => 'me?.preferred_job_types'])
@@ -334,7 +334,7 @@
       <section id="sec-availability" class="wa-card scroll-mt-[92px] !p-lg sm:!p-xl">
         @include('site.profile.card-head', ['id' => 'availability', 'title' => 'Availability', 'icon' => 'calendar', 'edit' => 'availability'])
         <template x-if="editing !== 'availability'">
-          <dl class="mt-lg grid grid-cols-2 gap-x-lg gap-y-md sm:gap-x-xl">
+          <dl class="mt-lg grid grid-cols-1 gap-x-lg gap-y-md min-[400px]:grid-cols-2 sm:gap-x-xl [&_dd]:break-words">
             @include('site.profile.field', ['label' => 'Currently employed?', 'value' => 'yn(me?.currently_employed)'])
             <template x-if="me?.currently_employed === true">@include('site.profile.field', ['label' => 'Notice period', 'value' => 'me?.notice_period'])</template>
             <template x-if="me?.currently_employed === true && me?.last_working_date">@include('site.profile.field', ['label' => 'Last working date', 'value' => 'fmtDate(me.last_working_date)'])</template>

@@ -87,7 +87,7 @@
                         <span class="text-caption font-semibold text-ink-secondary">Popular:</span>
                         @foreach (collect($categories)->take(5) as $popular)
                             <a href="{{ route('site.jobs', ['role' => $popular['role']]) }}"
-                               class="rounded-chip border-hair border-hairline bg-surface px-md py-[5px] text-caption text-ink-secondary
+                               class="inline-flex min-h-[32px] items-center rounded-chip border-hair border-hairline bg-surface px-md py-[5px] text-caption text-ink-secondary
                                       transition-colors duration-micro hover:border-primary hover:bg-primary-light hover:text-primary-dark">
                                 {{ $popular['role'] }}
                             </a>
@@ -145,7 +145,7 @@
                                             </span>
                                             <div class="min-w-0">
                                                 <span class="block truncate text-caption font-semibold text-ink">{{ $preview->title }}</span>
-                                                <span class="block truncate text-[10px] text-ink-muted">{{ $preview->city }}</span>
+                                                <span class="block truncate text-[11px] text-ink-muted">{{ $preview->city }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -201,7 +201,7 @@
                         <span class="block text-kicker text-ink-secondary" x-text="$store.auth.firstName ? 'HI ' + $store.auth.firstName.toUpperCase() : 'FOR YOU'"></span>
                         <h2 class="mt-[2px] text-h2 text-ink">Recommended for you</h2>
                     </div>
-                    <a href="{{ route('site.jobs') }}" class="text-btnghost font-semibold text-primary-dark hover:underline">See all jobs</a>
+                    <a href="{{ route('site.jobs') }}" class="inline-flex min-h-[32px] items-center text-btnghost font-semibold text-primary-dark hover:underline">See all jobs</a>
                 </div>
                 <template x-if="busy">@include('site.ui.spinner')</template>
                 <template x-if="!busy && !jobs.length">
@@ -217,7 +217,7 @@
             <aside class="wa-card self-start !p-lg">
                 <div class="flex items-center justify-between">
                     <h2 class="text-h4 text-ink">Your applications</h2>
-                    <a href="{{ url('/account/applications') }}" class="text-caption font-semibold text-primary-dark hover:underline">View all</a>
+                    <a href="{{ url('/account/applications') }}" class="inline-flex min-h-[32px] items-center text-caption font-semibold text-primary-dark hover:underline">View all</a>
                 </div>
                 <div class="mt-md grid grid-cols-4 gap-xs text-center">
                     @foreach ([['applied', 'Applied'], ['shortlisted', 'Shortlisted'], ['selected', 'Selected'], ['rejected', 'Closed']] as [$status, $label])

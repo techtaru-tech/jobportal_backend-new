@@ -24,7 +24,7 @@
   <template x-if="!loading && !loadError && !submitted && job">
     <div>
       <div class="mb-xl">
-        <a :href="jobUrl(job) + '/edit'" class="mb-xs inline-flex items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
+        <a :href="jobUrl(job) + '/edit'" class="mb-xs inline-flex min-h-[32px] items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
           @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-4 w-4']) Edit job post
         </a>
         <h1 class="text-h1 text-ink">Choose a plan</h1>

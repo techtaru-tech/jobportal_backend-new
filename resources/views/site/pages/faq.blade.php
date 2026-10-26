@@ -6,7 +6,7 @@
 @section('content')
 <div class="mx-auto max-w-[820px] px-page py-xl lg:px-xl">
     <nav aria-label="Breadcrumb" class="mb-lg flex items-center gap-xs text-caption text-ink-muted">
-        <a href="{{ route('site.home') }}" class="transition-colors hover:text-ink">Home</a>
+        <a href="{{ route('site.home') }}" class="inline-flex min-h-[32px] min-w-[32px] items-center justify-center transition-colors hover:text-ink">Home</a>
         @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-3 w-3'])
         <span class="text-ink-secondary">Help</span>
     </nav>

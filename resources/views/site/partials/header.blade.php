@@ -8,11 +8,13 @@
   The nav collapses to a drawer below `md`.
 --}}
 <header data-site-header class="sticky top-0 z-40 border-b border-hairline-divider bg-canvas/85 backdrop-blur-md">
-  <div class="mx-auto flex h-[68px] max-w-[1200px] items-center gap-lg px-page lg:px-xl">
+  <div class="mx-auto flex h-[68px] max-w-[1200px] items-center gap-sm px-page sm:gap-lg lg:px-xl">
 
     <a href="{{ route('site.home') }}" class="flex shrink-0 items-center gap-md" title="Inthes">
       @include('admin.partials.logo', ['size' => 34])
-      <span class="min-w-0">
+      {{-- The wordmark gives way on the narrowest phones, where the signed-in
+           icons need the room; the logo alone still says whose site it is. --}}
+      <span class="hidden min-w-0 min-[400px]:block">
         <span class="block text-kicker text-ink-secondary">INTHES</span>
         <span class="block truncate text-h4 text-ink">Healthcare jobs</span>
       </span>
@@ -36,7 +38,7 @@
       @endforeach
     </nav>
 
-    <div class="ml-auto flex items-center gap-sm md:ml-0">
+    <div class="ml-auto flex items-center gap-xs sm:gap-sm md:ml-0">
       {{-- Signed out --}}
       <template x-if="!$store.auth.signedIn">
         <div class="flex items-center gap-sm">
@@ -79,7 +81,7 @@
                 <p class="truncate text-h5 text-ink" x-text="$store.auth.name || 'Your account'"></p>
                 <p class="text-caption text-ink-muted" x-text="$store.auth.phone ? '+91 ' + $store.auth.phone : ''"></p>
                 <template x-if="$store.auth.me && ($store.auth.me.profile_strength ?? 0) < 100">
-                  <a href="{{ url('/account') }}" class="mt-sm block">
+                  <a href="{{ url('/account') }}" class="mt-sm block py-xs">
                     <span class="flex items-center justify-between text-caption"><span class="text-ink-secondary">Profile</span><span class="font-semibold text-primary-dark" x-text="($store.auth.me.profile_strength ?? 0) + '%'"></span></span>
                     <span class="mt-[3px] block h-[5px] overflow-hidden rounded-full bg-surface-muted"><span class="block h-full rounded-full bg-primary" :style="`width:${$store.auth.me.profile_strength ?? 0}%`"></span></span>
                   </a>

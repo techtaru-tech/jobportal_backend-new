@@ -127,7 +127,7 @@
                 <template x-if="n.action"><a :href="noticeHref(job, n.action)" class="shrink-0 text-caption font-bold" x-text="n.label"></a></template>
               </div>
             </template>
-            <a :href="jobUrl(job)" class="mt-md flex items-center justify-between border-t border-hairline-divider pt-md text-bodysm">
+            <a :href="jobUrl(job)" class="mt-md flex min-h-[40px] items-center justify-between border-t border-hairline-divider pt-md text-bodysm">
               <span class="text-ink-secondary"><span class="font-semibold text-ink" x-text="job.applicants_count || 0"></span> applicants</span>
               <span class="text-caption text-ink-muted" x-text="'Posted ' + day(job.posted_at)"></span>
             </a>

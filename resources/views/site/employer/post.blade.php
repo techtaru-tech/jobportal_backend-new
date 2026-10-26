@@ -8,7 +8,7 @@
   $sectionHead = 'mb-lg flex items-center gap-md';
   $num = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-caption font-bold text-ink-onPrimary';
   $chipIcon = 'text-ink-muted [&>svg]:h-[15px] [&>svg]:w-[15px]';
-  $addLink = 'inline-flex items-center gap-xs text-btnghost text-primary hover:underline';
+  $addLink = 'inline-flex min-h-[32px] items-center gap-xs text-btnghost text-primary hover:underline';
 @endphp
 
 @section('employer')
@@ -28,7 +28,7 @@
       {{-- header --}}
       <div class="mb-xl flex flex-wrap items-start gap-md">
         <div class="min-w-0 flex-1">
-          <a href="{{ url('/employer/jobs') }}" class="mb-xs inline-flex items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
+          <a href="{{ url('/employer/jobs') }}" class="mb-xs inline-flex min-h-[32px] items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
             @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-4 w-4']) Jobs
           </a>
           <h1 class="text-h1 text-ink" x-text="mode === 'edit' ? 'Edit job' : (mode === 'draft' ? 'Finish your job post' : 'Post a job')"></h1>
@@ -83,7 +83,7 @@
                 <template x-if="showDescription">
                   <div>
                     @include('site.ui.textarea', ['label' => 'Job description (optional)', 'model' => 'f.about', 'rows' => 5, 'max' => 4000, 'placeholder' => 'Briefly describe the role and the team…'])
-                    <button type="button" class="-mt-md text-caption text-ink-secondary hover:text-ink" @click="showDescription = false; f.about = ''">Remove description</button>
+                    <button type="button" class="-mt-md min-h-[32px] text-caption text-ink-secondary hover:text-ink" @click="showDescription = false; f.about = ''">Remove description</button>
                   </div>
                 </template>
               </div>

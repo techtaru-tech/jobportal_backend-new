@@ -31,7 +31,7 @@
       <ol class="mt-lg grid grid-cols-3 gap-sm">
         <template x-for="(s, i) in STEPS" :key="i">
           <li>
-            <button type="button" @click="goTo(i)" :disabled="i >= step || done" class="w-full text-left enabled:cursor-pointer disabled:cursor-default">
+            <button type="button" @click="goTo(i)" :disabled="i >= step || done" class="min-h-[32px] w-full text-left enabled:cursor-pointer disabled:cursor-default">
               <span class="block h-[5px] rounded-full" :class="done || i < step ? 'bg-primary' : (i === step ? 'bg-primary/40' : 'bg-hairline')"></span>
               <span class="mt-xs flex items-center gap-xs text-caption" :class="i === step && !done ? 'font-semibold text-ink' : 'text-ink-muted'">
                 <span x-show="done || i < step" x-html="ICONS.checkCircle" class="text-success [&>svg]:h-[13px] [&>svg]:w-[13px]"></span>

@@ -24,7 +24,7 @@
     </div>
   </template>
 
-  <div class="grid gap-lg md:grid-cols-2" x-show="!loading && orgs.length">
+  <div class="grid grid-cols-1 gap-lg md:grid-cols-2 [&>*]:min-w-0" x-show="!loading && orgs.length">
     <template x-for="org in orgs" :key="org.id">
       <article class="wa-card flex flex-col !p-lg">
         <div class="flex items-start gap-md">
@@ -49,7 +49,7 @@
         </p>
 
         {{-- document --}}
-        <div class="mt-md flex items-center gap-sm rounded-field bg-surface-muted px-md py-sm">
+        <div class="mt-md flex flex-wrap items-center gap-sm rounded-field bg-surface-muted px-md py-sm">
           <span class="shrink-0 [&>svg]:h-[18px] [&>svg]:w-[18px]" :class="org.document_name || org.verified ? 'text-ink-secondary' : 'text-primary'" x-html="org.document_name || org.verified ? ICONS.fileText : ICONS.alert"></span>
           <span class="min-w-0 flex-1 truncate text-bodysm" :class="org.document_name || org.verified ? 'text-ink-secondary' : 'font-semibold text-primary-dark'" x-text="org.document_name || (org.verified ? 'No document on file — needed for new posts' : 'Company document required')"></span>
           <template x-if="org.document_name">
@@ -61,7 +61,7 @@
           </label>
         </div>
 
-        <div class="mt-auto flex items-center gap-xs border-t border-hairline-divider pt-sm" style="margin-top: 16px">
+        <div class="mt-auto flex flex-wrap items-center gap-xs border-t border-hairline-divider pt-sm" style="margin-top: 16px">
           <span x-show="org.hidden_postings > 0" class="wa-tag" x-text="org.hidden_postings + (org.hidden_postings === 1 ? ' job' : ' jobs') + ' hidden'"></span>
           <span class="flex-1"></span>
           <button type="button" class="wa-btn-quiet" @click="openForm(org)">@include('admin.partials.icon', ['name' => 'pencil', 'class' => 'h-4 w-4']) Edit</button>

@@ -10,7 +10,7 @@
 @section('account')
 <div x-data="accountApplication(@js(['id' => $applicationId]))">
   <nav aria-label="Breadcrumb" class="mb-md flex items-center gap-xs text-caption text-ink-muted">
-    <a href="{{ url('/account/applications') }}" class="hover:text-ink">My applications</a>
+    <a href="{{ url('/account/applications') }}" class="inline-flex min-h-[32px] items-center hover:text-ink">My applications</a>
     @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-3 w-3'])
     <span class="truncate font-mono text-ink-secondary">{{ $applicationId }}</span>
   </nav>
@@ -80,7 +80,8 @@
           <section class="wa-card !border-primary-line !bg-primary-light/40">
             <h2 class="flex items-center gap-sm text-h4 text-ink"><span x-html="ICONS.calendar" class="text-primary [&>svg]:h-5 [&>svg]:w-5"></span>Your interview</h2>
             <dl class="mt-md grid grid-cols-2 gap-md sm:grid-cols-4">
-              <div><dt class="text-caption text-ink-muted">Date</dt><dd class="text-h5 text-ink" x-text="app.interview.date || '—'"></dd></div>
+              {{-- A calendar date (Y-m-d), read as local midnight so it never shifts a day. --}}
+              <div><dt class="text-caption text-ink-muted">Date</dt><dd class="text-h5 text-ink" x-text="app.interview.date ? fmtDate(String(app.interview.date).slice(0, 10) + 'T00:00:00') : '—'"></dd></div>
               <div><dt class="text-caption text-ink-muted">Time</dt><dd class="text-h5 text-ink" x-text="app.interview.time || '—'"></dd></div>
               <div><dt class="text-caption text-ink-muted">Type</dt><dd class="text-h5 text-ink" x-text="kit.interviewTypeLabel(app.interview.type) || '—'"></dd></div>
               <div class="col-span-2 sm:col-span-1"><dt class="text-caption text-ink-muted" x-text="app.interview.type === 'online' ? 'Link' : 'Location'"></dt><dd class="break-words text-bodysm text-ink" x-text="app.interview.location_or_link || '—'"></dd></div>
@@ -119,7 +120,7 @@
         <div class="wa-card">
           <p class="text-h5 text-ink">Stand out to this employer</p>
           <p class="mt-xs text-bodysm text-ink-secondary">A photo, skills and a short intro make a shortlist far more likely.</p>
-          <a href="{{ url('/account') }}" class="mt-md inline-flex text-btnghost font-semibold text-primary-dark hover:underline">Improve your profile</a>
+          <a href="{{ url('/account') }}" class="mt-md inline-flex min-h-[32px] items-center text-btnghost font-semibold text-primary-dark hover:underline">Improve your profile</a>
         </div>
       </aside>
     </div>

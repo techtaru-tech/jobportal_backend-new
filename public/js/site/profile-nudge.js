@@ -25,6 +25,12 @@
 
   function show() {
     if (el || onSetup()) return
+    // Not over Quick Apply: signing in to apply is the usual way a new account
+    // arrives, and that dialog is already asking for the missing details — the
+    // card sat on top of it and offered to take them away mid-application.
+    const qa = window.Alpine && window.Alpine.store('qa')
+    if (qa && qa.open) { setTimeout(show, 1500); return }
+    if (!empty()) { ss.set(null); return }
     el = document.createElement('div')
     el.setAttribute('role', 'status')
     el.className = 'fixed inset-x-page bottom-[88px] z-[96] mx-auto max-w-[420px] lg:bottom-xl lg:left-xl lg:right-auto lg:mx-0'
@@ -60,4 +66,13 @@
   })
 
   window.addEventListener('inthes:signed-out', () => { ss.set(null); hide() })
+
+  // Quick Apply can open after the card is up (its requirements load after
+  // sign-in), so step aside whenever it opens and come back once it closes.
+  document.addEventListener('alpine:initialized', () => {
+    if (!window.Alpine.store('qa')) return
+    window.Alpine.effect(() => {
+      if (window.Alpine.store('qa').open && el) { hide(); setTimeout(show, 1500) }
+    })
+  })
 })()

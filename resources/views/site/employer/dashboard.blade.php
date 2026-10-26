@@ -172,7 +172,7 @@
         <section class="wa-card min-w-0 !p-0">
           <div class="flex items-center justify-between border-b border-hairline-divider px-xl py-lg">
             <h2 class="text-h4 text-ink">Recent jobs</h2>
-            <a href="{{ url('/employer/jobs') }}" class="text-btnghost text-primary hover:underline">All jobs</a>
+            <a href="{{ url('/employer/jobs') }}" class="inline-flex min-h-[32px] items-center text-btnghost text-primary hover:underline">All jobs</a>
           </div>
           <ul class="divide-y divide-hairline-divider">
             <template x-for="job in recentJobs" :key="job.id">

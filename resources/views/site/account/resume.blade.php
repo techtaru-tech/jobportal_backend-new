@@ -70,7 +70,7 @@
             <a :href="me.resume_url" target="_blank" rel="noopener" class="wa-btn-ghost-sm"><span x-html="ICONS.externalLink" class="[&>svg]:h-4 [&>svg]:w-4"></span> Open</a>
             <button type="button" @click="Inthes.share(me.resume, me.resume_url)" class="wa-btn-ghost-sm"><span x-html="ICONS.share" class="[&>svg]:h-4 [&>svg]:w-4"></span> Share</button>
           </div>
-          <a href="{{ url('/account') }}" class="mt-md flex items-center justify-center gap-xs text-bodysm font-semibold text-primary hover:underline">
+          <a href="{{ url('/account') }}" class="mt-md flex min-h-[32px] items-center justify-center gap-xs text-bodysm font-semibold text-primary hover:underline">
             <span x-html="ICONS.pencil" class="[&>svg]:h-4 [&>svg]:w-4"></span> Edit the profile behind it
           </a>
         </div>

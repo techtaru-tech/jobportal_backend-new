@@ -74,9 +74,9 @@
 <div class="mx-auto max-w-[1200px] px-page py-xl lg:px-xl">
 
     <nav aria-label="Breadcrumb" class="mb-lg flex flex-wrap items-center gap-xs text-caption text-ink-muted">
-        <a href="{{ route('site.home') }}" class="transition-colors hover:text-ink">Home</a>
+        <a href="{{ route('site.home') }}" class="inline-flex min-h-[32px] min-w-[32px] items-center justify-center transition-colors hover:text-ink">Home</a>
         @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-3 w-3'])
-        <a href="{{ route('site.jobs') }}" class="transition-colors hover:text-ink">Jobs</a>
+        <a href="{{ route('site.jobs') }}" class="inline-flex min-h-[32px] min-w-[32px] items-center justify-center transition-colors hover:text-ink">Jobs</a>
         @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-3 w-3'])
         <span class="truncate text-ink-secondary">{{ $job->title }}</span>
     </nav>
@@ -250,7 +250,7 @@
                              with user-supplied URLs should pass neither window
                              access nor ranking. --}}
                         <a href="{{ $org->website }}" target="_blank" rel="noopener nofollow"
-                           class="group mt-lg inline-flex items-center gap-xs text-btnghost font-semibold text-primary-dark transition-colors hover:underline">
+                           class="group mt-lg inline-flex min-h-[32px] items-center gap-xs text-btnghost font-semibold text-primary-dark transition-colors hover:underline">
                             <span>Visit website</span>
                             <span class="nudge">
                                 @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-4 w-4'])
