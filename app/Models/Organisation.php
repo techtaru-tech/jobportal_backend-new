@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\JobPostingStatus;
-use App\Enums\OrganisationIndustry;
 use App\Enums\OrganisationSize;
 use Database\Factories\OrganisationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -29,7 +28,6 @@ class Organisation extends Model
     protected function casts(): array
     {
         return [
-            'industry' => OrganisationIndustry::class,
             'size' => OrganisationSize::class,
             'latitude' => 'float',
             'longitude' => 'float',

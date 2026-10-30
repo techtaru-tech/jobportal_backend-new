@@ -216,6 +216,15 @@ class OrganisationController extends ApiController
             return ApiResponse::message('That employer is already verified.');
         }
 
+        // Verification is a check *of the business document*, and verifying
+        // is what publishes the company's paid jobs — so with no document
+        // there is nothing to have checked, and no job may go live on it.
+        if (! $org->hasDocument()) {
+            throw ValidationException::withMessages([
+                'organisation' => 'This company has not uploaded its business document yet. Verify it once the document is in.',
+            ]);
+        }
+
         $org->markVerified();
 
         // "From business proof to live", automated: paid postings that were
@@ -530,7 +539,7 @@ class OrganisationController extends ApiController
         return [
             'id' => PublicId::encode('org', $org->id),
             'name' => $org->name,
-            'industry' => $org->industry?->value,
+            'industry' => $org->industry,
             'size' => $org->size?->value,
             'gst_number' => $org->gst_number,
             'verified' => (bool) $org->verified,

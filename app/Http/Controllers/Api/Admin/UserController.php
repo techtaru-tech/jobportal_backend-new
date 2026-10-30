@@ -216,7 +216,7 @@ class UserController extends ApiController
                 'organisations' => $user->organisations->map(fn ($o) => [
                     'id' => PublicId::encode('org', $o->id),
                     'name' => $o->name,
-                    'industry' => $o->industry?->value,
+                    'industry' => $o->industry,
                     'size' => $o->size?->value,
                     'verified' => (bool) $o->verified,
                     'verified_at' => $o->verified_at?->toIso8601String(),

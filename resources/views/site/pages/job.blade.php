@@ -231,7 +231,7 @@
                 @if ($org)
                     <dl class="mt-lg grid grid-cols-2 gap-lg sm:grid-cols-4">
                         @foreach ([
-                            ['label' => 'Type', 'value' => $org->industry?->value],
+                            ['label' => 'Type', 'value' => $org->industry],
                             ['label' => 'Size', 'value' => $org->size?->value],
                             ['label' => 'Address', 'value' => $org->address],
                             ['label' => 'Verified since', 'value' => $org->verified_at?->format('M Y')],

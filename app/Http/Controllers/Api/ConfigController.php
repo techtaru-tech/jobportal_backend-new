@@ -43,6 +43,9 @@ class ConfigController extends ApiController
             'shifts' => $lists['shifts'],
             'cities' => $lists['cities'],
             'languages' => $lists['languages'],
+            // Admin-editable (Reference data), and an open list: employers
+            // can add their own industry, so this is a shortlist, not an enum.
+            'organisation_industries' => $lists['organisation_industries'],
 
             // Closed enums, and `genders`, stay on the config file / enum: the
             // API validates writes against them, so an admin-added value would
@@ -50,7 +53,6 @@ class ConfigController extends ApiController
             // OptionListService::EDITABLE_LISTS.
             'language_levels' => config('options.language_levels'),
             'language_proficiencies' => config('options.language_proficiencies'),
-            'organisation_industries' => config('options.organisation_industries'),
             'organisation_sizes' => config('options.organisation_sizes'),
 
             'salary_steps' => $lists['salary_steps'],
@@ -102,7 +104,9 @@ class ConfigController extends ApiController
                 'chat_sender' => ChatSender::values(),
                 'chat_message_status' => ChatMessageStatus::values(),
                 'language_level' => LanguageLevel::values(),
-                'organisation_industry' => OrganisationIndustry::values(),
+                // No longer closed — the current shortlist, kept for older
+                // app builds that read it from here.
+                'organisation_industry' => $lists['organisation_industries'],
                 'organisation_size' => OrganisationSize::values(),
                 'notification_audience' => NotificationAudience::values(),
             ],

@@ -103,7 +103,7 @@
             <div class="min-w-0">
               <span class="block text-kicker text-ink-secondary">COMPANY</span>
               <h1 class="mt-[2px] truncate text-h2 text-ink" x-text="orgDetail.data.organisation.name"></h1>
-              <p class="mt-xs text-bodysm text-ink-secondary" x-text="orgDetail.data.organisation.gst_number || 'No GST number'"></p>
+              <p class="mt-xs text-bodysm text-ink-secondary" x-show="orgDetail.data.organisation.gst_number" x-text="'GST ' + orgDetail.data.organisation.gst_number"></p>
             </div>
           </div>
           <span class="inline-flex items-center rounded-field px-md py-[5px] text-tag whitespace-nowrap"
@@ -127,13 +127,17 @@
                   <span>This company is not verified.</span>
                 </template>
               </p>
-              <p class="mt-[2px] text-caption text-ink-secondary">Verify after checking the company document. Its paid jobs go live automatically; other waiting jobs can then be approved below.</p>
+              <p class="mt-[2px] text-caption text-ink-secondary"
+                 x-text="orgDetail.data.organisation.has_document
+                   ? 'Verify after checking the business document. Its paid jobs go live automatically; other waiting jobs can then be approved below.'
+                   : 'No business document yet — the employer uploads it after paying for a plan. It can be verified once the document is in.'"></p>
             </div>
             {{-- No document link here: the certificate has its own card below,
                  which is reachable whatever the verification state. --}}
             <div class="flex flex-wrap items-center gap-sm">
-              <button @click="verifyOrg()"
-                      class="inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
+              <button @click="verifyOrg()" :disabled="!orgDetail.data.organisation.has_document"
+                      :title="orgDetail.data.organisation.has_document ? '' : 'Waiting for the business document'"
+                      class="disabled:cursor-not-allowed disabled:opacity-50 inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
                              bg-primary text-ink-onPrimary shadow-button transition-[background-color,transform] duration-micro ease-out
                              hover:bg-primary-dark active:scale-[0.97]">
                 <span x-html="ICONS.badgeCheck" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span>

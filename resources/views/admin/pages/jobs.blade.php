@@ -370,7 +370,7 @@
                         class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-logo bg-primary-light font-semibold text-primary-dark"></span>
                   <span class="min-w-0 flex-1">
                     <span class="block truncate text-bodysm font-semibold text-ink" x-text="jobDetail.data.employer.name"></span>
-                    <span class="block truncate text-caption text-ink-muted" x-text="jobDetail.data.employer.gst_number || 'No GST number'"></span>
+                    <span class="block truncate text-caption text-ink-muted" x-show="jobDetail.data.employer.gst_number" x-text="'GST ' + jobDetail.data.employer.gst_number"></span>
                   </span>
                   <span class="inline-flex items-center rounded-field px-md py-[5px] text-tag whitespace-nowrap"
                         :class="jobDetail.data.employer.verified ? 'bg-primary-light text-primary-dark' : 'bg-surface-muted text-ink-secondary'"

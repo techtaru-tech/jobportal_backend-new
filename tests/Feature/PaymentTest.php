@@ -285,8 +285,15 @@ class PaymentTest extends TestCase
         $this->buyCleanResume();
         $granted = $user->candidateProfile()->first()->resume_watermark_free_at;
 
-        // A retried request or a double-tapped button.
-        $this->buyCleanResume();
+        // A second purchase is refused outright — nothing is charged.
+        $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'jobSeeker',
+            'plan_id' => 'resume_watermark_free',
+            'method' => 'upi',
+        ])->assertStatus(422);
+
+        $this->assertSame(1, \App\Models\PaymentOrder::where('user_id', $user->id)
+            ->where('plan_id', 'resume_watermark_free')->count());
 
         $this->assertEquals(
             $granted,

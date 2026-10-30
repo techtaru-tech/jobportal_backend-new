@@ -140,17 +140,47 @@ class PostJobFlowTest extends TestCase
             ->exists());
     }
 
-    public function test_no_plan_is_paid_for_without_a_company_document(): void
+    public function test_the_document_is_collected_after_payment_and_the_post_waits_for_it(): void
     {
-        [, $org] = $this->recruiterWithOrg(withDocument: false);
+        // Employer feedback: "Collect business documents after the employer
+        // selects a plan and completes payment … we will not post the job
+        // until we receive the business document."
+        [$recruiter, $org] = $this->recruiterWithOrg(withDocument: false);
         $job = $this->saveDraft($org);
 
-        $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/orders", [
-            'tier' => 'silver', 'reach' => 'district', 'quantity' => 1, 'method' => 'upi',
-        ])->assertStatus(422)
-            ->assertJsonPath('errors.organisation.0', 'Upload your company document first — it is needed to post a job.');
+        $order = $this->payFor($job['id']);
+        $this->assertSame('paid', $order['status']);
 
-        $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/use-credit")->assertStatus(422);
+        $saved = JobPosting::find((int) substr($job['id'], 2));
+        $this->assertSame(JobPostingStatus::PendingApproval, $saved->posting_status);
+        $this->assertSame('paid_document_missing', $saved->hiringStage());
+        $this->getJson("{$this->api}/jobs")->assertJsonCount(0, 'data');
+
+        // And the employer is told what is missing.
+        $this->assertTrue(AppNotification::where('user_id', $recruiter->id)
+            ->where('text', 'like', '%Upload your company document%')
+            ->exists());
+
+        // No document, nothing to verify — so nothing goes live.
+        $this->actingAsAdmin();
+        $this->postJson("{$this->api}/admin/organisations/org_{$org->id}/verify")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.organisation.0', 'This company has not uploaded its business document yet. Verify it once the document is in.');
+        $this->assertFalse((bool) $org->fresh()->verified);
+        $this->assertSame(JobPostingStatus::PendingApproval, $saved->fresh()->posting_status);
+    }
+
+    public function test_a_credit_can_be_spent_before_the_document_is_in(): void
+    {
+        [$recruiter, $org] = $this->recruiterWithOrg(withDocument: false);
+        $first = $this->saveDraft($org);
+        $this->payFor($first['id'], 'silver', 'district', 2);
+        $second = $this->saveDraft($org);
+
+        $this->postJson("{$this->api}/recruiter/jobs/{$second['id']}/use-credit")->assertOk();
+
+        $saved = JobPosting::find((int) substr($second['id'], 2));
+        $this->assertSame('paid_document_missing', $saved->hiringStage());
     }
 
     public function test_a_pack_leaves_postings_for_the_next_job_with_no_payment(): void

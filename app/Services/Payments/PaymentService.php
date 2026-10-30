@@ -122,6 +122,16 @@ class PaymentService
             ])->status(422);
         }
 
+        // A one-off is bought once. Without this a candidate who already had
+        // the watermark-free resume could open and pay a second order for it
+        // — charged twice for the same thing.
+        $oneOff = self::oneOffById((string) $plan['id']);
+        if ($oneOff !== null && $user->candidateProfile()->first()?->{$oneOff['grant']} !== null) {
+            throw ValidationException::withMessages([
+                'plan_id' => ['You already have this — there is nothing more to pay for.'],
+            ])->status(422);
+        }
+
         // One open order per user per side. Re-picking a plan (or backing out
         // of the payment sheet and starting again) should reuse the attempt
         // rather than litter the table with abandoned rows that look like a
@@ -211,10 +221,13 @@ class PaymentService
 
                 // `forceFill`: the grant column is deliberately not fillable.
                 // Nothing a client sends should ever be able to set it.
+                $profileGrant = $order->user()->firstOrFail()
+                    ->candidateProfile()->first()?->{$oneOff['grant']};
                 $order->user()->firstOrFail()
                     ->candidateProfile()
                     ->firstOrFail()
-                    ->forceFill([$oneOff['grant'] => now()])
+                    // The first grant stands; a late duplicate never moves it.
+                    ->forceFill([$oneOff['grant'] => $profileGrant ?? now()])
                     ->save();
             });
 

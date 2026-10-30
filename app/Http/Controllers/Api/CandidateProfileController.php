@@ -122,7 +122,8 @@ class CandidateProfileController extends ApiController
             // job's actual `organisation_industry` have to speak the same
             // words to ever be matched against each other.
             'preferred_organisation_types' => ['sometimes', 'nullable', 'array'],
-            'preferred_organisation_types.*' => [Rule::in(OrganisationIndustry::values())],
+            // The same open list employers pick their industry from.
+            'preferred_organisation_types.*' => ['string', 'max:40'],
             'expected_salary' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
 

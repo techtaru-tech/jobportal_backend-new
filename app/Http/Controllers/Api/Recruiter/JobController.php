@@ -258,7 +258,6 @@ class JobController extends ApiController
     public function useCredit(Request $request, string $jobId): JsonResponse
     {
         $job = $this->findOwned($request, $jobId);
-        $this->requireCompanyDocument($job);
 
         $validated = $request->validate([
             'credit_id' => ['nullable', 'integer'],
@@ -284,6 +283,12 @@ class JobController extends ApiController
     }
 
     /**
+     * The business document is *not* required here. Since the employer
+     * feedback round it is collected after the plan is paid: the post is
+     * held at `paid_document_missing` and only goes live once the document is
+     * uploaded and an admin verifies it (verification refuses a company with
+     * no document — see Admin\OrganisationController::verify).
+     *
      * POST /recruiter/jobs/{jobId}/orders — opens a payment for [quantity]
      * postings at [tier] / [reach], the first of which is this one. The app
      * then confirms it through `/payments/orders/{order}/confirm`, exactly as
@@ -292,7 +297,6 @@ class JobController extends ApiController
     public function openOrder(Request $request, string $jobId): JsonResponse
     {
         $job = $this->findOwned($request, $jobId);
-        $this->requireCompanyDocument($job);
 
         $validated = $request->validate([
             'tier' => ['required', 'string', 'max:20'],
@@ -439,21 +443,6 @@ class JobController extends ApiController
         }
 
         return $organisation;
-    }
-
-    /**
-     * Post a Job asks for the company document at Company details; no plan
-     * is paid for (or credit spent) on a company without one.
-     */
-    private function requireCompanyDocument(JobPosting $job): void
-    {
-        $org = $job->organisationRecord;
-
-        if ($org !== null && ! $org->hasDocument()) {
-            throw ValidationException::withMessages([
-                'organisation' => ['Upload your company document first — it is needed to post a job.'],
-            ]);
-        }
     }
 
     private function findOwned(Request $request, string $jobId): JobPosting

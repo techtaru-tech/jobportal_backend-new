@@ -32,7 +32,7 @@ class OrganisationResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'hiring_type' => $this->hiring_type,
-            'industry' => $this->industry?->value,
+            'industry' => $this->industry,
             'size' => $this->size?->value,
             'address' => $this->address,
             // Structured half of the address, filled by a map pick or a GPS

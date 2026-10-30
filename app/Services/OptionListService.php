@@ -37,7 +37,7 @@ class OptionListService
      *
      * Everything absent from here is deliberately excluded:
      *
-     *  - `language_levels`, `organisation_industries`,
+     *  - `language_levels` and
      *    `organisation_sizes` mirror closed enums in `app/Enums/` that the API
      *    validates against. A value added here would be offered by the picker
      *    and then rejected on save.
@@ -68,6 +68,9 @@ class OptionListService
         // period is never validated with Rule::in(), matching designations
         // and institutes above rather than genders below.
         'notice_periods',
+        // Open since the employer feedback round: the API accepts any
+        // industry (max 40 chars), so a value added here is never rejected.
+        'organisation_industries',
     ];
 
     /**

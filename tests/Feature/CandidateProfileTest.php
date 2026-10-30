@@ -335,15 +335,19 @@ class CandidateProfileTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_preferences_reject_an_organisation_type_no_employer_could_have(): void
+    public function test_preferences_take_any_organisation_type_but_keep_it_short(): void
     {
-        // Validated against the same enum an employer's own organisation
-        // industry is — a candidate's preference and a job's actual industry
-        // have to speak the same words to ever be matched against each other.
+        // Industry is an open list now (employers add their own), and a
+        // candidate's preference speaks the same words — so an industry an
+        // employer added is a valid preference, while junk length is not.
         $this->actingAsCandidate();
 
         $this->patchJson("{$this->api}/candidate/profile/preferences", [
-            'preferred_organisation_types' => ['Spaceship'],
+            'preferred_organisation_types' => ['Veterinary Clinic'],
+        ])->assertOk();
+
+        $this->patchJson("{$this->api}/candidate/profile/preferences", [
+            'preferred_organisation_types' => [str_repeat('x', 41)],
         ])->assertStatus(422);
     }
 

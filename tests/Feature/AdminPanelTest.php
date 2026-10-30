@@ -259,6 +259,8 @@ class AdminPanelTest extends TestCase
         $org = Organisation::factory()->for($recruiter, 'recruiter')->create([
             'name' => 'Sunrise Hospital',
             'verified' => false,
+            // Verification checks the business document; it needs one.
+            'document_path' => 'organisations/doc.pdf',
         ]);
 
         $this->postJson("{$this->api}/admin/organisations/org_{$org->id}/verify", [
@@ -306,6 +308,8 @@ class AdminPanelTest extends TestCase
         $org = Organisation::factory()->for($recruiter, 'recruiter')->create([
             'name' => 'Sunrise Hospital',
             'verified' => false,
+            // Verification checks the business document; it needs one.
+            'document_path' => 'organisations/doc.pdf',
         ]);
         JobPosting::factory()->count(2)->for($recruiter, 'recruiter')->create([
             'organisation_id' => $org->id,

@@ -152,7 +152,10 @@ class OrganisationController extends ApiController
         // docblock. Any value a client sends for it is silently ignored.
         return $request->validate([
             'name' => [$required, 'string', 'max:150'],
-            'industry' => ['nullable', Rule::in(OrganisationIndustry::values())],
+            // An open list: the picker offers the admin-managed shortlist
+            // (Reference data ▸ Organisation industries) and an employer can
+            // add their own. See OptionListService::EDITABLE_LISTS.
+            'industry' => ['nullable', 'string', 'max:40'],
             'size' => ['nullable', Rule::in(OrganisationSize::values())],
             'address' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:80'],
