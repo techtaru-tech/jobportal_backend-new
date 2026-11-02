@@ -31,6 +31,10 @@ Schedule::command('postings:expire-overdue')->hourly()->withoutOverlapping();
 /*
 | Payment first, business document after: employers still owing the document
 | for a paid posting are reminded on a few days after payment (see the
-| command). Late morning, when a reminder is likely to be acted on.
+| command). Late morning in India, when a reminder is likely to be acted on —
+| the app runs on UTC, so the time is pinned to IST explicitly.
 */
-Schedule::command('postings:remind-missing-documents')->dailyAt('10:30')->withoutOverlapping();
+Schedule::command('postings:remind-missing-documents')
+    ->dailyAt('10:30')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping();

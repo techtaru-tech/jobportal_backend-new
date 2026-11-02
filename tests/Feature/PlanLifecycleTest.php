@@ -92,6 +92,16 @@ class PlanLifecycleTest extends TestCase
         $this->assertContains(7, RemindMissingDocuments::REMIND_ON_DAYS);
     }
 
+    public function test_reminders_go_out_at_half_past_ten_india_time(): void
+    {
+        $event = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->first(fn ($e) => str_contains((string) $e->command, 'postings:remind-missing-documents'));
+
+        $this->assertNotNull($event);
+        $this->assertSame('30 10 * * *', $event->expression);
+        $this->assertSame('Asia/Kolkata', (string) $event->timezone);
+    }
+
     public function test_no_reminder_once_the_document_is_in(): void
     {
         $recruiter = $this->actingAsRecruiter();
