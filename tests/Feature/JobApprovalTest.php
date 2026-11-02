@@ -27,7 +27,7 @@ class JobApprovalTest extends TestCase
 
     private function pendingJob(): JobPosting
     {
-        $recruiter = User::factory()->create();
+        $recruiter = User::factory()->recruiter()->create();
 
         return JobPosting::factory()
             ->for($recruiter, 'recruiter')

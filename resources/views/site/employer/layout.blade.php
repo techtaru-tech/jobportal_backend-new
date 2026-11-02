@@ -6,6 +6,10 @@
   `@section('employer')`. Signed-out visitors see `@section('employer_guest')`
   if the page defines one (the dashboard uses it for the "hire with Inthes"
   pitch), otherwise a sign-in card. Page scripts go in `@push('page-scripts')`.
+
+  Employer accounts only (one account, one job): a job seeker account gets a
+  card offering the switch instead of the content, and sign-in from here is
+  fixed to the employer role.
 --}}
 @extends('site.layout')
 
@@ -37,8 +41,8 @@
             @include('admin.partials.icon', ['name' => 'briefcase', 'class' => 'h-6 w-6'])
           </span>
           <h1 class="mt-lg text-h2 text-ink">Sign in to hire</h1>
-          <p class="mt-xs text-bodysm text-ink-secondary">Post jobs and manage applicants with your mobile number — the same account works in the Inthes app.</p>
-          <button type="button" @click="signIn('to post jobs and manage applicants')" class="wa-btn mt-xl w-full">Sign in</button>
+          <p class="mt-xs text-bodysm text-ink-secondary">Post jobs and manage applicants with an employer account on your mobile number — the same account works in the Inthes app.</p>
+          <button type="button" @click="Inthes.signIn('to post jobs and manage applicants', { role: 'recruiter', lock: true })" class="wa-btn mt-xl w-full">Sign in as an employer</button>
         </div>
       @endif
     </div>
@@ -46,8 +50,22 @@
   <template x-if="!$store.auth.ready">
     @include('site.ui.spinner')
   </template>
+  {{-- A job seeker account here: employer pages need an employer account
+       (one account, one job). The switch dialog opens on its own; this card
+       is what stays behind it. --}}
+  <template x-if="$store.auth.ready && $store.auth.signedIn && !$store.auth.is('recruiter')">
+    <div class="wa-card mx-auto mt-xxl max-w-[480px] text-center" data-wrong-account>
+      <span class="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
+        @include('admin.partials.icon', ['name' => 'briefcase', 'class' => 'h-6 w-6'])
+      </span>
+      <h1 class="mt-lg text-h2 text-ink">Posting jobs needs an employer account</h1>
+      <p class="mt-xs text-bodysm text-ink-secondary">You're signed in with a job seeker account. Sign in again with your mobile number as an employer — it's a separate account.</p>
+      <button type="button" @click="Inthes.openSwitch('recruiter', location.pathname + location.search)" class="wa-btn mt-xl w-full">Continue as employer</button>
+      <a href="{{ url('/account') }}" class="wa-btn-quiet mt-sm w-full">Back to my job seeker account</a>
+    </div>
+  </template>
 
-  <div x-show="$store.auth.ready && $store.auth.signedIn" x-cloak class="lg:grid lg:grid-cols-[232px_1fr] lg:gap-xxl">
+  <div x-show="$store.auth.ready && $store.auth.is('recruiter')" x-cloak class="lg:grid lg:grid-cols-[232px_1fr] lg:gap-xxl">
     <aside class="mb-lg lg:mb-0">
       <div class="lg:sticky lg:top-[92px]">
         <p class="mb-sm hidden px-md text-kicker text-ink-secondary lg:block">EMPLOYER</p>

@@ -5,7 +5,23 @@
 
 @section('employer')
 <div x-data="empSettings()" class="max-w-[720px]">
-  <h1 class="text-h1 text-ink">Contact details</h1>
+  {{-- A new employer account's first stop (?welcome=1). --}}
+  <template x-if="welcome">
+    <div class="mb-xl overflow-hidden rounded-card border-hair border-primary-line bg-surface shadow-card" data-employer-welcome>
+      <div class="hero-wash px-xl py-xl">
+        <p class="wa-section-title text-primary">Employer account</p>
+        <h1 class="mt-xs text-h1 text-ink">Welcome! Let's set up your employer account</h1>
+        <p class="mt-xs max-w-[560px] text-bodysm text-ink-secondary">This account is only for hiring — it's separate from any job seeker account on your number. Tell candidates who to contact, then post your first job; you'll add your company details there.</p>
+        <ol class="mt-lg flex flex-wrap gap-x-xl gap-y-sm text-caption text-ink-secondary">
+          <li class="flex items-center gap-xs font-semibold text-ink"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] text-ink-onPrimary">1</span>Contact details</li>
+          <li class="flex items-center gap-xs"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-muted text-[11px]">2</span>Company &amp; first job</li>
+          <li class="flex items-center gap-xs"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-muted text-[11px]">3</span>Applicants on your dashboard</li>
+        </ol>
+      </div>
+    </div>
+  </template>
+  <h1 x-show="!welcome" class="text-h1 text-ink">Contact details</h1>
+  <h2 x-show="welcome" x-cloak class="text-h2 text-ink">Contact details</h2>
   <p class="mt-xs text-bodysm text-ink-secondary">Who candidates should reach out to. Shared across every company you post jobs for.</p>
 
   <template x-if="loading">@include('site.ui.spinner')</template>
@@ -22,10 +38,11 @@
       </div>
       <p class="text-caption text-ink-muted">The phone number is also filled in as the call number when you post a job.</p>
       <div class="flex items-center justify-end gap-sm border-t border-hairline-divider pt-lg">
-        <button type="button" class="wa-btn-quiet" x-show="dirty" @click="form = Inthes.clone(saved); errors = {}">Discard</button>
-        <button type="submit" class="wa-btn-sm min-w-[120px]" :disabled="saving || !dirty">
+        <button type="button" class="wa-btn-quiet" x-show="dirty && !welcome" @click="form = Inthes.clone(saved); errors = {}">Discard</button>
+        <button type="button" class="wa-btn-quiet" x-show="welcome" @click="finishWelcome()">Skip for now</button>
+        <button type="submit" class="wa-btn-sm min-w-[120px]" :disabled="saving || (!dirty && !welcome)" data-settings-save>
           <span x-show="saving" x-html="ICONS.loader" class="animate-spin [&>svg]:h-4 [&>svg]:w-4"></span>
-          Save
+          <span x-text="welcome ? 'Save & continue' : 'Save'">Save</span>
         </button>
       </div>
     </form>

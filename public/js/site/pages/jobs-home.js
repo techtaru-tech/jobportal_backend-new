@@ -1,7 +1,9 @@
 /**
- * Home, signed in only: "Recommended for you" (GET /jobs?recommended=1, best
- * match first) and a glance at your applications. Visitors see the plain
- * server-rendered home page; nothing here runs for them.
+ * Home, signed in only. One account, one job: a job seeker account gets
+ * "Recommended for you" (GET /jobs?recommended=1, best match first) and a
+ * glance at its applications; an employer account gets its hiring at a
+ * glance instead. Visitors see the plain server-rendered home page; nothing
+ * here runs for them.
  */
 document.addEventListener('alpine:init', () => {
   Alpine.store('myJobIds', [])
@@ -11,7 +13,7 @@ document.addEventListener('alpine:init', () => {
     kit: Inthes.jobsKit,
     jobs: [],
     busy: true,
-    /** The visitor's own postings — one account holds both sides. */
+    /** An employer account's own postings. */
     posted: [],
     postedTotal: 0,
 
@@ -20,24 +22,28 @@ document.addEventListener('alpine:init', () => {
       window.addEventListener('inthes:signed-in', () => this.load())
     },
 
-    /**
-     * Somebody who posts jobs and has never applied is here as an employer:
-     * they get their hiring at a glance instead of a job-seeker feed full of
-     * other employers' openings. Somebody who does both gets both.
-     */
-    get hiringOnly() { return this.postedTotal > 0 && !this.apps.length },
+    get isEmployer() { return this.$store.auth.isEmployer },
     get activeCount() { return this.posted.filter((j) => j.posting_status === 'active').length },
     get pendingCount() { return this.posted.filter((j) => j.posting_status === 'pending_approval').length },
     get applicantsCount() { return this.posted.reduce((n, j) => n + (j.applicants_count || 0), 0) },
 
     async load() {
       this.busy = true
-      Inthes.api('/recruiter/jobs/mine' + Inthes.qs({ per_page: 50 }))
-        .then((r) => { this.posted = r.data || []; this.postedTotal = r.meta?.total ?? this.posted.length })
-        .catch(() => { this.posted = []; this.postedTotal = 0 })
+      if (this.$store.auth.isEmployer) {
+        try {
+          const r = await Inthes.api('/recruiter/jobs/mine' + Inthes.qs({ per_page: 50 }))
+          this.posted = r.data || []
+          this.postedTotal = r.meta?.total ?? this.posted.length
+        } catch (e) { this.posted = []; this.postedTotal = 0 }
         // The public job cards on this page read it to say "Manage" on the
-        // visitor's own postings rather than inviting them to apply.
-        .finally(() => Alpine.store('myJobIds', this.posted.map((j) => j.id)))
+        // employer's own postings rather than inviting them to apply.
+        Alpine.store('myJobIds', this.posted.map((j) => j.id))
+        this.jobs = []
+        this.busy = false
+        return
+      }
+      this.posted = []
+      this.postedTotal = 0
       await this.$store.jobs.ensure().catch(() => {})
       try {
         const r = await Inthes.api('/jobs' + Inthes.qs({ recommended: 1, per_page: 20 }))

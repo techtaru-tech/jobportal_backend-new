@@ -25,7 +25,7 @@
             @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-5 w-5'])
             Post a job
           </a>
-          <button type="button" class="wa-btn-ghost" @click="signIn('to post jobs and manage applicants')">Sign in to post a job</button>
+          <button type="button" class="wa-btn-ghost" @click="Inthes.signIn('to post jobs and manage applicants', { role: 'recruiter', lock: true })">Sign in as an employer</button>
         </div>
         <p class="mt-md text-caption text-ink-muted">Same mobile number, same account as the Inthes app.</p>
       </div>

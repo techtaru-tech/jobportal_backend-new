@@ -47,6 +47,7 @@ class SubscriptionController extends ApiController
         ]);
 
         $audience = NotificationAudience::from($validated['audience']);
+        $this->assertOwnSide($request, $audience);
 
         // Validated against the catalogue rather than with Rule::in so the
         // message can say *why* — a plan id that exists on the other side of

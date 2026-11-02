@@ -21,10 +21,6 @@
         {{ $isRecruiter ? 'Grow your hiring pipeline with more visibility and no posting limits.' : 'Stand out to recruiters and get first access to new listings.' }}
       </p>
     </div>
-    <a href="{{ $isRecruiter ? url('/account/plan') : url('/employer/plan') }}" class="wa-btn-quiet">
-      {{ $isRecruiter ? 'Job seeker plans' : 'Hiring plans' }}
-      @include('admin.partials.icon', ['name' => 'chevronRight', 'class' => 'h-4 w-4'])
-    </a>
   </div>
 
   <template x-if="!sub && !loadError">

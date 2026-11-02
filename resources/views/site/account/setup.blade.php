@@ -170,7 +170,13 @@
           <p class="mt-sm text-caption text-ink-muted" x-show="finishing">Writing your resume from your profile…</p>
           <p class="mt-sm text-caption text-success" x-show="!finishing && me?.resume">Your resume is ready — built from what you entered.</p>
           <div class="mt-xl flex flex-col justify-center gap-sm sm:flex-row">
-            <button type="button" @click="leave('/jobs?sort=relevant')" class="wa-btn">
+            <template x-if="nextUrl">
+              <button type="button" @click="leave(nextUrl)" class="wa-btn" data-setup-next>
+                <span x-show="finishing" x-html="ICONS.loader" class="animate-spin [&>svg]:h-5 [&>svg]:w-5"></span>
+                <span x-text="nextIsApply ? 'Continue applying' : 'Continue'"></span>
+              </button>
+            </template>
+            <button type="button" x-show="!nextUrl" @click="leave('/jobs?sort=relevant')" class="wa-btn">
               <span x-show="finishing" x-html="ICONS.loader" class="animate-spin [&>svg]:h-5 [&>svg]:w-5"></span> See jobs that match me
             </button>
             <button type="button" @click="leave('/account')" class="wa-btn-ghost">Go to my profile</button>

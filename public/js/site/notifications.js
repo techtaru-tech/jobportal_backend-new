@@ -1,11 +1,11 @@
 /**
  * The header's bell and the Messages icon's dot, on every page.
  *
- * `Alpine.store('notif')` holds the latest notifications for the side the
- * visitor is on (the employer area is the recruiter inbox, everything else
- * the job seeker's — the same split as the app's two inboxes), the unread
- * counts, and `go(n)`: where a notification leads, the app's
- * NotificationRouter mapped onto website URLs.
+ * `Alpine.store('notif')` holds the latest notifications for the signed-in
+ * account's own side — an employer account reads the recruiter inbox, a job
+ * seeker account the job seeker's (one account, one job; the API refuses the
+ * other audience) — the unread counts, and `go(n)`: where a notification
+ * leads, the app's NotificationRouter mapped onto website URLs.
  *
  * There is no count endpoint, so both dots come from the lists: refreshed when
  * the bell opens, on sign-in, and every 60s while the tab is visible.
@@ -14,7 +14,7 @@
   const REFRESH_MS = 60000
 
   const enc = encodeURIComponent
-  const onEmployer = () => /^\/employer(\/|$)/.test(location.pathname)
+  const isEmployer = () => Alpine.store('auth').role === 'recruiter'
 
   /** Where a notification goes — NotificationRouter.open, rule for rule, as website URLs. */
   async function routeFor(n) {
@@ -58,17 +58,18 @@
       _timer: null,
       _seq: 0,
 
-      get audience() { return onEmployer() ? 'recruiter' : 'jobSeeker' },
-      get chatSide() { return onEmployer() ? 'recruiter' : 'candidate' },
-      get messagesUrl() { return onEmployer() ? '/employer/messages' : '/account/messages' },
-      get allUrl() { return '/account/notifications' + (onEmployer() ? '?audience=recruiter' : '') },
+      get audience() { return isEmployer() ? 'recruiter' : 'jobSeeker' },
+      get chatSide() { return isEmployer() ? 'recruiter' : 'candidate' },
+      get messagesUrl() { return isEmployer() ? '/employer/messages' : '/account/messages' },
+      get allUrl() { return '/account/notifications' },
       get latest() { return this.items.slice(0, 8) },
 
       icon: iconFor,
       routeFor,
 
       async refresh() {
-        if (!Alpine.store('auth').token) return
+        // Not before the session knows which kind of account it is.
+        if (!Alpine.store('auth').token || !Alpine.store('auth').role) return
         const seq = ++this._seq
         this.busy = true
         const [n, c] = await Promise.allSettled([

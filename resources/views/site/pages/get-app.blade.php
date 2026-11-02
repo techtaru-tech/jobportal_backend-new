@@ -77,7 +77,7 @@
                 Employers post and manage openings on the web — no app needed.
             </p>
         </div>
-        <a href="{{ route('employer.post') }}"
+        <a href="{{ route('employer.post') }}" @click="Inthes.guardArea($event, 'recruiter')"
            class="inline-flex h-[50px] shrink-0 items-center justify-center rounded-button border-btn border-primary bg-surface px-xl text-btn font-semibold text-primary
                   transition-colors duration-micro hover:bg-primary-light">
             Post a job

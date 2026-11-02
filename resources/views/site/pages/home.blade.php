@@ -163,13 +163,13 @@
      Only for a signed-in candidate (js/site/pages/jobs-home.js); a visitor
      never sees it, and the page they get stays fully server-rendered. --}}
 <div x-data="homeForYou()" x-show="$store.auth.signedIn" x-cloak>
-    {{-- An employer's own hiring, for anyone who has posted a job. --}}
-    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl" x-show="postedTotal > 0">
+    {{-- An employer account: its own hiring (one account, one job). --}}
+    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl" x-show="isEmployer">
         <div class="wa-card flex flex-col gap-lg lg:flex-row lg:items-center">
             <div class="min-w-0 flex-1">
                 <span class="block text-kicker text-ink-secondary" x-text="$store.auth.firstName ? 'HI ' + $store.auth.firstName.toUpperCase() : 'YOUR HIRING'"></span>
                 <h2 class="mt-[2px] text-h2 text-ink">Your hiring</h2>
-                <p class="mt-xs text-bodysm text-ink-secondary">Your job posts and the people who applied, in the employer dashboard.</p>
+                <p class="mt-xs text-bodysm text-ink-secondary" x-text="postedTotal > 0 ? 'Your job posts and the people who applied, in the employer dashboard.' : 'Post your first job and applicants show up in your employer dashboard.'">Your job posts and the people who applied, in the employer dashboard.</p>
             </div>
             <div class="grid grid-cols-3 gap-sm text-center lg:w-[360px]">
                 <a href="{{ url('/employer/jobs?status=active') }}" class="rounded-field bg-surface-muted px-sm py-md hover:bg-hairline">
@@ -192,8 +192,8 @@
         </div>
     </section>
 
-    {{-- The job-seeker side: hidden for someone who only hires. --}}
-    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl" x-show="!hiringOnly">
+    {{-- A job seeker account: recommendations and applications. --}}
+    <section class="mx-auto max-w-[1200px] px-page pt-xxl lg:px-xl" x-show="!isEmployer">
         <div class="grid gap-lg lg:grid-cols-[minmax(0,1fr)_300px]">
             <div class="min-w-0">
                 <div class="mb-md flex items-end justify-between gap-md">
@@ -439,7 +439,7 @@
                     applicant arrives with a complete profile.
                 </p>
             </div>
-            <a href="{{ route('employer.post') }}"
+            <a href="{{ route('employer.post') }}" @click="Inthes.guardArea($event, 'recruiter')"
                class="sheen relative mt-lg inline-flex h-[50px] items-center justify-center rounded-button bg-white px-xl text-btn font-semibold text-ink
                       transition-transform duration-micro ease-out hover:bg-white/90 active:scale-[0.97]">
                 Post a job

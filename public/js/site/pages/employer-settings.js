@@ -2,6 +2,11 @@
  * /employer/settings — the recruiter's contact card (recruiter_contact_view):
  * who candidates should reach, shared across every company. The app checks
  * nothing client-side here; the API's own messages land on their fields.
+ *
+ * `?welcome=1` is a new employer account's first stop (one account, one job:
+ * an employer account is registered separately from a job seeker account on
+ * the same number). It asks for the contact person, prefills the phone, and
+ * goes on to the dashboard once saved — or skipped.
  */
 document.addEventListener('alpine:init', () => {
   Alpine.data('empSettings', () => ({
@@ -11,6 +16,7 @@ document.addEventListener('alpine:init', () => {
     form: { contact_person_name: '', contact_email: '', contact_phone: '' },
     saved: null,
     errors: {},
+    welcome: new URLSearchParams(location.search).get('welcome') === '1',
 
     async init() {
       await Inthes.whenReady()
@@ -27,16 +33,27 @@ document.addEventListener('alpine:init', () => {
         // Nulls become '' — the form trims these.
         this.form = { contact_person_name: d.contact_person_name || '', contact_email: d.contact_email || '', contact_phone: d.contact_phone || '' }
         this.saved = Inthes.clone(this.form)
+        if (this.welcome && !this.form.contact_phone) this.form.contact_phone = Alpine.store('auth').phone || ''
       } catch (e) { this.loadError = e.message }
       this.loading = false
     },
 
     get dirty() { return JSON.stringify(this.form) !== JSON.stringify(this.saved) },
 
+    /** Onboarding done (or skipped): the dashboard, where the first job is posted from. */
+    finishWelcome() {
+      try { sessionStorage.setItem('emp.flash', 'Your employer account is ready — post your first job') } catch (e) { /* private mode */ }
+      location.href = '/employer'
+    },
+
     async save() {
       if (this.saving) return
-      this.saving = true
       this.errors = {}
+      if (this.welcome && !this.form.contact_person_name.trim()) {
+        this.errors.contact_person_name = 'Enter the name candidates should ask for'
+        return
+      }
+      this.saving = true
       try {
         const f = this.form
         const res = await Inthes.api('/recruiter/profile', {
@@ -47,6 +64,7 @@ document.addEventListener('alpine:init', () => {
         this.form = { contact_person_name: d.contact_person_name || '', contact_email: d.contact_email || '', contact_phone: d.contact_phone || '' }
         this.saved = Inthes.clone(this.form)
         Inthes.toast('Contact details saved')
+        if (this.welcome) { this.finishWelcome(); return }
       } catch (e) {
         for (const [k, v] of Object.entries(e.errors || {})) this.errors[k] = Array.isArray(v) ? v[0] : v
         Inthes.toast(e.message, true)

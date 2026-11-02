@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAccountRole;
 use App\Http\Middleware\EnsureIsAdmin;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\OptionalAuthenticate;
@@ -25,10 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ForceJsonResponse::class,
         ]);
 
-        // No 'role' alias: one account holds both sides of the marketplace,
-        // so there is nothing left for a role gate to reject. Per-action rules
-        // that remain (you cannot apply to your own posting; you can only
-        // manage jobs you own) live in the services that own them.
+        // `role`: one account, one job — a job seeker account applies, an
+        // employer account posts (same phone may hold one of each). See
+        // [EnsureAccountRole].
         //
         // `admin` is not a role gate on app accounts and is not an exception
         // to the above — admins are a separate authenticatable in their own
@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'guest.token' => OptionalAuthenticate::class,
             'admin' => EnsureIsAdmin::class,
+            'role' => EnsureAccountRole::class,
         ]);
 
         // This app has no `login` route — it is an API with OTP auth. Laravel

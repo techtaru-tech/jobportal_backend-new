@@ -28,6 +28,35 @@
     </div>
   </div>
 
+  {{-- Wrong kind of account (one account, one job). Opened by
+       Inthes.openSwitch / requireRole / guardArea, and by any API call that
+       belongs to the other kind of account (js/site/core.js). --}}
+  <div x-show="$store.ui.roleSwitch.open" x-cloak x-transition.opacity
+       class="fixed inset-0 z-[96] flex items-end justify-center bg-ink/40 sm:items-center sm:px-page"
+       @keydown.escape.window="$store.ui.roleSwitch.open && Inthes.cancelSwitch()">
+    <div @click.outside="$store.ui.roleSwitch.open && Inthes.cancelSwitch()" role="alertdialog" aria-modal="true" aria-labelledby="role-switch-title" data-role-switch
+         class="w-full max-w-[440px] rounded-t-sheet bg-surface p-xl shadow-raised sm:rounded-dialog animate-pop-in">
+      <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary">
+        <span x-html="$store.ui.roleSwitch.role === 'recruiter' ? ICONS.briefcase : ICONS.user" class="[&>svg]:h-6 [&>svg]:w-6"></span>
+      </span>
+      <h3 id="role-switch-title" class="mt-lg text-h3 text-ink"
+          x-text="$store.ui.roleSwitch.role === 'recruiter' ? 'Posting jobs needs an employer account' : 'Applying for jobs needs a job seeker account'"></h3>
+      <p class="mt-sm text-bodysm text-ink-secondary"
+         x-text="$store.ui.roleSwitch.role === 'recruiter'
+           ? 'You\'ll sign in again with your mobile number as an employer — it\'s a separate account.'
+           : 'You\'ll sign in again with your mobile number as a job seeker — it\'s a separate account.'"></p>
+      <p class="mt-sm text-caption text-ink-muted">
+        You're now signed in with your <span x-text="$store.ui.roleSwitch.role === 'recruiter' ? 'job seeker' : 'employer'"></span> account.
+        It stays as it is — sign back in to it any time.
+      </p>
+      <div class="mt-xl flex flex-col-reverse gap-sm sm:flex-row sm:justify-end">
+        <button type="button" @click="Inthes.cancelSwitch()" class="wa-btn-quiet">Cancel</button>
+        <button type="button" @click="Inthes.continueSwitch()" data-role-switch-continue class="wa-btn-sm"
+                x-text="$store.ui.roleSwitch.role === 'recruiter' ? 'Continue as employer' : 'Continue as job seeker'"></button>
+      </div>
+    </div>
+  </div>
+
   {{-- Payment method --}}
   <div x-show="$store.ui.pay.open" x-cloak x-transition.opacity
        class="fixed inset-0 z-[97] flex items-end justify-center bg-ink/40 sm:items-center sm:px-page">

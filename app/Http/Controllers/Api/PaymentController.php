@@ -61,6 +61,7 @@ class PaymentController extends ApiController
         ]);
 
         $audience = NotificationAudience::from($validated['audience']);
+        $this->assertOwnSide($request, $audience);
         $plan = $this->payments->requirePlan($audience, $validated['plan_id']);
 
         $order = $this->payments->openOrder(

@@ -48,7 +48,7 @@ class SubscriptionTest extends TestCase
 
     public function test_subscribing_activates_only_the_side_it_was_bought_for(): void
     {
-        $this->actingAsCandidate();
+        $this->actingAsRecruiter();
 
         $this->postJson("{$this->api}/subscription", [
             'audience' => 'recruiter',
@@ -59,10 +59,21 @@ class SubscriptionTest extends TestCase
             ->assertJsonPath('message', 'Business plan activated.');
 
         $this->getJson("{$this->api}/subscription")
-            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_business')
-            // The job-seeking side is untouched — a paying recruiter is not
-            // automatically a paying job seeker.
-            ->assertJsonPath('data.active.jobSeeker.plan_id', 'seeker_free');
+            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_business');
+    }
+
+    public function test_an_account_cannot_buy_a_plan_for_the_other_side(): void
+    {
+        // One account, one job: a job seeker account has no employer plans.
+        $this->actingAsCandidate();
+
+        $this->postJson("{$this->api}/subscription", [
+            'audience' => 'recruiter',
+            'plan_id' => 'recruiter_business',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('code', 'wrong_account_role')
+            ->assertJsonPath('required_role', 'recruiter');
     }
 
     public function test_a_paid_plan_gets_an_expiry_and_a_free_one_does_not(): void
@@ -100,7 +111,7 @@ class SubscriptionTest extends TestCase
 
     public function test_a_plan_from_the_other_side_is_refused(): void
     {
-        $this->actingAsCandidate();
+        $this->actingAsRecruiter();
 
         $this->postJson("{$this->api}/subscription", [
             'audience' => 'recruiter',

@@ -1,6 +1,7 @@
 /**
- * /account/notifications — every notification for one side (Job search or
- * Hiring; `?audience=recruiter` opens Hiring), with an All / Unread filter.
+ * /account/notifications — every notification for the signed-in account's
+ * own side (Job search for a job seeker account, Hiring for an employer
+ * account — one account, one job), with an All / Unread filter.
  *
  * As in the app, opening the inbox is what "seen" means: the side is marked
  * read on load, but the rows that were unread stay highlighted (and listed
@@ -10,7 +11,7 @@
 ;(function () {
   document.addEventListener('alpine:init', () => {
     Alpine.data('accountNotifications', () => ({
-      audience: new URL(location.href).searchParams.get('audience') === 'recruiter' ? 'recruiter' : 'jobSeeker',
+      audience: 'jobSeeker',
       filter: 'all',
       items: [],
       fresh: [], // ids unread when this side was opened
@@ -24,19 +25,9 @@
         if (Alpine.store('auth').token) this.load()
       },
 
-      setAudience(a) {
-        if (a === this.audience) return
-        this.audience = a
-        this.filter = 'all'
-        const url = new URL(location.href)
-        if (a === 'recruiter') url.searchParams.set('audience', 'recruiter')
-        else url.searchParams.delete('audience')
-        history.replaceState(null, '', url)
-        this.load()
-      },
-
       async load() {
         const seq = ++this._seq
+        this.audience = Alpine.store('auth').role === 'recruiter' ? 'recruiter' : 'jobSeeker'
         const audience = this.audience
         this.loaded = false
         this.error = ''

@@ -61,11 +61,10 @@ class AuthController extends ApiController
             $validated['otp'],
         );
 
-        // Keyed on the phone alone. `role` used to be part of the key, which
-        // gave one person two unrelated accounts and meant the token they
-        // signed in with only worked on half the app. It is now recorded once,
-        // on signup, purely as the side to open the app on.
-        $user = User::firstOrNew(['phone' => $validated['phone']]);
+        // Keyed on phone *and* role: one account, one job. Signing in as an
+        // employer with a number that so far only applied for jobs creates a
+        // separate employer account — its own registration, its own data.
+        $user = User::firstOrNew(['phone' => $validated['phone'], 'role' => $role->value]);
 
         $isNewUser = ! $user->exists;
 
@@ -73,14 +72,10 @@ class AuthController extends ApiController
         $user->forceFill([
             'phone_verified_at' => now(),
             'last_login_at' => now(),
-            // Only on creation: signing in from the hiring tab must not
-            // rewrite the preferred side of an existing account.
-            ...($isNewUser ? ['role' => $role->value] : []),
         ])->save();
 
-        // Both profile rows are lazy (`firstOrCreate`), so the side they did
-        // not sign up on costs nothing until they use it.
-        $user->profile();
+        // The profile row for this account's side only.
+        $role === UserRole::Recruiter ? $user->contactProfile() : $user->profile();
 
         $token = $user->createToken(
             'app',

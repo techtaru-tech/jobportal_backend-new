@@ -67,16 +67,12 @@ Route::prefix('v1')->group(function () {
 
         /* §3, §5, §6 Job-seeking side --------------------------------------
         |
-        | No longer gated on users.role. One account holds both sides of the
-        | marketplace (see the 2026_08_17 migration): the same person posts
-        | jobs and applies for them, so the only thing an endpoint here needs
-        | is a signed-in user. The candidate profile row is created lazily on
-        | first touch by User::profile().
-        |
-        | The one rule that survives is enforced where it belongs, in
-        | ApplicationService::submit — you cannot apply to your own posting.
+        | Job seeker accounts only. One account, one job (2026_11_02
+        | migration): a job seeker applies, an employer posts, and the same
+        | phone may hold one of each as separate accounts. An employer account
+        | calling these gets 403 `wrong_account_role`.
         */
-        Route::group([], function () {
+        Route::middleware('role:candidate')->group(function () {
 
             Route::prefix('candidate/profile')->group(function () {
                 Route::get('/', [CandidateProfileController::class, 'show']);
@@ -119,7 +115,8 @@ Route::prefix('v1')->group(function () {
         });
 
         /* §7, §8, §9 Hiring side — same account, see the note above -------- */
-        Route::prefix('recruiter')->group(function () {
+        // Employer accounts only — see the job-seeking group above.
+        Route::prefix('recruiter')->middleware('role:recruiter')->group(function () {
             Route::get('profile', [Recruiter\RecruiterProfileController::class, 'show']);
             Route::patch('profile', [Recruiter\RecruiterProfileController::class, 'update']);
 

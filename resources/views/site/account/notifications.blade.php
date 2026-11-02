@@ -2,6 +2,8 @@
 
 @section('title', 'Notifications — Inthes')
 @section('account_key', 'notifications')
+{{-- Both kinds of account have an inbox; each sees only its own. --}}
+@section('account_any_role', '1')
 
 @push('page-scripts')
 <script defer src="{{ asset('js/site/pages/account-notifications.js') }}?v={{ filemtime(public_path('js/site/pages/account-notifications.js')) }}"></script>
@@ -12,7 +14,7 @@
   <div class="mb-lg flex flex-wrap items-end gap-md">
     <div class="min-w-0 flex-1">
       <h1 class="text-h2 text-ink">Notifications</h1>
-      <p class="mt-xs text-bodysm text-ink-secondary">Application updates, messages and job matches.</p>
+      <p class="mt-xs text-bodysm text-ink-secondary" x-text="audience === 'recruiter' ? 'New applicants, messages and updates on your job posts.' : 'Application updates, messages and job matches.'">Application updates, messages and job matches.</p>
     </div>
     <button type="button" x-show="unreadCount > 0" @click="markAll()" class="wa-btn-quiet !text-primary-dark">
       @include('admin.partials.icon', ['name' => 'check', 'class' => 'h-4 w-4'])Mark all as read
@@ -20,14 +22,6 @@
   </div>
 
   <div class="mb-lg flex flex-wrap items-center gap-md">
-    {{-- Which inbox --}}
-    <div class="inline-flex rounded-button bg-surface-muted p-[3px]" role="tablist">
-      <template x-for="a in [['jobSeeker', 'Job search'], ['recruiter', 'Hiring']]" :key="a[0]">
-        <button type="button" role="tab" @click="setAudience(a[0])" :aria-selected="audience === a[0]"
-                :class="audience === a[0] ? 'bg-surface text-ink shadow-card' : 'text-ink-secondary hover:text-ink'"
-                class="h-9 rounded-[10px] px-lg text-btnghost font-semibold transition-colors" x-text="a[1]"></button>
-      </template>
-    </div>
     <div class="flex gap-xs">
       <button type="button" @click="filter = 'all'" :class="filter === 'all' && 'wa-chip-on'" class="wa-chip !py-[6px]">All</button>
       <button type="button" @click="filter = 'unread'" :class="filter === 'unread' && 'wa-chip-on'" class="wa-chip !py-[6px]">

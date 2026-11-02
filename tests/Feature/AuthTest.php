@@ -166,8 +166,11 @@ class AuthTest extends TestCase
         ])->assertOk();
     }
 
-    /** One phone is one account, whichever side it signs in from. */
-    public function test_the_same_phone_always_resolves_to_one_account(): void
+    /**
+     * One account, one job: the same phone signing in as a job seeker and as
+     * an employer gets two separate accounts — each with its own role.
+     */
+    public function test_the_same_phone_gets_a_separate_account_for_each_role(): void
     {
         foreach (['candidate', 'recruiter'] as $role) {
             $verification = $this->issueOtp('9876543210', $role, '482913');
@@ -180,31 +183,27 @@ class AuthTest extends TestCase
             ])->assertOk();
         }
 
-        $this->assertSame(1, User::where('phone', '9876543210')->count());
+        $this->assertSame(2, User::where('phone', '9876543210')->count());
+        $this->assertEqualsCanonicalizing(
+            ['candidate', 'recruiter'],
+            User::where('phone', '9876543210')->pluck('role')->map(fn ($r) => $r->value)->all(),
+        );
     }
 
-    /**
-     * `role` records the side the account was created from and is never
-     * rewritten — signing in from the hiring tab must not change which tab a
-     * returning job seeker opens on.
-     */
-    public function test_signing_in_from_the_other_side_does_not_rewrite_the_signup_role(): void
+    public function test_signing_in_again_on_the_same_side_reuses_that_account(): void
     {
-        foreach (['candidate', 'recruiter'] as $role) {
-            $verification = $this->issueOtp('9876543210', $role, '482913');
+        foreach ([1, 2] as $_) {
+            $verification = $this->issueOtp('9876543210', 'recruiter', '482913');
 
             $this->postJson("{$this->api}/auth/otp/verify", [
                 'phone' => '9876543210',
                 'otp' => '482913',
                 'verification_id' => $verification->verification_id,
-                'role' => $role,
+                'role' => 'recruiter',
             ])->assertOk();
         }
 
-        $this->assertSame(
-            UserRole::Candidate,
-            User::where('phone', '9876543210')->sole()->signedUpAs(),
-        );
+        $this->assertSame(1, User::where('phone', '9876543210')->where('role', 'recruiter')->count());
     }
 
     public function test_an_unauthenticated_request_returns_a_json_401(): void
@@ -274,25 +273,38 @@ class AuthTest extends TestCase
     }
 
     /**
-     * Both of these used to assert a 403.
-     *
-     * The role gate is gone: the same person hires and looks for work, so
-     * every signed-in account reaches both sides. The rule that replaced it is
-     * narrower and lives in ApplicationService — you cannot apply to your own
-     * posting (see SmartApplyTest).
+     * One account, one job again (2026_11_02): each side refuses the other
+     * kind of account with `wrong_account_role`, so the app and website can
+     * send the person to sign in or register on that side instead.
      */
-    public function test_an_account_that_signed_up_to_job_seek_can_reach_the_hiring_side(): void
+    public function test_a_job_seeker_account_is_sent_to_sign_in_as_an_employer_to_hire(): void
     {
         $this->actingAsCandidate();
 
-        $this->getJson("{$this->api}/recruiter/jobs/mine")->assertOk();
+        $this->getJson("{$this->api}/recruiter/jobs/mine")
+            ->assertForbidden()
+            ->assertJsonPath('code', 'wrong_account_role')
+            ->assertJsonPath('required_role', 'recruiter');
     }
 
-    public function test_an_account_that_signed_up_to_hire_can_reach_the_job_seeking_side(): void
+    public function test_an_employer_account_is_sent_to_sign_in_as_a_job_seeker_to_apply(): void
     {
         $this->actingAsRecruiter();
 
-        $this->getJson("{$this->api}/candidate/profile")->assertOk();
+        $this->getJson("{$this->api}/candidate/profile")
+            ->assertForbidden()
+            ->assertJsonPath('code', 'wrong_account_role')
+            ->assertJsonPath('required_role', 'candidate');
+    }
+
+    public function test_an_account_sees_only_its_own_sides_inbox(): void
+    {
+        $this->actingAsCandidate();
+
+        $this->getJson("{$this->api}/notifications?audience=jobSeeker")->assertOk();
+        $this->getJson("{$this->api}/notifications?audience=recruiter")
+            ->assertForbidden()
+            ->assertJsonPath('code', 'wrong_account_role');
     }
 
     private function issueOtp(string $phone, string $role, string $code): OtpVerification

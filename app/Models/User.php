@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\NotificationAudience;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -98,6 +99,14 @@ class User extends Authenticatable
      * acting as must read it from the thing being acted on (who owns the job,
      * who owns the application) or from the mode the app passes in.
      */
+    /** The inbox, plans and payments this account's side uses. */
+    public function audience(): NotificationAudience
+    {
+        return $this->role === UserRole::Recruiter
+            ? NotificationAudience::Recruiter
+            : NotificationAudience::JobSeeker;
+    }
+
     public function signedUpAs(): UserRole
     {
         return $this->role;

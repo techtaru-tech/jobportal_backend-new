@@ -97,6 +97,125 @@
   const $ui = () => window.Alpine.store('ui')
   const $opts = () => window.Alpine.store('opts')
 
+  // ── account roles ───────────────────────────────────────────────────
+  /**
+   * One account, one job. A job seeker account (`candidate`) applies for
+   * jobs; an employer account (`recruiter`) posts them. The same mobile
+   * number may hold one of each, but they are separate accounts with their
+   * own OTP sign-in — a session is always exactly one of them.
+   */
+  const ROLE_LABEL = { candidate: 'Job seeker account', recruiter: 'Employer account' }
+  const AUDIENCE_ROLE = { jobSeeker: 'candidate', recruiter: 'recruiter' }
+  const onEmployerArea = () => /^\/employer(\/|$)/.test(location.pathname)
+  const onAccountArea = () => /^\/account(\/|$)/.test(location.pathname)
+  /** Pages under /account that any signed-in account may open ([data-any-role-page]). */
+  const anyRolePage = () => !!document.querySelector('[data-any-role-page]')
+
+  /** The kind of account `path` needs, or '' when either may call it. */
+  function roleFor(path, opts = {}) {
+    const [p, query] = String(path).split('?')
+    if (/^\/recruiter(\/|$)/.test(p)) return 'recruiter'
+    if (/^\/candidate(\/|$)/.test(p) || /^\/applications(\/|$)/.test(p)) return 'candidate'
+    // The inbox is read as one end of the thread: `as=recruiter` is the employer's.
+    if (p === '/conversations') {
+      const as = new URLSearchParams(query || '').get('as')
+      if (as === 'recruiter' || as === 'candidate') return as
+    }
+    const method = (opts.method || 'GET').toUpperCase()
+    const body = opts.body && !(opts.body instanceof FormData) ? opts.body : {}
+    let audience = ''
+    if (p === '/notifications' || p === '/notifications/read') {
+      audience = new URLSearchParams(query || '').get('audience') || body.audience || ''
+    } else if ((p === '/subscription' || p === '/payments/orders') && method === 'POST') {
+      audience = body.audience || ''
+    }
+    return AUDIENCE_ROLE[audience] || ''
+  }
+
+  /** The error a wrong-account call throws — after opening the switch dialog. */
+  function wrongRole(needs, message) {
+    openSwitch(needs)
+    const err = new Error(message || (needs === 'recruiter'
+      ? 'Posting jobs needs an employer account.'
+      : 'Applying for jobs needs a job seeker account.'))
+    err.status = 403
+    err.code = 'wrong_account_role'
+    err.requiredRole = needs
+    err.errors = {}
+    return err
+  }
+
+  /**
+   * "Posting jobs needs an employer account…" — the switch dialog
+   * (site/partials/overlays). Continue signs this session out and opens
+   * sign-in fixed to the other role; `next` is where to carry on afterwards.
+   */
+  function openSwitch(role, next = '') {
+    const sw = $ui().roleSwitch
+    if (sw.open && sw.role === role) { if (next) sw.next = next; return }
+    Object.assign(sw, { open: true, role, next: next || '', at: Date.now() })
+  }
+
+  function cancelSwitch() {
+    const sw = $ui().roleSwitch
+    // The click that opened it must not also count as a click outside it.
+    if (Date.now() - (sw.at || 0) < 350) return
+    sw.open = false
+    sw.next = ''
+    // A page that belongs to the other kind of account has nothing to show
+    // this one — back to this account's own home.
+    const role = $auth().role
+    if (role === 'candidate' && onEmployerArea()) location.href = '/account'
+    else if (role === 'recruiter' && onAccountArea() && !anyRolePage()) location.href = '/employer'
+  }
+
+  function continueSwitch() {
+    const sw = $ui().roleSwitch
+    const { role, next } = sw
+    const phone = $auth().phone
+    sw.open = false
+    sw.next = ''
+    signOut({ quiet: true })
+    signIn('', { role, lock: true, next, switching: true, phone })
+  }
+
+  /**
+   * Resolves true when the session is (or becomes) the `role` kind of
+   * account. Signed out → sign-in fixed to that role, then carry on in
+   * place. Signed in as the other kind → the switch dialog, and false.
+   */
+  async function requireRole(role, { reason = '', next = '' } = {}) {
+    const a = $auth()
+    if (!a.token) return signIn(reason, { role, lock: true })
+    if (!a.role) await inferRole()
+    if (a.role === role) return true
+    openSwitch(role, next)
+    return false
+  }
+
+  /**
+   * Sessions stored before the role was: ask a job-seeker-only endpoint. A
+   * 403 `wrong_account_role` means this is an employer account.
+   */
+  async function inferRole() {
+    const a = $auth()
+    if (!a.token || a.role) return a.role
+    try {
+      const res = await fetch(API + '/candidate/profile', { headers: { Accept: 'application/json', Authorization: 'Bearer ' + a.token } })
+      let json = null
+      try { json = await res.json() } catch (e) { /* empty body */ }
+      if (res.ok) { setRole('candidate'); a.me = json?.data || null }
+      else if (res.status === 403 && json?.code === 'wrong_account_role') setRole('recruiter')
+    } catch (e) { /* offline — leave it unknown */ }
+    return a.role
+  }
+
+  function setRole(role) {
+    const a = $auth()
+    a.user = Object.assign({}, a.user || {}, { role })
+    store.set(USER_KEY, JSON.stringify(a.user))
+  }
+
   // ── API ─────────────────────────────────────────────────────────────
   async function refreshToken() {
     try {
@@ -128,6 +247,12 @@
     const token = $auth().token
     if (token) headers.Authorization = 'Bearer ' + token
 
+    // One account, one job: a call that belongs to the other kind of account
+    // is not sent at all — the switch dialog explains instead of a dead 403.
+    const needs = token ? roleFor(path, opts) : ''
+    const mine = $auth().role
+    if (needs && mine && needs !== mine) throw wrongRole(needs)
+
     let res
     try {
       res = await fetch(API + path, { method: opts.method || 'GET', headers, body })
@@ -141,6 +266,10 @@
       if (!_retried && await refreshToken()) return api(path, opts, true)
       signOut({ expired: true })
       throw new Error('Your session expired — please sign in again.')
+    }
+    // The server's own check (e.g. a session whose role is not known yet).
+    if (res.status === 403 && json && json.code === 'wrong_account_role') {
+      throw wrongRole(json.required_role === 'recruiter' ? 'recruiter' : 'candidate', json.message)
     }
     if (!res.ok) {
       const err = new Error(
@@ -163,10 +292,22 @@
     return api(path, { method: 'POST', body: fd })
   }
 
+  /**
+   * The signed-in account's own profile: the candidate profile into `me` for
+   * a job seeker, the contact card into `employer` for an employer (whose
+   * `me` stays null — job seeker screens never read an employer's data).
+   */
   async function loadMe() {
+    const a = $auth()
+    if (!a.role) await inferRole()
+    if (a.role === 'recruiter') {
+      try { a.employer = (await api('/recruiter/profile')).data || null } catch (e) { a.employer = null }
+      a.me = null
+      return null
+    }
     const res = await api('/candidate/profile')
-    $auth().me = res.data || null
-    return $auth().me
+    a.me = res.data || null
+    return a.me
   }
 
   // ── sign in ─────────────────────────────────────────────────────────
@@ -179,14 +320,36 @@
    *
    *   if (!(await Inthes.signIn('to apply for this job'))) return
    */
-  function signIn(reason = '') {
+  /*
+   * `opts.role` is the kind of account (default: employer on /employer pages,
+   * job seeker elsewhere); `lock` fixes it, hiding the picker; `next` is
+   * where to go once signed in. Already signed in as the other kind with a
+   * locked role → the switch dialog instead, and false.
+   */
+  function signIn(reason = '', opts = {}) {
     const a = $auth()
-    if (a.token) return Promise.resolve(true)
+    if (a.token) {
+      if (opts.role && opts.lock) return requireRole(opts.role, { reason, next: opts.next })
+      return Promise.resolve(true)
+    }
     if (pendingSignIn) pendingSignIn.resolve(false)
+    const role = opts.role || (onEmployerArea() ? 'recruiter' : 'candidate')
     return new Promise((resolve) => {
       pendingSignIn = { resolve }
-      Object.assign(a.modal, { open: true, stage: 'phone', otp: '', error: '', reason, busy: false })
+      Object.assign(a.modal, {
+        open: true, stage: 'phone', otp: '', error: '', reason, busy: false,
+        role, lockRole: !!opts.lock, next: opts.next || '', switching: !!opts.switching,
+      })
+      if (opts.phone) a.modal.phone = opts.phone
     })
+  }
+
+  /** The sign-in popup's "Job seeker / Employer" picker. */
+  function pickRole(role) {
+    const m = $auth().modal
+    if (m.lockRole || m.busy || m.stage !== 'phone') return
+    m.role = role
+    m.error = ''
   }
 
   function closeSignIn() {
@@ -228,29 +391,60 @@
         body: { phone: m.phone.trim(), otp, verification_id: m.verificationId, role: m.role },
       })
       a.token = res.data.token
-      a.user = res.data.user
+      a.user = Object.assign({}, res.data.user, { role: res.data.user?.role || m.role })
       store.set(TOKEN_KEY, a.token)
       store.set(USER_KEY, JSON.stringify(a.user))
+      const isNew = !!res.data.user?.is_new_user
+      const dest = afterSignIn(a.user.role, isNew, m)
+      if (dest) {
+        // Somewhere else to be (a new employer's setup, the right area):
+        // go there rather than carry on with what this page was doing.
+        if (pendingSignIn) { pendingSignIn.resolve(false); pendingSignIn = null }
+        location.href = dest
+        return
+      }
       try { await loadMe() } catch (e) { /* the page will retry */ }
       m.open = false
       m.otp = ''
       clearInterval(m._timer)
-      window.dispatchEvent(new CustomEvent('inthes:signed-in', { detail: { isNew: !!res.data.user?.is_new_user } }))
+      window.dispatchEvent(new CustomEvent('inthes:signed-in', { detail: { isNew, role: a.user.role } }))
       toast('Signed in')
       if (pendingSignIn) { pendingSignIn.resolve(true); pendingSignIn = null }
     } catch (e) { m.error = e.message; m.otp = '' }
     m.busy = false
   }
 
-  function signOut({ expired = false } = {}) {
+  /** Where to go after signing in, or '' to stay and carry on in place. */
+  function afterSignIn(role, isNew, m) {
+    const here = location.pathname + location.search
+    const safe = (u) => (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//') ? u : '')
+    const next = safe(m.next)
+    let dest = ''
+    if (role === 'recruiter') {
+      // A first-time employer sets up their contact details, then the dashboard.
+      if (isNew) dest = '/employer/settings?welcome=1'
+      else if (next) dest = next
+      else if (onAccountArea()) dest = '/employer'
+    } else {
+      // A first-time job seeker who came over from an employer account sets
+      // up their profile first, then carries on (e.g. the job they wanted).
+      if (isNew && m.switching) dest = '/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')
+      else if (next) dest = next
+      else if (onEmployerArea()) dest = '/account'
+    }
+    return dest && dest !== here ? dest : ''
+  }
+
+  function signOut({ expired = false, quiet = false } = {}) {
     const a = $auth()
     if (a.token && !expired) api('/auth/logout', { method: 'POST' }).catch(() => {})
     a.token = ''
     a.user = null
     a.me = null
+    a.employer = null
     store.set(TOKEN_KEY, null)
     store.set(USER_KEY, null)
-    window.dispatchEvent(new CustomEvent('inthes:signed-out', { detail: { expired } }))
+    window.dispatchEvent(new CustomEvent('inthes:signed-out', { detail: { expired, quiet } }))
     if (expired) { toast('Your session expired — please sign in again.', true); signIn() }
   }
 
@@ -267,6 +461,8 @@
   function toast(message, isError = false) {
     if (!message) return
     const u = $ui()
+    // The switch dialog already says why; a red toast under it is noise.
+    if (isError && u.roleSwitch.open) return
     u.toast = message
     u.toastError = isError
     clearTimeout(toastTimer)
@@ -438,7 +634,20 @@
 
   window.Inthes = {
     api, upload, qs, loadMe, whenReady,
-    signIn, closeSignIn, sendOtp, verifyOtp, signOut, confirmSignOut,
+    signIn, closeSignIn, sendOtp, verifyOtp, signOut, confirmSignOut, pickRole,
+    requireRole, openSwitch, cancelSwitch, continueSwitch, inferRole, ROLE_LABEL,
+    /**
+     * A link into the other kind of account's area:
+     * `@click="Inthes.guardArea($event, 'recruiter')"` opens the switch
+     * dialog instead of following it when the session is the other kind.
+     */
+    guardArea(event, role, next) {
+      const a = $auth()
+      if (!a.token || !a.role || a.role === role) return true
+      if (event) event.preventDefault()
+      openSwitch(role, next || (event && event.currentTarget && event.currentTarget.getAttribute('href')) || '')
+      return false
+    },
     toast, confirm, pay, confirmOrder,
     opt, citiesOf, copy, share, toggleIn, comboList, comboCanAdd,
     reverseGeocode, currentPosition, joinAddressParts, localityOf, findIn,
@@ -454,10 +663,18 @@
       user: (() => { try { return JSON.parse(store.get(USER_KEY) || 'null') } catch (e) { return null } })(),
       me: null,
       ready: false,
-      modal: { open: false, stage: 'phone', phone: '', otp: '', role: 'candidate', verificationId: '', busy: false, error: '', resendIn: 0, reason: '', _timer: null },
+      employer: null, // an employer account's contact card (GET /recruiter/profile)
+      modal: { open: false, stage: 'phone', phone: '', otp: '', role: 'candidate', lockRole: false, next: '', switching: false, verificationId: '', busy: false, error: '', resendIn: 0, reason: '', _timer: null },
       get signedIn() { return !!this.token },
-      get name() { return this.me?.name || '' },
-      get firstName() { return (this.me?.name || '').trim().split(/\s+/)[0] || '' },
+      /** 'candidate' | 'recruiter' | '' (signed out, or not known yet). */
+      get role() { return this.token ? (this.user?.role || '') : '' },
+      get isSeeker() { return this.role === 'candidate' },
+      get isEmployer() { return this.role === 'recruiter' },
+      get roleLabel() { return ROLE_LABEL[this.role] || '' },
+      /** Signed in as the `role` kind of account. */
+      is(role) { return !!this.token && this.role === role },
+      get name() { return this.isEmployer ? (this.employer?.contact_person_name || '') : (this.me?.name || '') },
+      get firstName() { return (this.name || '').trim().split(/\s+/)[0] || '' },
       get phone() { return this.user?.phone || this.me?.phone || '' },
     })
 
@@ -466,6 +683,7 @@
       toastError: false,
       confirm: { open: false, title: '', message: '', ok: 'OK', cancel: 'Cancel', danger: false },
       pay: { open: false, amount: '', methods: [], method: '' },
+      roleSwitch: { open: false, role: 'recruiter', next: '', at: 0 },
       _confirmResolve: null,
       _payResolve: null,
       closeConfirm(result) {
@@ -496,7 +714,16 @@
       store.set('inthes.employer.token', null)
       store.set('inthes.employer.user', null)
     }
-    if (a.token) { try { await loadMe() } catch (e) { /* 401 already signed out */ } }
+    if (a.token) {
+      await inferRole()
+      try { await loadMe() } catch (e) { /* 401 already signed out */ }
+    }
+    // The other kind of account on an area's pages: explain and offer the switch.
+    if (a.token && a.role) {
+      const here = location.pathname + location.search
+      if (onEmployerArea() && a.role !== 'recruiter') openSwitch('recruiter', here)
+      else if (onAccountArea() && a.role !== 'candidate' && !anyRolePage()) openSwitch('candidate', here)
+    }
     a.ready = true
     readyResolve()
     window.dispatchEvent(new CustomEvent('inthes:ready'))

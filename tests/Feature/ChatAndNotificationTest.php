@@ -81,11 +81,14 @@ class ChatAndNotificationTest extends TestCase
             'status' => 'shortlisted',
         ])->assertOk();
 
+        // Separate accounts now: neither can even open the other's inbox.
         $this->asCandidate();
-        $this->getJson("{$this->api}/notifications?audience=recruiter")->assertJsonCount(0, 'data');
+        $this->getJson("{$this->api}/notifications?audience=recruiter")->assertForbidden();
+        $this->getJson("{$this->api}/notifications?audience=jobSeeker")->assertOk();
 
         $this->asRecruiter();
-        $this->getJson("{$this->api}/notifications?audience=jobSeeker")->assertJsonCount(0, 'data');
+        $this->getJson("{$this->api}/notifications?audience=jobSeeker")->assertForbidden();
+        $this->getJson("{$this->api}/notifications?audience=recruiter")->assertOk();
     }
 
     public function test_submitting_an_application_notifies_both_the_candidate_and_the_recruiter(): void

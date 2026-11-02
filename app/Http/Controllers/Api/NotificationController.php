@@ -54,6 +54,9 @@ class NotificationController extends ApiController
             'audience' => ['required', Rule::in(NotificationAudience::values())],
         ]);
 
-        return NotificationAudience::from($validated['audience']);
+        $audience = NotificationAudience::from($validated['audience']);
+        $this->assertOwnSide($request, $audience);
+
+        return $audience;
     }
 }

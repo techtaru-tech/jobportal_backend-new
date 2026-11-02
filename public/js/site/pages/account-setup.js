@@ -7,6 +7,10 @@
  * rule), "Do this later" is always there, and the optional extras
  * (availability, about, skills, intro video) are offered at the end as links
  * into the profile page.
+ *
+ * `?next=` (a site path) is where the visitor was headed — e.g. the job they
+ * tried to apply to from an employer account before switching to a new job
+ * seeker account. "Do this later" and the finish screen go back there.
  */
 document.addEventListener('alpine:init', () => {
   const K = window.ProfileKit
@@ -28,6 +32,12 @@ document.addEventListener('alpine:init', () => {
     /** '' (not answered) | 'experienced' | 'fresher' */
     expMode: '',
     finishing: false,
+    /** Where to carry on afterwards — a same-site path only. */
+    nextUrl: (() => {
+      const n = new URLSearchParams(location.search).get('next') || ''
+      return n.startsWith('/') && !n.startsWith('//') ? n : ''
+    })(),
+    get nextIsApply() { return /^\/jobs\/[^/?]+\?apply=1/.test(this.nextUrl) },
 
     async init() {
       await Inthes.whenReady()
@@ -180,7 +190,7 @@ document.addEventListener('alpine:init', () => {
       if (!K.missingForResume(this.me).length && !this.me?.resume) {
         try { await Inthes.api('/candidate/profile/resume/generate', { method: 'POST' }) } catch (e) { /* later */ }
       }
-      location.href = '/jobs'
+      location.href = this.nextUrl || '/jobs'
     },
 
     // ── step 2 helpers ──────────────────────────────────────────────────

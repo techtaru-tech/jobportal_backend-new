@@ -3,8 +3,9 @@
  * plus the job seeker state every job list shares (saved ids, applications).
  *
  *   Inthes.quickApply(jobOrId)   — the app's `applyToJob`, in the same order:
- *     signed out → sign-in popup, then carry on; own posting → its applicant
- *     list; already applied → toast; GET /applications/requirements → either a
+ *     signed out → sign-in popup (job seeker account), then carry on; own
+ *     posting → its applicant list; an employer account → the switch dialog
+ *     (one account, one job), coming back here afterwards; already applied → toast; GET /applications/requirements → either a
  *     one-screen confirm, or ONE form with only the missing fields (saved to
  *     the profile, resume rendered if needed), then POST /applications.
  *     The server re-checks every rule; this is routing, never the rule.
@@ -114,6 +115,7 @@
       const js = Alpine.store('jobs')
       if (job?.own_posting) return 'This is your own posting'
       if (!auth.signedIn) return 'Sign in takes one OTP'
+      if (auth.isEmployer) return 'Applying needs a job seeker account'
       const app = js.appFor(job)
       if (app) return 'You applied on ' + Inthes.fmtDate(app.applied_at)
       if (job?.has_applied) return 'You have applied to this job'
@@ -152,6 +154,12 @@
     return { fields: FORM_ORDER.filter((f) => fields.includes(f)), needsResume }
   }
 
+  /** This job's page with Quick Apply opening — where a switched account comes back to. */
+  function applyUrl(job) {
+    if (job?.code) return kit.jobUrl(job) + '?apply=1'
+    return /^\/jobs\/[^/]+$/.test(location.pathname) ? location.pathname + '?apply=1' : location.pathname + location.search
+  }
+
   async function quickApply(jobOrId) {
     const qa = $qa()
     if (qa.open && qa.busy) return
@@ -159,9 +167,9 @@
     const id = job ? job.id : String(jobOrId || '')
     if (!id) return
     if ($auth().signedIn && job?.own_posting) { location.href = '/employer/jobs/' + encodeURIComponent(job.id); return }
-    if (!$auth().signedIn) {
-      if (!(await Inthes.signIn('to apply for this job'))) return
-    }
+    // Applying is a job seeker account's job: sign in as one, or — from an
+    // employer account — switch, then come back to this job with Apply open.
+    if (!(await Inthes.requireRole('candidate', { reason: 'to apply for this job', next: applyUrl(job) }))) return
     try { await $jobs().ensure() } catch (e) { /* requirements re-checks */ }
     if (job && $jobs().appFor(job)) { Inthes.toast('You have already applied to this job'); return }
 
@@ -187,7 +195,8 @@
 
       /** Loads saved jobs + applications once per page (force to refresh). */
       ensure(force = false) {
-        if (!$auth().signedIn) return Promise.resolve()
+        // Job seeker accounts only — an employer account has no saved jobs or applications.
+        if (!$auth().signedIn || $auth().role !== 'candidate') return Promise.resolve()
         if (this._loading && !force) return this._loading
         this._loading = Promise.all([
           Inthes.api('/candidate/saved-jobs').then((r) => { this.saved = r.data || []; this.savedIds = this.saved.map((j) => j.id) }),
@@ -202,8 +211,12 @@
       hasApplied(job) { return !!this.appFor(job) || (!this.loaded && !!job?.has_applied) },
 
       async toggleSave(job) {
+        if ($auth().signedIn && $auth().role !== 'candidate') {
+          Inthes.requireRole('candidate', { next: job?.code ? kit.jobUrl(job) : location.pathname + location.search })
+          return
+        }
         if (!$auth().signedIn) {
-          if (!(await Inthes.signIn('to save this job'))) return
+          if (!(await Inthes.signIn('to save this job', { role: 'candidate', lock: true }))) return
           try { await this.ensure() } catch (e) { /* carry on */ }
           if (this.isSaved(job)) { Inthes.toast('Job saved'); return }
         }

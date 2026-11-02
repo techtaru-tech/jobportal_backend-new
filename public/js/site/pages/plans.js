@@ -62,7 +62,7 @@
 
       async choose(plan) {
         if (this.isCurrent(plan) || this.busy) return
-        if (!(await Inthes.signIn('to change your plan'))) return
+        if (!(await Inthes.requireRole(this.audience === 'recruiter' ? 'recruiter' : 'candidate', { reason: 'to change your plan' }))) return
         const audience = this.audience
         if (plan.is_free) {
           const cur = this.currentPlan

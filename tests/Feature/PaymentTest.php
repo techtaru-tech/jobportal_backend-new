@@ -24,7 +24,7 @@ class PaymentTest extends TestCase
 
     private function recruiter(): User
     {
-        $user = User::factory()->create();
+        $user = User::factory()->recruiter()->create();
         Sanctum::actingAs($user);
 
         return $user;
