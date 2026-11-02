@@ -6,7 +6,7 @@
  * fields, defaults, option lists and messages (PostJobController /
  * JobDraft / CompanyFormFields); the plan step is its own checkout page.
  *
- * Submit: save the company (create or update, then document and logo) →
+ * Submit: save the company (create or update — the business document comes after payment) →
  * save the job as a draft (or PATCH it) → post it on a plan credit if one
  * is left, otherwise go to checkout. Editing a posted job PATCHes it, and a
  * live one goes back for approval — said before saving.
@@ -33,6 +33,7 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('empPost', (props = {}) => ({
     ...Emp.helpers,
     ...Emp.companyForm(),
+    ...Emp.submittedDoc(),
     jobId: props.jobId || null,
     loading: true,
     loadError: '',
@@ -170,31 +171,53 @@ document.addEventListener('alpine:init', () => {
       return /^\d{10}$/.test(v) ? null : `${label} must be 10 digits`
     },
 
-    /** "Use current location": coordinates, and the nearest listed city when one is close. */
-    useLocation() {
-      if (!navigator.geolocation) { Inthes.toast('Could not fetch current location', true); return }
+    /**
+     * "Use current location" (PostJobController.useCurrentLocation +
+     * _applyPlace): the coordinates, the state and city when the lists have
+     * them, and the rest of the address — house/flat no., street, area — into
+     * the Address field whole. It used to keep at most the first comma part,
+     * which for a house is just its number.
+     */
+    async useLocation() {
+      if (this.locating) return
       this.locating = true
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const { latitude, longitude } = pos.coords
-        const f = this.f
-        f.latitude = Math.round(latitude * 1e6) / 1e6
-        f.longitude = Math.round(longitude * 1e6) / 1e6
-        // No reverse geocoder on the web — the option list's own city
-        // coordinates stand in, and only when one is genuinely nearby.
-        const opts = Alpine.store('opts').data || {}
+      let pos
+      try { pos = await Inthes.currentPosition() } catch (err) {
+        this.locating = false
+        Inthes.toast(err && err.code === 1 ? 'Location permission denied' : 'Could not fetch current location', true)
+        return
+      }
+      const { latitude, longitude } = pos.coords
+      const f = this.f
+      f.latitude = Math.round(latitude * 1e6) / 1e6
+      f.longitude = Math.round(longitude * 1e6) / 1e6
+
+      const opts = Alpine.store('opts').data || {}
+      const states = opts.state_cities || {}
+      const place = await Inthes.reverseGeocode(latitude, longitude)
+      let state = place ? Inthes.findIn(Object.keys(states), place.state, place.address) : ''
+      let city = state ? Inthes.findIn(states[state] || [], place.city, place.district, place.address) : ''
+      if (!city) {
+        // The option list's own city coordinates, when one is genuinely nearby.
         let best = null
-        for (const [city, c] of Object.entries(opts.city_coordinates || {})) {
+        for (const [name, c] of Object.entries(opts.city_coordinates || {})) {
           const d = Math.hypot(c.lat - latitude, (c.lng - longitude) * Math.cos(latitude * Math.PI / 180)) * 111
-          if (!best || d < best.d) best = { city, d }
+          if (!best || d < best.d) best = { name, d }
         }
-        const states = opts.state_cities || {}
-        const state = best && best.d < 50 ? Object.keys(states).find((s) => states[s].includes(best.city)) : null
-        if (state) { f.state = state; f.city = best.city; this.errors.state = ''; this.errors.city = '' } else Inthes.toast('Pick your city from the list', true)
-        this.locating = false
-      }, (err) => {
-        this.locating = false
-        Inthes.toast(err.code === 1 ? 'Location permission denied' : 'Could not fetch current location', true)
-      }, { enableHighAccuracy: true, timeout: 15000 })
+        const near = best && best.d < 50 ? Object.keys(states).find((st) => states[st].includes(best.name)) : ''
+        if (near && (!state || near === state)) { state = near; city = best.name }
+      }
+      if (state) { f.state = state; this.errors.state = '' }
+      if (city) { f.city = city; this.errors.city = '' } else if (state && !Inthes.citiesOf(state).includes(f.city)) f.city = ''
+      if (place) {
+        const street = Inthes.localityOf(place.address, place.city, place.state)
+        const cleaned = Inthes.localityOf(street, city, state).slice(0, 120).replace(/,\s*$/, '')
+        if (cleaned) f.locality = cleaned
+        if (/^\d{6}$/.test(String(place.pincode || '').trim())) f.pincode = String(place.pincode).trim()
+      }
+      this.locating = false
+      if (!city) Inthes.toast('Pick your city from the list', true)
+      else if (!place) Inthes.toast("Couldn't read the address here — type it in", true)
     },
 
     // ── validation ─────────────────────────────────────────────────────
@@ -251,8 +274,7 @@ document.addEventListener('alpine:init', () => {
         { label: 'Location', ok: !e.state && !e.city },
         { label: 'Education & experience', ok: !e.min_education && !e.experience },
         { label: 'Contact preferences', ok: !e.contact_mode && !e.contact_phone && !e.whatsapp_phone },
-        { label: 'Company details', ok: !c.name && !c.email && !c.size && !c.website },
-        { label: 'Company document', ok: !c.doc },
+        { label: 'Company details', ok: !c.name && !c.email && !c.size && !c.website && !c.industry },
       ]
     },
     get doneCount() { return this.checklist.filter((c) => c.ok).length },
@@ -260,8 +282,7 @@ document.addEventListener('alpine:init', () => {
     validate() {
       this.errors = this.jobErrors()
       const coOk = this.coValidate()
-      const coFormProblem = Object.keys(this.coErrors).some((k) => k !== 'doc')
-      if (coFormProblem) this.coEditing = true
+      if (!coOk) this.coEditing = true
       if (Object.keys(this.errors).length === 0 && coOk) return true
       this.$nextTick(() => {
         const first = [...document.querySelectorAll('[data-field]')].find((el) => {

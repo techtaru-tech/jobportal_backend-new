@@ -658,7 +658,9 @@
         const defs = [
           { key: 'pending_verification', label: 'Awaiting verification', icon: 'badgeCheck',
             go: () => { this.orgs.state = 'pending'; this.go('organisations') } },
-          { key: 'unverified_no_document', label: 'No GST document', icon: 'fileText',
+          { key: 'paid_awaiting_document', label: 'Paid — call for document', icon: 'fileText',
+            go: () => { this.jobs.stage = 'paid_document_missing'; this.go('jobs') } },
+          { key: 'unverified_no_document', label: 'No business document', icon: 'fileText',
             go: () => { this.orgs.state = 'no_document'; this.go('organisations') } },
           { key: 'zero_applicant_active_jobs', label: 'Zero applicants', icon: 'briefcase',
             go: () => { this.jobs.zero = true; this.go('jobs') } },

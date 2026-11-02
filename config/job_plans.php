@@ -26,29 +26,32 @@ return [
         'basic' => [
             'name' => 'Basic',
             'popular' => false,
+            // How long a posting bought on this tier stays live, counted from
+            // the day it goes live. Sets the job's expiry automatically — and
+            // "Job live for N days" in the feature list is written from it.
+            'live_days' => 30,
             'features' => [
                 'Unlimited job applications',
                 'Candidate contact details',
-                'Job live for 30 days',
             ],
         ],
         'silver' => [
             'name' => 'Silver',
             'popular' => true,
+            'live_days' => 30,
             'features' => [
                 'Unlimited job applications',
                 'Candidate contact details',
-                'Job live for 30 days',
                 'Highlighted in search results',
             ],
         ],
         'gold' => [
             'name' => 'Gold',
             'popular' => false,
+            'live_days' => 30,
             'features' => [
                 'Unlimited job applications',
                 'Candidate contact details',
-                'Job live for 30 days',
                 'Highlighted in search results',
                 'Personalised hiring support',
             ],

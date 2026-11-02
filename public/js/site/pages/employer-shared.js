@@ -79,21 +79,22 @@
       out.push({ tone: 'warning', icon: 'wallet', message: 'Saved — choose a plan to make it live.', action: 'plan', label: 'Choose plan' })
     } else if (s === 'rejected') {
       out.push({ tone: 'danger', icon: 'xCircle', message: job.rejection_reason ? 'Not approved: ' + job.rejection_reason : 'This job post was not approved.', action: null })
+    } else if (s !== 'active' && docMissing(job)) {
+      // Paid for; the business document is asked for only now (BusinessDocument).
+      out.push({ tone: 'warning', icon: 'clock', message: 'Paid — upload your business document. The job goes live once it is verified.', action: 'doc', label: 'Upload document' })
     } else if (s === 'pending_approval') {
-      const doc = docMissing(job)
       out.push({
         tone: 'warning', icon: 'clock',
-        message: doc ? 'Under review — upload your company document to get it live.'
-          : job.hiring_stage === 'document_under_review' ? "Under review — we're checking your company document."
-            : "Waiting for approval — you'll be notified once it's live.",
-        action: doc ? 'doc' : null, label: 'Upload document',
+        message: job.hiring_stage === 'document_under_review' ? "Under review — we're checking your company document."
+          : "Waiting for approval — you'll be notified once it's live.",
+        action: null,
       })
     }
     if (s === 'active' && !job.organisation_verified) {
       const doc = job.hiring_stage === 'posted_document_missing'
       out.push({
         tone: 'brand', icon: 'eye',
-        message: doc ? 'Not visible to candidates yet — upload your company document to get verified.'
+        message: doc ? 'Not visible to candidates yet — upload your business document to get verified.'
           : `Not visible to candidates yet — we're verifying ${job.organisation}.`,
         action: doc ? 'doc' : null, label: 'Upload document',
       })
@@ -111,6 +112,22 @@
     if (action === 'plan') return `/employer/jobs/${encodeURIComponent(job.id)}/checkout`
     if (action === 'doc') return '/employer/companies?doc=' + encodeURIComponent(job.organisation_id || '')
     return null
+  }
+
+  /**
+   * Uploads the business document for a company (BusinessDocument.pickAndUpload):
+   * POST /recruiter/organisations/{id}/document. Asked for only after a plan is
+   * paid for. Returns true once uploaded; the reason it wasn't is a toast.
+   */
+  async function uploadBusinessDocument(organisationId, file) {
+    if (!organisationId) { Inthes.toast("Couldn't find this company — refresh and try again", true); return false }
+    const problem = fileProblem('doc', file)
+    if (problem) { Inthes.toast(problem, true); return false }
+    try {
+      await Inthes.upload(`/recruiter/organisations/${encodeURIComponent(organisationId)}/document`, file)
+      Inthes.toast("Document received — we'll verify it and then make your job live")
+      return true
+    } catch (e) { Inthes.toast(e.message, true); return false }
   }
 
   async function loadMine() {
@@ -192,14 +209,61 @@
         if (fresh) this.onJobUpdated(fresh)
       },
       jobShare(job) { shareJob(job) },
+      /**
+       * "Upload document" on a paid posting: picks the file from the
+       * notice's own file input, uploads it, and refreshes every posting of
+       * that company so each shows its new stage.
+       */
+      async jobUploadDoc(job, ev) {
+        const file = ev.target.files && ev.target.files[0]
+        ev.target.value = ''
+        if (!file || this.jobBusy) return
+        this.jobBusy = job.id
+        const ok = await uploadBusinessDocument(job.organisation_id, file)
+        if (ok) {
+          try {
+            for (const fresh of await loadMine()) {
+              if (fresh.id === job.id) this.onJobUpdated(fresh)
+              else if (Array.isArray(this.jobs) && fresh.organisation_id === job.organisation_id) replaceIn(this.jobs, fresh)
+            }
+            if (Array.isArray(this.orgs)) this.orgs = await loadOrgs()
+          } catch (e) { /* the upload landed; the next load catches up */ }
+        }
+        this.jobBusy = ''
+      },
+    }
+  }
+
+  /**
+   * The business-document upload on the "under review" screen after paying
+   * or posting on a credit (site/employer/partials/submitted). The page keeps
+   * the posting in `this.submitted`; it is read again after the upload so
+   * the stage shown is the server's.
+   */
+  function submittedDoc() {
+    return {
+      docBusy: false,
+      async submittedUpload(ev) {
+        const file = ev.target.files && ev.target.files[0]
+        ev.target.value = ''
+        if (!file || this.docBusy || !this.submitted) return
+        this.docBusy = true
+        const ok = await uploadBusinessDocument(this.submitted.organisation_id, file)
+        if (ok) {
+          try {
+            const jobs = await loadMine()
+            this.submitted = jobs.find((j) => j.id === this.submitted.id) || this.submitted
+          } catch (e) { /* the upload landed; Jobs shows the new stage */ }
+        }
+        this.docBusy = false
+      },
     }
   }
 
   // ── the company form ──────────────────────────────────────────────────
   const blankCompany = () => ({
     id: '', hiring_type: 'company', name: '', email: '', industry: '', size: '', about: '',
-    address: '', website: '', gst_number: '', doc_name: '', doc_new: false, logo: false,
-    logo_url: '', logo_new: false, logo_preview: '', verified: false, has_doc: false,
+    address: '', website: '', doc_name: '', logo: false, logo_url: '', verified: false, has_doc: false,
   })
 
   function companyFrom(org) {
@@ -208,7 +272,7 @@
     Object.assign(co, {
       id: org.id, hiring_type: org.hiring_type || 'company', name: org.name || '', email: org.email || '',
       industry: org.industry || '', size: org.size || '', about: org.about || '', address: org.address || '',
-      website: org.website || '', gst_number: org.gst_number || '', doc_name: org.document_name || '',
+      website: org.website || '', doc_name: org.document_name || '',
       has_doc: !!org.document_name, logo: !!org.logo, logo_url: org.logo_url || '', verified: !!org.verified,
     })
     return co
@@ -224,7 +288,6 @@
       size: orNull(co.size),
       address: orNull(co.address),
       website: orNull(withScheme(co.website)),
-      gst_number: orNull(String(co.gst_number || '').toUpperCase()),
       about: orNull(co.about),
     }
   }
@@ -237,7 +300,7 @@
     else if (!isEmail(co.email.trim())) e.email = 'Enter a valid company email'
     if (!co.size) e.size = 'Select the company size'
     if (co.website.trim() && !isUrl(withScheme(co.website))) e.website = 'Enter a valid website, e.g. www.yourcompany.com'
-    if (!co.doc_name) e.doc = 'Upload your company document'
+    if (String(co.industry || '').trim().length > 40) e.industry = 'Keep the industry to 40 characters'
     return e
   }
 
@@ -255,7 +318,7 @@
   }
 
   function orgStateLabel(org) {
-    return { verified: 'Verified', pending: 'Under review' }[org.review_state] || 'Document required'
+    return { verified: 'Verified', pending: 'Under review' }[org.review_state] || 'Not verified'
   }
   function orgStatePill(org) {
     return { verified: 'bg-success-bg text-success', pending: 'bg-warning-bg text-warning' }[org.review_state] || 'bg-primary-light text-primary-dark'
@@ -269,15 +332,15 @@
     if (org.review_state === 'pending') {
       return { text: hidden > 0 ? `Your ${postings} ${hidden === 1 ? 'is' : 'are'} not being shown yet` : 'Verification in progress', icon: 'clock', cls: 'text-warning' }
     }
-    return { text: hidden > 0 ? `Your ${postings} ${hidden === 1 ? 'is' : 'are'} not being shown` : 'Upload your company document', icon: 'alert', cls: 'text-primary-dark' }
+    return { text: hidden > 0 ? `Your ${postings} ${hidden === 1 ? 'is' : 'are'} not being shown` : 'Upload your business document to get verified', icon: 'alert', cls: 'text-primary-dark' }
   }
 
   /** PDF/JPG/PNG up to 10 MB for the document; JPG/PNG up to 3 MB for the logo — the API's own limits. Returns an error or null. */
   function fileProblem(kind, file) {
     const ext = (file.name.split('.').pop() || '').toLowerCase()
     if (kind === 'doc') {
-      if (!['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) return 'Upload your company document (GST certificate, shop licence or registration) as a PDF, JPG, or PNG.'
-      if (file.size > 10 * 1024 * 1024) return 'The document must be smaller than 10 MB.'
+      if (!['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) return 'Upload a PDF, JPG or PNG file'
+      if (file.size > 10 * 1024 * 1024) return 'That file is over 10 MB — upload a smaller one'
     } else {
       if (!['jpg', 'jpeg', 'png'].includes(ext)) return 'Upload a JPG or PNG image.'
       if (file.size > 3 * 1024 * 1024) return 'The logo must be smaller than 3 MB.'
@@ -288,11 +351,14 @@
   /**
    * The company-form behaviour a page spreads into its component. The form
    * edits `this.co`; `this.coSaved` is the saved organisation it started
-   * from (null for a new one). Picked files live in this closure — a File
-   * inside Alpine's reactive proxy is not a Blob, and FormData refuses it.
+   * from (null for a new one).
+   *
+   * GST number, the business document and the logo are deliberately not
+   * part of it (CompanyFormFields): the document is asked for after a plan is
+   * paid for, and a form that demanded it up front kept employers from
+   * getting past Company details at all.
    */
   function companyForm() {
-    let files = { doc: null, logo: null }
     return {
       co: blankCompany(),
       coSaved: null,
@@ -300,8 +366,6 @@
       SIZE_HINTS,
 
       coReset(org = null) {
-        files = { doc: null, logo: null }
-        if (this.co.logo_preview) URL.revokeObjectURL(this.co.logo_preview)
         this.coSaved = org
         this.co = companyFrom(org)
         this.coErrors = {}
@@ -309,41 +373,8 @@
 
       coHiringTypes() { return Alpine.store('opts').data?.hiring_types || {} },
       coSizes() { const s = Inthes.opt('organisation_sizes'); return s.length ? s : ['Small', 'Mid', 'Large'] },
-      coHasLogo() { return this.co.logo_new || this.co.logo },
-      coLogoSrc() { return this.co.logo_preview || (this.co.logo ? this.co.logo_url : '') },
-
-      coPick(kind, ev) {
-        const file = ev.target.files && ev.target.files[0]
-        ev.target.value = ''
-        if (!file) return
-        const problem = fileProblem(kind, file)
-        if (problem) { Inthes.toast(problem, true); return }
-        if (kind === 'doc') {
-          files.doc = file
-          this.co.doc_name = file.name
-          this.co.doc_new = true
-          this.coErrors.doc = ''
-        } else {
-          files.logo = file
-          if (this.co.logo_preview) URL.revokeObjectURL(this.co.logo_preview)
-          this.co.logo_preview = URL.createObjectURL(file)
-          this.co.logo_new = true
-        }
-      },
-
-      /** Takes back a picked file, restoring what the saved company had. */
-      coRemove(kind) {
-        if (kind === 'doc') {
-          files.doc = null
-          this.co.doc_new = false
-          this.co.doc_name = this.coSaved?.document_name || ''
-        } else {
-          files.logo = null
-          if (this.co.logo_preview) URL.revokeObjectURL(this.co.logo_preview)
-          this.co.logo_preview = ''
-          this.co.logo_new = false
-        }
-      },
+      coHasLogo() { return this.co.logo },
+      coLogoSrc() { return this.co.logo ? this.co.logo_url : '' },
 
       coValidate() {
         this.coErrors = companyErrors(this.co)
@@ -352,44 +383,19 @@
 
       /**
        * Creates the company, or updates the saved one if anything changed
-       * (PostJobController._saveCompany), then uploads any picked files.
-       * The saved id is remembered before the files go up, so a failed
-       * upload's retry updates this company instead of creating a second.
+       * (PostJobController._saveCompany).
        */
       async coSave() {
         const existing = this.coSaved
         const body = companyBody(this.co)
-        let saved = existing
         const unchanged = existing && Object.keys(body).every((k) => (existing[k] ?? null) === body[k])
-        if (!unchanged) {
-          const res = existing
-            ? await Inthes.api(`/recruiter/organisations/${encodeURIComponent(existing.id)}`, { method: 'PATCH', body })
-            : await Inthes.api('/recruiter/organisations', { method: 'POST', body })
-          saved = withFilesFrom(res.data, existing)
-          this.coSaved = saved
-          this.co.id = saved.id
-        }
-        if (files.doc) {
-          const res = await Inthes.upload(`/recruiter/organisations/${encodeURIComponent(saved.id)}/document`, files.doc)
-          saved = Object.assign({}, saved, {
-            document_name: res.data?.document_name || files.doc.name,
-            document_url: res.data?.document_url || null, review_state: 'pending', verified: false,
-          })
-          files.doc = null
-          this.co.doc_new = false
-          this.co.has_doc = true
-          this.co.doc_name = saved.document_name
-          this.coSaved = saved
-        }
-        if (files.logo) {
-          const res = await Inthes.upload(`/recruiter/organisations/${encodeURIComponent(saved.id)}/logo`, files.logo)
-          saved = Object.assign({}, saved, { logo: true, logo_url: res.data?.logo_url || null })
-          files.logo = null
-          this.co.logo_new = false
-          this.co.logo = true
-          this.co.logo_url = saved.logo_url || ''
-          this.coSaved = saved
-        }
+        if (unchanged) return existing
+        const res = existing
+          ? await Inthes.api(`/recruiter/organisations/${encodeURIComponent(existing.id)}`, { method: 'PATCH', body })
+          : await Inthes.api('/recruiter/organisations', { method: 'POST', body })
+        const saved = withFilesFrom(res.data, existing)
+        this.coSaved = saved
+        this.co.id = saved.id
         return saved
       },
     }
@@ -437,8 +443,8 @@
     flash,
     STATUS_LABEL, STATUS_PILL, STATUS_DOT, APP_STATUSES, APP_LABEL, APP_PILL, APP_DOT, SIZE_HINTS, NOTICE_CLASS,
     day, salary, amount, withScheme, isEmail, awaitingPayment, docMissing, notices, noticeHref,
-    loadMine, loadOrgs, toggleJob, closeJob, shareJob, replaceIn, canToggle, canClose, canEdit, jobActions,
-    blankCompany, companyFrom, companyBody, companyErrors, withFilesFrom, fileProblem, companyForm,
+    loadMine, loadOrgs, toggleJob, closeJob, shareJob, replaceIn, canToggle, canClose, canEdit, jobActions, submittedDoc,
+    blankCompany, companyFrom, companyBody, companyErrors, withFilesFrom, fileProblem, companyForm, uploadBusinessDocument,
     orgStateLabel, orgStatePill, orgNotice,
     apName, apCurrentRole, apDesignation, apLocation, apStrength, strengthLabel, experienceRank,
     /** The helpers templates call, spread into a page component. */
@@ -455,6 +461,8 @@
       noticeClass: (t) => NOTICE_CLASS[t] || '',
       noticeHref: (j, a) => noticeHref(j, a),
       jobUrl: (j) => '/employer/jobs/' + encodeURIComponent(j.id),
+      /** The posting as it reads — its Job details tab, which works before it is live. */
+      previewUrl: (j) => '/employer/jobs/' + encodeURIComponent(j.id) + '?tab=details',
       publicUrl: (j) => '/jobs/' + encodeURIComponent(j.code || ''),
       canToggle, canClose, canEdit,
       awaitingPayment, docMissing,

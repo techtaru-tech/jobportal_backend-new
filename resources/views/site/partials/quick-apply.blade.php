@@ -102,14 +102,14 @@
           </template>
           <template x-if="$store.qa.has('dob')">
             <label class="block">
-              <span class="wa-label">Date of birth<span class="text-primary"> *</span></span>
+              <span class="wa-label">Date of birth @include('site.ui.mark', ['required' => true])</span>
               <input type="date" x-model="$store.qa.form.dob" :min="$store.qa.dobMin" :max="$store.qa.dobMax" class="wa-input">
               <p x-show="$store.qa.errors.dob" x-text="$store.qa.errors.dob" class="wa-error"></p>
             </label>
           </template>
           <template x-if="$store.qa.has('address')">
             <label class="block">
-              <span class="wa-label">Address<span class="text-primary"> *</span></span>
+              <span class="wa-label">Address @include('site.ui.mark', ['required' => true])</span>
               <textarea x-model="$store.qa.form.address" rows="2" maxlength="255" placeholder="Area, city" class="wa-textarea"></textarea>
               <p x-show="$store.qa.errors.address" x-text="$store.qa.errors.address" class="wa-error"></p>
             </label>

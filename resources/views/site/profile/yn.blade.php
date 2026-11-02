@@ -4,7 +4,7 @@
 <div class="flex flex-wrap items-center justify-between gap-sm rounded-field bg-surface-muted px-md py-sm">
   <span class="flex items-center gap-sm text-bodysm font-medium text-ink">
     @include('admin.partials.icon', ['name' => $icon ?? 'info', 'class' => 'h-[18px] w-[18px] text-ink-muted'])
-    {{ $label }}
+    <span>{{ $label }}@include('site.ui.mark', ['required' => $required ?? false, 'optional' => $optional ?? true])</span>
   </span>
   <div class="flex gap-xs">
     <button type="button" @click="{{ $click ?? "profTri('{$key}', true)" }}" :class="{{ $value ?? "pf.{$key}" }} === true && 'wa-chip-on'" class="wa-chip min-w-[72px] justify-center bg-surface">Yes</button>

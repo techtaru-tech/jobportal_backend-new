@@ -31,7 +31,7 @@
       {{-- Phone --}}
       <form x-show="$store.auth.modal.stage === 'phone'" @submit.prevent="Inthes.sendOtp()" class="space-y-md">
         <label class="block">
-          <span class="wa-label">Mobile number</span>
+          <span class="wa-label">Mobile number @include('site.ui.mark', ['required' => true])</span>
           <div class="flex items-center gap-sm">
             <span class="inline-flex h-[50px] shrink-0 items-center rounded-field bg-surface-muted px-md text-input text-ink-secondary">+91</span>
             <input type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="10-digit mobile number"

@@ -281,17 +281,17 @@
         @include('site.ui.input', ['label' => 'Time', 'model' => 'interview.time', 'type' => 'time', 'required' => true])
       </div>
       <div>
-        <span class="wa-label">Interview type<span class="text-primary"> *</span></span>
+        <span class="wa-label">Interview type @include('site.ui.mark', ['required' => true])</span>
         <div class="flex gap-sm">
           <button type="button" class="wa-chip" :class="interview.type === 'online' && 'wa-chip-on'" @click="interview.type = 'online'">@include('admin.partials.icon', ['name' => 'video', 'class' => 'h-4 w-4']) Online</button>
           <button type="button" class="wa-chip" :class="interview.type === 'inPerson' && 'wa-chip-on'" @click="interview.type = 'inPerson'">@include('admin.partials.icon', ['name' => 'building', 'class' => 'h-4 w-4']) In Person</button>
         </div>
       </div>
       <label class="block">
-        <span class="wa-label"><span x-text="interview.type === 'online' ? 'Meeting link' : 'Location'"></span><span class="text-primary"> *</span></span>
+        <span class="wa-label"><span x-text="interview.type === 'online' ? 'Meeting link' : 'Location'"></span>@include('site.ui.mark', ['required' => true])</span>
         <input type="text" x-model="interview.location_or_link" :placeholder="interview.type === 'online' ? 'https://meet…' : 'Ward office, 2nd floor'" class="wa-input" maxlength="255">
       </label>
-      @include('site.ui.textarea', ['label' => 'Notes (optional)', 'model' => 'interview.notes', 'rows' => 3, 'max' => 1000, 'placeholder' => 'Anything the candidate should know…'])
+      @include('site.ui.textarea', ['label' => 'Notes', 'model' => 'interview.notes', 'rows' => 3, 'max' => 1000, 'placeholder' => 'Anything the candidate should know…'])
       <p x-show="interview.error" x-text="interview.error" class="wa-error"></p>
     </div>
     <div class="mt-xl flex flex-col-reverse gap-sm sm:flex-row sm:justify-end">

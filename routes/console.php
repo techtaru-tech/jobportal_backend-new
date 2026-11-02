@@ -27,3 +27,10 @@ Artisan::command('inspire', function () {
 | so it says so explicitly.
 */
 Schedule::command('postings:expire-overdue')->hourly()->withoutOverlapping();
+
+/*
+| Payment first, business document after: employers still owing the document
+| for a paid posting are reminded on a few days after payment (see the
+| command). Late morning, when a reminder is likely to be acted on.
+*/
+Schedule::command('postings:remind-missing-documents')->dailyAt('10:30')->withoutOverlapping();

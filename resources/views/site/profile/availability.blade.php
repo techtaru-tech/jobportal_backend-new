@@ -6,7 +6,7 @@
     <div class="space-y-lg">
       @include('site.ui.chips', ['label' => 'Notice period', 'model' => 'pf.notice_period', 'items' => "opt('notice_periods')"])
       <label class="block">
-        <span class="wa-label">Last working date (if resigned)</span>
+        <span class="wa-label">Last working date (if resigned) @include('site.ui.mark', ['required' => false])</span>
         <input type="date" x-model="pf.last_working_date" :min="profToday" class="wa-input">
       </label>
     </div>
@@ -14,7 +14,7 @@
   @include('site.profile.yn', ['label' => 'Immediate joiner?', 'key' => 'immediate_joiner', 'icon' => 'zap'])
   <template x-if="pf.immediate_joiner === false">
     <label class="block">
-      <span class="wa-label">Earliest joining date</span>
+      <span class="wa-label">Earliest joining date @include('site.ui.mark', ['required' => false])</span>
       <input type="date" x-model="pf.earliest_joining_date" :min="profToday" class="wa-input">
     </label>
   </template>

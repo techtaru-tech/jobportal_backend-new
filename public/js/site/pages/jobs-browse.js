@@ -14,6 +14,14 @@ document.addEventListener('alpine:init', () => {
   const RECENT_KEY = 'inthes.recentSearches'
   const PER_PAGE = 20
   const jobCount = (n) => (n === 1 ? '1 job' : n + ' jobs')
+  /** Major cities shown first in the City filter, with a landmark (the app's popular-city tiles). */
+  const POPULAR_CITIES = [
+    ['Mumbai', 'Gateway of India'], ['Delhi', 'India Gate'], ['Bengaluru', 'Vidhana Soudha'], ['Hyderabad', 'Charminar'],
+    ['Chennai', 'Kapaleeshwarar Temple'], ['Kolkata', 'Howrah Bridge'], ['Pune', 'Shaniwar Wada'], ['Ahmedabad', 'Sabarmati Ashram'],
+    ['Jaipur', 'Hawa Mahal'], ['Lucknow', 'Bara Imambara'], ['Jodhpur', 'Mehrangarh Fort'], ['Udaipur', 'City Palace'],
+    ['Ajmer', 'Ajmer Sharif'], ['Bikaner', 'Junagarh Fort'], ['Kota', 'Chambal Garden'],
+  ]
+  const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
   Alpine.data('jobsBrowse', (props) => ({
     kit: Inthes.jobsKit,
@@ -36,6 +44,9 @@ document.addEventListener('alpine:init', () => {
     _seq: 0,
     _keepSelection: !!props.state.job,
     _timer: null,
+    cityQuery: '',
+    cityImages: props.cityImages || [],
+    locatingCity: false,
 
     selectedId: props.state.job || '',
     detail: null,
@@ -148,6 +159,44 @@ document.addEventListener('alpine:init', () => {
         this.filters[g.param] = list
       }
       this.changed()
+    },
+    // ── the City filter: popular tiles, search, current location ──────
+    /** The popular cities this filter actually offers, as { name, landmark, img }. */
+    popularCities(g) {
+      const have = new Set(g.options)
+      return POPULAR_CITIES.filter(([c]) => have.has(c)).map(([name, landmark]) => ({ name, landmark, img: this.cityImages.includes(slug(name) + '.jpg') ? '/images/cities/' + slug(name) + '.jpg' : '' }))
+    },
+    /** The options under the tiles: the rest, or every match while searching. */
+    cityOptions(g) {
+      const q = this.cityQuery.trim().toLowerCase()
+      if (q) return g.options.filter((o) => o.toLowerCase().includes(q))
+      const popular = new Set(this.popularCities(g).map((c) => c.name))
+      return g.options.filter((o) => !popular.has(o))
+    },
+    /** "Use my current location" → the matching (or nearest) city on the list. */
+    async locateCity(g) {
+      if (this.locatingCity) return
+      this.locatingCity = true
+      try {
+        const pos = await Inthes.currentPosition()
+        const { latitude, longitude } = pos.coords
+        const place = await Inthes.reverseGeocode(latitude, longitude)
+        let city = place ? Inthes.findIn(g.options, place.city, place.district, place.address) : ''
+        if (!city) {
+          let best = null
+          for (const [name, c] of Object.entries(Alpine.store('opts').data?.city_coordinates || {})) {
+            if (!g.options.includes(name)) continue
+            const d = Math.hypot(c.lat - latitude, (c.lng - longitude) * Math.cos(latitude * Math.PI / 180)) * 111
+            if (!best || d < best.d) best = { name, d }
+          }
+          if (best && best.d < 150) city = best.name
+        }
+        if (!city) Inthes.toast('No jobs listed near you yet — pick a city', true)
+        else if (!this.isOn(g, city)) this.toggle(g, city)
+      } catch (err) {
+        Inthes.toast(err && err.code === 1 ? 'Location permission denied' : 'Could not fetch current location', true)
+      }
+      this.locatingCity = false
     },
     groupCount(g) {
       const v = this.filters[g.param]

@@ -20,6 +20,12 @@ use Illuminate\Validation\ValidationException;
 class JobPlanCatalog
 {
     /** @return array<string, array<string, mixed>> */
+    /** Days a posting on [$tier] stays live; 30 when the tier doesn't say. */
+    public static function liveDays(?string $tier): int
+    {
+        return max(1, (int) (config("job_plans.tiers.{$tier}.live_days") ?? config('job_plans.default_live_days', 30)));
+    }
+
     public function tiers(): array
     {
         return config('job_plans.tiers', []);
@@ -125,7 +131,17 @@ class JobPlanCatalog
 
         return [
             'tiers' => collect($this->tiers())
-                ->map(fn (array $t, string $id) => ['id' => $id] + $t)
+                // Computed keys first: `+` keeps the left-hand value on a clash.
+                ->map(fn (array $t, string $id) => ['id' => $id] + [
+                    'live_days' => self::liveDays($id),
+                    // Said from the same number that sets the expiry, so the
+                    // card can never promise a different duration.
+                    'features' => array_values(array_merge(
+                        array_slice($t['features'] ?? [], 0, 2),
+                        ['Job live for '.self::liveDays($id).' days'],
+                        array_slice($t['features'] ?? [], 2),
+                    )),
+                ] + $t)
                 ->values()
                 ->all(),
             'reaches' => collect($this->reaches())

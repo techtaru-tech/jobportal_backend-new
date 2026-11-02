@@ -3,7 +3,7 @@
               'prefix' => '+91', 'attrs' => 'maxlength=10 inputmode=numeric', 'hint' => '', 'error' => 'errors.name'])
      `type => 'number'` binds with x-model.number. --}}
 <label class="block">
-  <span class="wa-label">{{ $label }}@if (!empty($required))<span class="text-primary"> *</span>@endif</span>
+  <span class="wa-label">{{ $label }}@include('site.ui.mark', ['required' => $required ?? false, 'optional' => $optional ?? true])</span>
   <div class="flex items-center gap-sm">
     @isset($prefix)
       <span class="inline-flex h-[50px] shrink-0 items-center rounded-field bg-surface-muted px-md text-input text-ink-secondary">{{ $prefix }}</span>

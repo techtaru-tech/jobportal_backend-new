@@ -112,7 +112,7 @@ class JobResource extends JsonResource
             ),
             'hiring_stage_label' => $this->when(
                 $request->user() !== null && $this->user_id === $request->user()->id,
-                fn () => $this->hiringStageLabel(),
+                fn () => $this->employerStageLabel(),
             ),
 
             // Present only where the caller's saved/applied state was eager-loaded.

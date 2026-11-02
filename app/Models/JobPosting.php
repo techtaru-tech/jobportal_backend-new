@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\JobPostingStatus;
+use App\Services\JobPlanCatalog;
 use App\Support\Display;
 use Database\Factories\JobPostingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -192,6 +193,22 @@ class JobPosting extends Model
         };
     }
 
+    /**
+     * The stage as the employer reads it. Paid but waiting on the document
+     * says "Under review" — the client's wording — and what to do about it;
+     * the admin keeps the plainer "Paid – Document not given".
+     */
+    public function employerStageLabel(): string
+    {
+        return match ($this->hiringStage()) {
+            'paid_document_missing' => 'Under review – Upload business document',
+            'posted_document_missing' => 'Under review – Upload business document',
+            'document_under_review' => 'Under review – Document being verified',
+            'document_verified' => 'Under review',
+            default => $this->hiringStageLabel(),
+        };
+    }
+
     public function hiringStageLabel(): string
     {
         return self::hiringStageLabels()[$this->hiringStage()] ?? $this->hiringStage();
@@ -336,6 +353,11 @@ class JobPosting extends Model
             // was submitted — otherwise a posting that sat in the queue for a
             // week would reach candidates already a week stale.
             'posted_at' => now(),
+            // A paid posting's lifetime comes from its plan, counted from going
+            // live — nobody sets it by hand. An expiry already set (an admin
+            // override, or a re-approval after an edit) is left alone.
+            'expires_at' => $this->expires_at
+                ?? ($this->isPaid() ? now()->addDays(JobPlanCatalog::liveDays($this->plan_tier)) : null),
         ])->save();
     }
 

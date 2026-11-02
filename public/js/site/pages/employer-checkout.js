@@ -2,6 +2,8 @@
  * /employer/jobs/{id}/checkout — the app's "Choose plan" step as a checkout
  * page: plan tiers, how many postings, postings left from an earlier pack,
  * the order total, and payment (POST …/orders → Inthes.confirmOrder).
+ * The business document is not a condition of paying: it is asked for on
+ * the "under review" screen that follows (partials/submitted).
  * Every plan is bought at District reach — the app offers no other.
  */
 document.addEventListener('alpine:init', () => {
@@ -9,6 +11,7 @@ document.addEventListener('alpine:init', () => {
 
   Alpine.data('empCheckout', (props = {}) => ({
     ...Emp.helpers,
+    ...Emp.submittedDoc(),
     jobId: props.jobId,
     loading: true,
     loadError: '',
@@ -19,7 +22,6 @@ document.addEventListener('alpine:init', () => {
     quantity: 1,
     paying: false,
     submitted: null,
-    docBusy: false,
 
     async init() {
       await Inthes.whenReady()
@@ -68,35 +70,9 @@ document.addEventListener('alpine:init', () => {
     quantityLabel(q) { return q === this.largestBucket ? q + '+ postings' : (q === 1 ? '1 posting' : q + ' postings') },
     changeQuantity(delta) { this.quantity = Math.min(this.maxQuantity, Math.max(this.largestBucket, this.quantity + delta)) },
 
-    /** The API refuses to take payment until the company has its document. */
-    get needsDoc() { return !!this.org && !this.org.document_name },
-
-    async uploadDoc(ev) {
-      const file = ev.target.files && ev.target.files[0]
-      ev.target.value = ''
-      if (!file || this.docBusy) return
-      const problem = Emp.fileProblem('doc', file)
-      if (problem) { Inthes.toast(problem, true); return }
-      if (this.org.verified) {
-        const ok = await Inthes.confirm({
-          title: 'Upload a new document?', message: `${this.org.name} is verified. A new document sends it back for verification, and its live jobs are hidden until it is checked.`,
-          ok: 'Upload', danger: true,
-        })
-        if (!ok) return
-      }
-      this.docBusy = true
-      try {
-        const res = await Inthes.upload(`/recruiter/organisations/${encodeURIComponent(this.org.id)}/document`, file)
-        this.org = Object.assign({}, this.org, { document_name: res.data?.document_name || file.name, review_state: 'pending', verified: false })
-        Inthes.toast('Company document uploaded')
-      } catch (e) { Inthes.toast(e.message, true) }
-      this.docBusy = false
-    },
-
     async pay() {
       const total = this.totalPaise
       if (total == null || this.paying) return
-      if (this.needsDoc) { Inthes.toast('Upload your company document first — it is needed to post a job.', true); return }
       const method = await Inthes.pay(Inthes.rupees(total))
       if (!method) return
       this.paying = true
@@ -118,7 +94,6 @@ document.addEventListener('alpine:init', () => {
     /** Posts on a posting left over from an earlier pack — no payment. */
     async useCredit(credit) {
       if (this.paying) return
-      if (this.needsDoc) { Inthes.toast('Upload your company document first — it is needed to post a job.', true); return }
       this.paying = true
       try {
         const res = await Inthes.api(`/recruiter/jobs/${encodeURIComponent(this.job.id)}/use-credit`, { method: 'POST', body: { credit_id: credit.id } })

@@ -3,7 +3,7 @@
      already says "Your photo". --}}
 <div>
   @if ($label ?? true)
-    <span class="wa-label">Profile photo</span>
+    <span class="wa-label">Profile photo @include('site.ui.mark', ['required' => false])</span>
     <p class="mb-md text-caption text-ink-muted">Recruiters see this on every application you send.</p>
   @endif
   <div class="flex flex-col items-center">

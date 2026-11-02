@@ -58,7 +58,7 @@
                 <span class="hidden sm:inline" x-text="job.posting_status === 'active' ? 'Pause' : 'Resume'"></span>
               </button>
             </template>
-            @include('site.employer.partials.job-menu', ['job' => 'job', 'hideApplicants' => true])
+            @include('site.employer.partials.job-menu', ['job' => 'job'])
           </div>
         </div>
 
@@ -66,7 +66,8 @@
           <div class="mt-md flex items-center gap-sm rounded-field border-hair px-md py-sm" :class="noticeClass(n.tone)">
             <span x-html="ICONS[n.icon]" class="shrink-0 [&>svg]:h-[15px] [&>svg]:w-[15px]"></span>
             <p class="flex-1 text-caption leading-[1.4]" x-text="n.message"></p>
-            <template x-if="n.action"><a :href="noticeHref(job, n.action)" class="shrink-0 px-sm text-caption font-bold hover:underline" x-text="n.label"></a></template>
+            <template x-if="n.action === 'plan'"><a :href="noticeHref(job, n.action)" class="shrink-0 px-sm text-caption font-bold hover:underline" x-text="n.label"></a></template>
+            <template x-if="n.action === 'doc'">@include('site.employer.partials.doc-upload', ['change' => 'jobUploadDoc(job, $event)', 'busy' => 'jobBusy === job.id', 'disabled' => '!!jobBusy', 'text' => 'n.label', 'class' => 'shrink-0 px-sm text-caption font-bold hover:underline', 'icon' => false])</template>
           </div>
         </template>
 

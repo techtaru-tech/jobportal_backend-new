@@ -1,7 +1,7 @@
 {{-- A labelled native select over an Alpine list of strings.
      @include('site.ui.select', ['label' => 'City', 'model' => 'form.city', 'items' => "opt('cities')", 'placeholder' => 'Select city', 'required' => true, 'error' => 'errors.city', 'disabled' => '!form.state']) --}}
 <label class="block">
-  <span class="wa-label">{{ $label }}@if (!empty($required))<span class="text-primary"> *</span>@endif</span>
+  <span class="wa-label">{{ $label }}@include('site.ui.mark', ['required' => $required ?? false, 'optional' => $optional ?? true])</span>
   <div class="relative">
     <select x-model="{{ $model }}" @isset($disabled) :disabled="{{ $disabled }}" @endisset
             class="wa-input cursor-pointer appearance-none pr-10 disabled:cursor-not-allowed disabled:opacity-60">

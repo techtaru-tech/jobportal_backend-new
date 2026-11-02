@@ -200,6 +200,7 @@
                     <div>
                         <span class="block text-kicker text-ink-secondary" x-text="$store.auth.firstName ? 'HI ' + $store.auth.firstName.toUpperCase() : 'FOR YOU'"></span>
                         <h2 class="mt-[2px] text-h2 text-ink">Recommended for you</h2>
+                        <p class="mt-[2px] inline-flex items-center gap-xs text-caption font-medium text-primary">@include('admin.partials.icon', ['name' => 'sparkles', 'class' => 'h-[14px] w-[14px]']) AI-matched to your profile</p>
                     </div>
                     <a href="{{ route('site.jobs') }}" class="inline-flex min-h-[32px] items-center text-btnghost font-semibold text-primary-dark hover:underline">See all jobs</a>
                 </div>

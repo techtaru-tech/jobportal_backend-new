@@ -7,7 +7,7 @@
   {{-- Verified by the OTP, so shown rather than asked again. --}}
   <template x-if="me?.phone">
     <div>
-      <span class="wa-label">Mobile number</span>
+      <span class="wa-label">Mobile number @include('site.ui.mark', ['required' => false, 'optional' => false])</span>
       <div class="flex h-[50px] items-center gap-sm rounded-field bg-surface-muted px-md">
         <span class="flex-1 text-input text-ink" x-text="'+91 ' + me.phone"></span>
         <span x-html="ICONS.badgeCheck" class="text-success [&>svg]:h-4 [&>svg]:w-4"></span>
@@ -22,7 +22,7 @@
 
   <div class="grid gap-lg sm:grid-cols-2">
     <label class="block">
-      <span class="wa-label">Date of birth</span>
+      <span class="wa-label">Date of birth @include('site.ui.mark', ['required' => false])</span>
       <input type="date" x-model="pf.dob" :min="profDobMin" :max="profDobMax" class="wa-input">
     </label>
     <div>
@@ -37,7 +37,7 @@
 
   {{-- Typed, or the current position. Typing drops a pin taken earlier. --}}
   <div>
-    <span class="wa-label">Where you live</span>
+    <span class="wa-label">Where you live @include('site.ui.mark', ['required' => false])</span>
     <textarea x-model="pf.address" @input="profAddressTyped()" rows="2" maxlength="255" placeholder="Area, city" class="wa-textarea"></textarea>
     <div class="mt-sm flex flex-wrap items-center gap-sm">
       <button type="button" @click="profUseLocation()" :disabled="profLocating" class="wa-btn-ghost-sm">
@@ -55,7 +55,7 @@
 
   <div class="grid gap-lg sm:grid-cols-2">
     <label class="block">
-      <span class="wa-label">Current state</span>
+      <span class="wa-label">Current state @include('site.ui.mark', ['required' => false])</span>
       <div class="relative">
         <select x-model="pf.home_state" @change="profPickState()" class="wa-input cursor-pointer appearance-none pr-10">
           <option value="">Select your state</option>
@@ -65,7 +65,7 @@
       </div>
     </label>
     <label class="block">
-      <span class="wa-label">Current city</span>
+      <span class="wa-label">Current city @include('site.ui.mark', ['required' => false])</span>
       <div class="relative">
         <select x-model="pf.home_city" :disabled="!pf.home_state" class="wa-input cursor-pointer appearance-none pr-10 disabled:cursor-not-allowed disabled:opacity-60">
           <option value="" x-text="pf.home_state ? 'Select your city' : 'Select your state first'"></option>

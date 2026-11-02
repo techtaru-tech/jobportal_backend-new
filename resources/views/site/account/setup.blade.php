@@ -129,7 +129,7 @@
                 </div>
               </template>
               <div class="rounded-card border-hair border-hairline bg-canvas p-lg">
-                <p class="mb-lg text-h5 text-ink" x-text="pf.exp.id ? 'Edit this role' : (profExperiences.length ? 'Add another role (optional)' : 'Your latest role (optional)')"></p>
+                <p class="mb-lg text-h5 text-ink"><span x-text="pf.exp.id ? 'Edit this role' : (profExperiences.length ? 'Add another role' : 'Your latest role')"></span><span x-show="!pf.exp.id" class="text-[12px] font-normal text-ink-muted"> (Optional)</span></p>
                 @include('site.profile.experience-form')
                 <button type="button" x-show="profExpStarted" @click="addRole()" :disabled="profBusy" class="wa-btn-ghost-sm mt-lg w-full sm:w-auto"
                         x-text="pf.exp.id ? 'Save this role' : 'Save & add another role'"></button>

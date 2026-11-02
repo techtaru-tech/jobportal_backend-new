@@ -414,6 +414,12 @@ class DashboardController extends ApiController
                 ->whereNotNull('document_path')
                 ->count(),
 
+            // Paid, but the business document never came: the employer is
+            // reminded in the app every day, and this is the list to call.
+            'paid_awaiting_document' => JobPosting::query()
+                ->atHiringStage('paid_document_missing')
+                ->count(),
+
             // Uploaded nothing to verify against: a different conversation.
             'unverified_no_document' => Organisation::where('verified', false)
                 ->whereNull('document_path')

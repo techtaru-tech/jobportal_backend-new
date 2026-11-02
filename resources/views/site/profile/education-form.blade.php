@@ -7,7 +7,7 @@
 
   <div class="grid grid-cols-2 gap-md">
     <label class="block">
-      <span class="wa-label">Joining year</span>
+      <span class="wa-label">Joining year @include('site.ui.mark', ['required' => false])</span>
       <div class="relative">
         <select x-model="pf.edu.start" @change="profEduStart(pf.edu.start)" class="wa-input cursor-pointer appearance-none pr-10">
           <option value="">Select a year</option>
@@ -17,7 +17,7 @@
       </div>
     </label>
     <label class="block">
-      <span class="wa-label">Passing year<span class="text-primary"> *</span></span>
+      <span class="wa-label">Passing year @include('site.ui.mark', ['required' => true])</span>
       <div class="relative">
         <select x-model="pf.edu.end" class="wa-input cursor-pointer appearance-none pr-10">
           <option value="">Select a year</option>

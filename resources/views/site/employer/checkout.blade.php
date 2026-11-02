@@ -1,6 +1,6 @@
 @extends('site.employer.layout')
 
-@section('title', 'Choose a plan — Inthes employer')
+@section('title', 'Choose Plan — Inthes employer')
 @section('employer_key', 'jobs')
 
 @section('employer')
@@ -27,7 +27,7 @@
         <a :href="jobUrl(job) + '/edit'" class="mb-xs inline-flex min-h-[32px] items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
           @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-4 w-4']) Edit job post
         </a>
-        <h1 class="text-h1 text-ink">Choose a plan</h1>
+        <h1 class="text-h1 text-ink">Choose Plan</h1>
         <div class="mt-sm flex flex-wrap gap-x-lg gap-y-xs">
           @foreach (['Start getting applications', 'Instant access to candidates', 'Personalised support'] as $perk)
             <span class="inline-flex items-center gap-[5px] text-bodysm text-ink-secondary">
@@ -41,25 +41,8 @@
         <div class="min-w-0 space-y-lg">
           <div class="flex gap-sm rounded-field border-hair border-primary-line bg-primary-light p-md text-bodysm leading-[1.45] text-primary-dark">
             <span class="mt-[1px] shrink-0 text-primary">@include('admin.partials.icon', ['name' => 'info', 'class' => 'h-[18px] w-[18px]'])</span>
-            Your post has been saved! Add a plan to make it live and connect with the right candidates.
+            <span>Your post has been saved! Add a plan to make it live and connect with the right candidates. After payment you'll be asked for your business document — the job goes live once it is verified.</span>
           </div>
-
-          {{-- company document, when the company still needs one --}}
-          <template x-if="needsDoc">
-            <div class="rounded-card border-hair border-warning/30 bg-warning-bg p-lg">
-              <p class="flex items-center gap-sm text-h5 text-ink">
-                <span class="text-warning">@include('admin.partials.icon', ['name' => 'alert', 'class' => 'h-[18px] w-[18px]'])</span>
-                Upload your company document to continue
-              </p>
-              <p class="mt-xs text-bodysm text-ink-secondary" x-text="'We need a GST certificate, shop licence or registration for ' + org.name + ' before the post can be paid for and go live.'"></p>
-              <label class="wa-btn-ghost-sm mt-md cursor-pointer bg-surface">
-                <input type="file" class="sr-only" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" @change="uploadDoc($event)" :disabled="docBusy">
-                <span x-html="docBusy ? ICONS.loader : ICONS.upload" :class="docBusy && 'animate-spin'" class="[&>svg]:h-4 [&>svg]:w-4"></span>
-                <span x-text="docBusy ? 'Uploading…' : 'Upload document'"></span>
-              </label>
-              <span class="ml-sm text-caption text-ink-muted">PDF, JPG or PNG · up to 10 MB</span>
-            </div>
-          </template>
 
           {{-- postings left from an earlier pack --}}
           <template x-for="credit in credits" :key="credit.id">
@@ -171,14 +154,17 @@
                 <span class="text-h5 text-ink">Total</span>
                 <span class="text-h2 tabular-nums text-ink" x-text="totalPaise == null ? '—' : rupees(totalPaise)"></span>
               </div>
-              <button type="button" class="wa-btn mt-lg w-full" :disabled="totalPaise == null || paying || needsDoc" @click="pay()">
+              <button type="button" class="wa-btn mt-lg w-full" :disabled="totalPaise == null || paying" @click="pay()">
                 <span x-show="paying" x-html="ICONS.loader" class="animate-spin [&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
                 <span x-text="paying ? 'Processing…' : (totalPaise == null ? 'Proceed to pay' : 'Pay ' + rupees(totalPaise))"></span>
               </button>
               <p class="mt-sm flex items-center justify-center gap-xs text-caption text-ink-secondary">
                 @include('admin.partials.icon', ['name' => 'lock', 'class' => 'h-[13px] w-[13px]']) Pay securely with UPI, card or net banking.
               </p>
-              <p x-show="needsDoc" class="mt-xs text-center text-caption text-warning">Upload your company document to continue.</p>
+              <p class="mt-sm flex items-start gap-xs border-t border-hairline-divider pt-sm text-caption text-ink-secondary">
+                <span class="mt-[1px] shrink-0 text-primary">@include('admin.partials.icon', ['name' => 'fileText', 'class' => 'h-[14px] w-[14px]'])</span>
+                <span>After payment you'll be asked for your business document — the job goes live once it is verified.</span>
+              </p>
             </div>
           </div>
         </aside>

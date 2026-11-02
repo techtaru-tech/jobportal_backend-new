@@ -74,11 +74,11 @@ document.addEventListener('alpine:init', () => {
           const hidden = o.hidden_postings || 0
           out.push({
             key: 'doc' + o.id, tone: 'brand', icon: 'upload', title: o.name,
-            text: hidden > 0 ? `Upload your company document — ${hidden} posting${hidden === 1 ? ' is' : 's are'} not being shown.` : 'Upload your company document to get verified.',
+            text: hidden > 0 ? `Upload your business document — ${hidden} posting${hidden === 1 ? ' is' : 's are'} not being shown.` : 'Upload your business document to get verified.',
             href: '/employer/companies?doc=' + encodeURIComponent(o.id), cta: 'Upload document',
           })
         } else if (o.review_state === 'pending') {
-          out.push({ key: 'ver' + o.id, tone: 'info', icon: 'clock', title: o.name, text: "We're checking your company document — jobs go live once it's verified.", href: '/employer/companies', cta: 'View' })
+          out.push({ key: 'ver' + o.id, tone: 'info', icon: 'clock', title: o.name, text: "We're checking your business document — jobs go live once it's verified.", href: '/employer/companies', cta: 'View' })
         }
       }
       return out

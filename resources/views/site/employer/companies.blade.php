@@ -8,7 +8,7 @@
   <div class="mb-xl flex flex-wrap items-center justify-between gap-md">
     <div>
       <h1 class="text-h1 text-ink">Companies</h1>
-      <p class="mt-xs text-bodysm text-ink-secondary">The companies you hire for. Each is verified from its company document before its jobs go live.</p>
+      <p class="mt-xs text-bodysm text-ink-secondary">The companies you hire for. Each is verified from its business document before its jobs go live.</p>
     </div>
     <button type="button" class="wa-btn-sm" x-show="!loading" @click="openForm()">@include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-4 w-4']) Add company</button>
   </div>
@@ -19,14 +19,14 @@
   </template>
   <template x-if="!loading && !error && !orgs.length">
     <div>
-      @include('site.ui.empty', ['icon' => 'building', 'title' => 'No companies added yet', 'text' => 'Your company is added when you post your first job — or add it here with its company document.'])
+      @include('site.ui.empty', ['icon' => 'building', 'title' => 'No companies added yet', 'text' => 'Your company is added when you post your first job — or add it here. The business document is asked for after you pay for a post.'])
       <div class="mt-lg text-center"><button type="button" class="wa-btn" @click="openForm()">Add company</button></div>
     </div>
   </template>
 
   <div class="grid grid-cols-1 gap-lg md:grid-cols-2 [&>*]:min-w-0" x-show="!loading && orgs.length">
     <template x-for="org in orgs" :key="org.id">
-      <article class="wa-card flex flex-col !p-lg">
+      <article class="wa-card flex flex-col !p-lg" :data-org="org.id">
         <div class="flex items-start gap-md">
           <span class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-primary-light text-h4 text-primary-dark">
             <template x-if="org.logo_url"><img :src="org.logo_url" alt="" class="h-full w-full object-cover"></template>
@@ -51,7 +51,7 @@
         {{-- document --}}
         <div class="mt-md flex flex-wrap items-center gap-sm rounded-field bg-surface-muted px-md py-sm">
           <span class="shrink-0 [&>svg]:h-[18px] [&>svg]:w-[18px]" :class="org.document_name || org.verified ? 'text-ink-secondary' : 'text-primary'" x-html="org.document_name || org.verified ? ICONS.fileText : ICONS.alert"></span>
-          <span class="min-w-0 flex-1 truncate text-bodysm" :class="org.document_name || org.verified ? 'text-ink-secondary' : 'font-semibold text-primary-dark'" x-text="org.document_name || (org.verified ? 'No document on file — needed for new posts' : 'Company document required')"></span>
+          <span class="min-w-0 flex-1 truncate text-bodysm" :class="org.document_name || org.verified ? 'text-ink-secondary' : 'font-semibold text-primary-dark'" x-text="org.document_name || (org.verified ? 'No document on file' : 'Business document not uploaded yet')"></span>
           <template x-if="org.document_name">
             <button type="button" class="shrink-0 text-btnghost text-ink-secondary hover:text-ink" @click="viewDocument(org)">View</button>
           </template>

@@ -3,6 +3,8 @@
 @php
     $headline = $state['q'] !== '' ? $state['q'].' jobs' : ($state['category'] !== '' ? $state['category'].' jobs' : 'Healthcare jobs');
     $cities = $state['filters']['city'] ?? [];
+    // Landmark photos for the popular-city tiles, only those that exist (public/images/cities/<slug>.jpg).
+    $cityImages = array_map('basename', glob(public_path('images/cities/*.jpg')) ?: []);
     $meta = $initial['meta'];
     $total = (int) ($meta['total'] ?? count($initial['list']));
     $pageUrl = fn (int $p) => route('site.jobs', array_filter(request()->except('page', 'job') + ['page' => $p > 1 ? $p : null], fn ($v) => $v !== null && $v !== ''));
@@ -17,7 +19,7 @@
 @endpush
 
 @section('content')
-<div x-data="jobsBrowse(@js(['initial' => $initial, 'state' => $state, 'groups' => $groups, 'categories' => $categories]))"
+<div x-data="jobsBrowse(@js(['initial' => $initial, 'state' => $state, 'groups' => $groups, 'categories' => $categories, 'cityImages' => $cityImages]))"
      class="mx-auto w-full max-w-[1440px] px-page pb-xxl pt-lg lg:px-xl">
 
   {{-- ── search bar ─────────────────────────────────────────────────────── --}}
@@ -112,8 +114,42 @@
               <span x-text="g.label"></span>
               <span x-show="groupCount(g)" class="wa-pill bg-primary-light text-primary-dark" x-text="groupCount(g)"></span>
             </p>
+            <template x-if="g.key === 'city'">
+              <div class="mt-sm space-y-sm">
+                <button type="button" @click="locateCity(g)" :disabled="locatingCity"
+                        class="inline-flex min-h-[32px] items-center gap-xs text-caption font-semibold text-primary-dark hover:underline disabled:opacity-60">
+                  <span x-html="locatingCity ? ICONS.loader : ICONS.navigation" :class="locatingCity && 'animate-spin'" class="[&>svg]:h-[15px] [&>svg]:w-[15px]"></span>
+                  Use my current location
+                </button>
+                <label x-show="g.options.length > 6" class="relative block">
+                  <span class="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-ink-muted [&>svg]:h-4 [&>svg]:w-4" x-html="ICONS.search"></span>
+                  <input type="search" x-model="cityQuery" placeholder="Search city" aria-label="Search city" class="wa-input h-9 !pl-[34px] text-bodysm">
+                </label>
+                <template x-if="!cityQuery.trim() && popularCities(g).length">
+                  <div>
+                    <p class="mb-xs text-caption text-ink-muted">Popular cities</p>
+                    <div class="grid grid-cols-2 gap-xs">
+                      <template x-for="c in popularCities(g)" :key="c.name">
+                        <button type="button" @click="toggle(g, c.name)" :aria-pressed="isOn(g, c.name)"
+                                :class="isOn(g, c.name) ? 'border-primary ring-1 ring-primary' : 'border-hairline hover:border-hairline-strong'"
+                                class="relative flex h-[64px] flex-col justify-end overflow-hidden rounded-field border-hair bg-primary-light p-xs text-left">
+                          <template x-if="c.img"><img :src="c.img" alt="" loading="lazy" class="absolute inset-0 h-full w-full object-cover" x-on:error="$el.remove()"></template>
+                          <span x-show="!c.img && !isOn(g, c.name)" x-html="ICONS.mapPin" class="absolute right-[6px] top-[6px] text-primary/40 [&>svg]:h-5 [&>svg]:w-5"></span>
+                          <span class="relative block rounded-[6px] bg-surface/85 px-[4px] py-[1px]">
+                            <span class="block truncate text-caption font-semibold text-ink" x-text="c.name"></span>
+                            <span class="block truncate text-[10.5px] leading-tight text-ink-secondary" x-text="c.landmark"></span>
+                          </span>
+                          <span x-show="isOn(g, c.name)" x-html="ICONS.checkCircle" class="absolute right-[4px] top-[4px] text-primary [&>svg]:h-4 [&>svg]:w-4"></span>
+                        </button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
             <div class="mt-xs space-y-[2px]">
-              <template x-for="o in g.options" :key="o">
+              <p x-show="g.key === 'city' && cityQuery.trim() && !cityOptions(g).length" class="px-xs py-[6px] text-caption text-ink-muted">No city matches</p>
+              <template x-for="o in (g.key === 'city' ? cityOptions(g) : g.options)" :key="o">
                 <label class="flex cursor-pointer items-center gap-sm rounded-field px-xs py-[6px] text-bodysm text-ink hover:bg-surface-muted">
                   <input :type="g.type === 'min' ? 'radio' : 'checkbox'" :name="'f-' + g.key" :checked="isOn(g, o)" @click="toggle(g, o)"
                          class="h-4 w-4 shrink-0 cursor-pointer accent-[#EB0401]">

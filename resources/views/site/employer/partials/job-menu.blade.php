@@ -1,7 +1,11 @@
 {{-- A posting's "⋮" actions (recruiter/widgets/job_actions_sheet.dart), shown only
-     where they apply. Fixed-positioned so a scrolling table can't clip it.
+     where they apply: Edit (sends a live post back for approval), Share,
+     Pause / Resume and Close — plus Choose plan / Upload document when the
+     posting is waiting on one. "View Candidates" and "Preview" are buttons
+     on the row itself (site/employer/partials/job-buttons), not in here.
+     Fixed-positioned so a scrolling table can't clip it.
      The page component spreads Emp.jobActions() and Emp.helpers in.
-     @include('site.employer.partials.job-menu', ['job' => 'job', 'hideApplicants' => false]) --}}
+     @include('site.employer.partials.job-menu', ['job' => 'job']) --}}
 @php
   $item = 'flex w-full items-center gap-md px-lg py-[10px] text-left text-bodysm font-medium text-ink hover:bg-surface-muted';
   $ico = 'text-ink-secondary [&>svg]:h-[17px] [&>svg]:w-[17px]';
@@ -21,14 +25,15 @@
   <template x-teleport="body">
     <div x-show="open" x-cloak x-ref="menu" @click.outside="open = false" :style="`top:${top}px;left:${left}px`"
          class="fixed z-[60] w-[228px] overflow-hidden rounded-card border-hair border-hairline bg-surface py-xs shadow-raised animate-pop-in">
-      @empty($hideApplicants)
-        <a :href="jobUrl({{ $job }})" class="{{ $item }}"><span x-html="ICONS.users" class="{{ $ico }}"></span>View applicants</a>
-      @endempty
       <template x-if="awaitingPayment({{ $job }})">
         <a :href="noticeHref({{ $job }}, 'plan')" class="{{ $item }} text-primary-dark"><span x-html="ICONS.wallet" class="text-primary [&>svg]:h-[17px] [&>svg]:w-[17px]"></span>Choose plan</a>
       </template>
       <template x-if="docMissing({{ $job }})">
-        <a :href="noticeHref({{ $job }}, 'doc')" class="{{ $item }} text-primary-dark"><span x-html="ICONS.upload" class="text-primary [&>svg]:h-[17px] [&>svg]:w-[17px]"></span>Upload document</a>
+        <label class="{{ $item }} cursor-pointer text-primary-dark" @click.stop>
+          <input type="file" class="sr-only" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" :disabled="!!jobBusy" @change="open = false; jobUploadDoc({{ $job }}, $event)">
+          <span x-html="jobBusy === {{ $job }}.id ? ICONS.loader : ICONS.upload" :class="jobBusy === {{ $job }}.id && 'animate-spin'" class="text-primary [&>svg]:h-[17px] [&>svg]:w-[17px]"></span>
+          <span x-text="jobBusy === {{ $job }}.id ? 'Uploading…' : 'Upload document'"></span>
+        </label>
       </template>
       <template x-if="{{ $job }}.posting_status === 'active' && {{ $job }}.organisation_verified">
         <a :href="publicUrl({{ $job }})" target="_blank" rel="noopener" class="{{ $item }}"><span x-html="ICONS.externalLink" class="{{ $ico }}"></span>View public page</a>

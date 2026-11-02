@@ -25,6 +25,12 @@
  * `inthes:signed-in`, `inthes:signed-out`.
  */
 ;(function () {
+  // The WhatsApp logo. The shared lucide set (admin/icons.php) has no brand
+  // glyphs — its `whatsapp` is a plain chat bubble that reads as SMS.
+  if (window.ICONS) {
+    window.ICONS.whatsapp = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>'
+  }
+
   const API = '/api/v1'
   const TOKEN_KEY = 'inthes.token'
   const USER_KEY = 'inthes.user'
@@ -327,6 +333,104 @@
     list.push(value)
   }
 
+
+  // ── combo pickers (site/ui/combo) ───────────────────────────────────
+  /**
+   * The rows a combo shows: the whole list until the user types, then the
+   * entries containing what they typed. The "Add your own" row is the
+   * partial's own last row, after these.
+   */
+  function comboList(items, value, typing) {
+    const all = Array.isArray(items) ? items : []
+    const q = String(value || '').trim().toLowerCase()
+    if (!typing || !q) return all
+    return all.filter((i) => String(i).toLowerCase().includes(q))
+  }
+  /** Something typed that the list doesn't already have. */
+  function comboCanAdd(items, value) {
+    const v = String(value || '').trim().toLowerCase()
+    if (!v) return false
+    return !(Array.isArray(items) ? items : []).some((i) => String(i).toLowerCase() === v)
+  }
+
+  // ── places (core/utils/geocoder.dart + location_capture.dart) ───────
+  const PLUS_CODE = /^[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{0,3}$/
+
+  /** Parts split on commas, trimmed, with blanks, plus codes and repeats dropped (LocationCapture.joinAddressParts). */
+  function joinAddressParts(parts) {
+    const out = []
+    for (const part of parts) {
+      for (const token of String(part || '').split(',')) {
+        const v = token.trim()
+        if (!v || v.toLowerCase() === 'unnamed road' || PLUS_CODE.test(v.toUpperCase())) continue
+        if (out.some((e) => e.toLowerCase() === v.toLowerCase())) continue
+        out.push(v)
+      }
+    }
+    return out.join(', ')
+  }
+
+  /**
+   * The street part of an address — house/flat no., street, area — without
+   * the city, state, pincode and country (LocationCapture.localityOf):
+   * "21-987, Jeedimetla" out of "21-987, Jeedimetla, Hyderabad, Telangana".
+   * It used to keep only the first comma part, which for a house is just its number.
+   */
+  function localityOf(address, city = '', state = '') {
+    const drop = new Set([city, state, 'india'].map((s) => String(s || '').trim().toLowerCase()).filter(Boolean))
+    return String(address || '').split(',').map((p) => p.trim()).filter(Boolean)
+      .filter((p) => !drop.has(p.toLowerCase()) && !/^\d{6}$/.test(p)).join(', ')
+  }
+
+  /**
+   * Coordinates → { address, city, district, state, pincode } (Geocoder.placemarks), or null.
+   * OpenStreetMap's public reverse geocoder: the app's Google key is not
+   * enabled for browser geocoding, and it does not belong in page source.
+   */
+  async function reverseGeocode(lat, lng) {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=en&lat=${lat}&lon=${lng}`)
+      if (!res.ok) return null
+      const a = (await res.json()).address || {}
+      const city = a.city || a.town || a.village || a.municipality || ''
+      const state = a.state || ''
+      // Ward / zone names ("Ward 130 Subash Nagar") are administrative, not an address line.
+      const area = (v) => (v && !/^ward\b/i.test(v) && !/municipal corporation|zone$/i.test(v) ? v : '')
+      return {
+        address: joinAddressParts([
+          a.house_number, a.house_name, a.building, a.road, a.neighbourhood, a.residential, a.quarter, a.industrial,
+          area(a.suburb), a.hamlet, city, state,
+        ]),
+        city, district: a.state_district || a.county || '', state, pincode: a.postcode || '',
+      }
+    } catch (e) { return null }
+  }
+
+  /** The browser's position, as a promise. Rejects with the GeolocationPositionError. */
+  function currentPosition() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) { reject(Object.assign(new Error('unsupported'), { code: 2 })); return }
+      navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 })
+    })
+  }
+
+  /** The entry of `list` named by any of `texts` — exact first, then as a whole word, longest first (stateIn / cityIn). */
+  function findIn(list, ...texts) {
+    const byLength = [...(list || [])].sort((a, b) => b.length - a.length)
+    for (const t of texts) {
+      const want = String(t || '').trim().toLowerCase()
+      const exact = want && byLength.find((c) => c.toLowerCase() === want)
+      if (exact) return exact
+    }
+    for (const t of texts) {
+      const text = String(t || '').toLowerCase()
+      if (!text) continue
+      const hit = byLength.find((c) => new RegExp('\\b' + c.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(text))
+      if (hit) return hit
+    }
+    return ''
+  }
+
   /** Resolves once the session is restored (`$store.auth.ready`). Page inits await it before loading signed-in data. */
   let readyResolve
   const readyPromise = new Promise((r) => { readyResolve = r })
@@ -336,7 +440,8 @@
     api, upload, qs, loadMe, whenReady,
     signIn, closeSignIn, sendOtp, verifyOtp, signOut, confirmSignOut,
     toast, confirm, pay, confirmOrder,
-    opt, citiesOf, copy, share, toggleIn,
+    opt, citiesOf, copy, share, toggleIn, comboList, comboCanAdd,
+    reverseGeocode, currentPosition, joinAddressParts, localityOf, findIn,
     fmtNumber, rupees, timeAgo, fmtDate, initials, clone,
     store,
     storeUrl: () => window.INTHES_CONFIG?.storeUrl || '/get-app/go',

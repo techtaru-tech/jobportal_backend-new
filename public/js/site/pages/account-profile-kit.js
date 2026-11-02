@@ -408,9 +408,24 @@
         if (!navigator.geolocation) { toast('Could not fetch current location', true); return }
         this.profLocating = true
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            this.pf.home_latitude = Math.round(pos.coords.latitude * 1e6) / 1e6
-            this.pf.home_longitude = Math.round(pos.coords.longitude * 1e6) / 1e6
+          async (pos) => {
+            const { latitude, longitude } = pos.coords
+            this.pf.home_latitude = Math.round(latitude * 1e6) / 1e6
+            this.pf.home_longitude = Math.round(longitude * 1e6) / 1e6
+            // The address the user sees is filled in whole — house/flat no.,
+            // street, area, city, state — not left stale (LocationCapture.addressOf).
+            const place = await window.Inthes.reverseGeocode(latitude, longitude)
+            if (place && place.address) {
+              this.pf.address = place.address.slice(0, 255)
+              const states = Object.keys(Alpine.store('opts').data?.state_cities || {})
+              const state = window.Inthes.findIn(states, place.state, place.address)
+              if (state) {
+                this.pf.home_state = state
+                const city = window.Inthes.findIn(window.Inthes.citiesOf(state), place.city, place.district, place.address)
+                this.pf.home_city = city || (window.Inthes.citiesOf(state).includes(this.pf.home_city) ? this.pf.home_city : '')
+              }
+              if (/^[0-9]{6}$/.test(String(place.pincode || '').trim())) this.pf.home_pincode = String(place.pincode).trim()
+            }
             this.profLocating = false
             toast('Location pinned')
           },

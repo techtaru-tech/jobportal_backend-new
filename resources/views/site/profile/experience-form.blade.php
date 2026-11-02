@@ -4,12 +4,12 @@
 <div class="space-y-lg">
   @include('site.ui.combo', ['label' => 'Company / Hospital / Laboratory', 'model' => 'pf.exp.organization', 'items' => "opt('institutes')", 'required' => true, 'placeholder' => 'e.g. Apollo Hospitals, Metro Diagnostics…'])
   @include('site.ui.combo', ['label' => 'Designation', 'model' => 'pf.exp.designation', 'items' => "opt('designations')", 'required' => true, 'placeholder' => 'Select or add your designation'])
-  @include('site.ui.combo', ['label' => 'Department (optional)', 'model' => 'pf.exp.department', 'items' => "opt('departments')", 'placeholder' => 'Select or add a department'])
+  @include('site.ui.combo', ['label' => 'Department', 'model' => 'pf.exp.department', 'items' => "opt('departments')", 'placeholder' => 'Select or add a department'])
   {{-- A role can be worked across more than one city. --}}
   @include('site.ui.multi-add', ['label' => 'Location', 'model' => 'pf.exp.cities', 'items' => "opt('cities')", 'placeholder' => '+ Add a city'])
 
   <div>
-    <span class="wa-label">Joining date<span class="text-primary"> *</span></span>
+    <span class="wa-label">Joining date @include('site.ui.mark', ['required' => true])</span>
     <div class="grid grid-cols-2 gap-sm">
       <select x-model="pf.exp.sm" class="wa-input cursor-pointer" aria-label="Joining month">
         <option value="">Month</option>
@@ -23,7 +23,7 @@
   </div>
 
   <div>
-    <span class="wa-label">Last working date</span>
+    <span class="wa-label">Last working date @include('site.ui.mark', ['required' => false])</span>
     {{-- "Present" while currently working — the entry saves that as its end. --}}
     <template x-if="pf.exp.currently_working">
       <div class="flex h-[50px] items-center rounded-field bg-surface-muted px-md text-input text-ink-muted">Present</div>
@@ -48,5 +48,5 @@
   </label>
   <p x-show="profExpDuration" class="-mt-sm text-caption text-ink-secondary" x-text="'Duration: ' + profExpDuration"></p>
 
-  @include('site.ui.textarea', ['label' => 'Responsibilities (optional)', 'model' => 'pf.exp.description', 'rows' => 3, 'placeholder' => 'Briefly describe what you did in this role'])
+  @include('site.ui.textarea', ['label' => 'Responsibilities', 'model' => 'pf.exp.description', 'rows' => 3, 'placeholder' => 'Briefly describe what you did in this role'])
 </div>

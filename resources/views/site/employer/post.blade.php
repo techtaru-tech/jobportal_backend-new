@@ -63,7 +63,7 @@
 
           {{-- ── 1 · job details ─────────────────────────────────────── --}}
           <section class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">1</span><h2 class="text-h3 text-ink">Job details</h2></div>
+            <div class="{{ $sectionHead }}"><span class="{{ $num }}">1</span><h2 class="min-w-0 text-h3 text-ink">Job Details</h2></div>
             <div class="space-y-xl">
               <div class="grid gap-lg sm:grid-cols-2">
                 <div data-field="title" @input="recheck('title')">
@@ -77,12 +77,12 @@
               <div>
                 <template x-if="!showDescription">
                   <button type="button" @click="showDescription = true" class="{{ $addLink }}">
-                    @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-[18px] w-[18px]']) Add job description (optional)
+                    @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-[18px] w-[18px]']) Add job description
                   </button>
                 </template>
                 <template x-if="showDescription">
                   <div>
-                    @include('site.ui.textarea', ['label' => 'Job description (optional)', 'model' => 'f.about', 'rows' => 5, 'max' => 4000, 'placeholder' => 'Briefly describe the role and the team…'])
+                    @include('site.ui.textarea', ['label' => 'Job description', 'model' => 'f.about', 'rows' => 5, 'max' => 4000, 'placeholder' => 'Briefly describe the role and the team…'])
                     <button type="button" class="-mt-md min-h-[32px] text-caption text-ink-secondary hover:text-ink" @click="showDescription = false; f.about = ''">Remove description</button>
                   </div>
                 </template>
@@ -93,7 +93,7 @@
                   @include('site.ui.input', ['label' => 'Number of openings', 'model' => 'f.openings', 'placeholder' => 'e.g. 5', 'required' => true, 'attrs' => 'inputmode=numeric maxlength=4 @input="digits(\'openings\', 4)"', 'error' => 'errors.openings'])
                 </div>
                 <div data-field="salary">
-                  <span class="wa-label">Monthly salary<span class="text-primary"> *</span></span>
+                  <span class="wa-label">Monthly salary @include('site.ui.mark', ['required' => true])</span>
                   <div class="flex items-center gap-sm">
                     <div class="relative flex-1">
                       <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted">₹</span>
@@ -122,16 +122,16 @@
 
               <div>
                 <div class="mb-sm flex flex-wrap items-center justify-between gap-sm">
-                  <span class="wa-label !mb-0">Office location<span class="text-primary"> *</span></span>
+                  <span class="wa-label !mb-0">Office location</span>
                   <button type="button" @click="useLocation()" :disabled="locating" class="{{ $addLink }} disabled:opacity-60">
                     <span x-html="locating ? ICONS.loader : ICONS.navigation" :class="locating && 'animate-spin'" class="[&>svg]:h-[16px] [&>svg]:w-[16px]"></span>
                     Use current location
                   </button>
                 </div>
-                <div class="grid gap-lg sm:grid-cols-3">
+                <div class="grid gap-lg sm:grid-cols-2">
                   <div data-field="state">
                     <label class="block">
-                      <span class="wa-label">State</span>
+                      <span class="wa-label">State @include('site.ui.mark', ['required' => true])</span>
                       <div class="relative">
                         <select :value="f.state" @change="pickState($event.target.value)" class="wa-input cursor-pointer appearance-none pr-10">
                           <option value="">Select the state</option>
@@ -144,7 +144,7 @@
                   </div>
                   <div data-field="city" @change="recheck('city')">
                     <label class="block">
-                      <span class="wa-label">City / district</span>
+                      <span class="wa-label">City / district @include('site.ui.mark', ['required' => true])</span>
                       <div class="relative">
                         <select x-model="f.city" :disabled="!f.state" class="wa-input cursor-pointer appearance-none pr-10 disabled:cursor-not-allowed disabled:opacity-60">
                           <option value="" x-text="f.state ? 'Select the city' : 'Pick a state first'"></option>
@@ -155,7 +155,9 @@
                     </label>
                     <p x-show="errors.city" x-text="errors.city" class="wa-error"></p>
                   </div>
-                  @include('site.ui.input', ['label' => 'Locality / area (optional)', 'model' => 'f.locality', 'placeholder' => 'e.g. Malviya Nagar', 'attrs' => 'maxlength=120'])
+                </div>
+                <div class="mt-lg">
+                  @include('site.ui.input', ['label' => 'Address', 'model' => 'f.locality', 'placeholder' => 'House / flat no., street, area — e.g. 21-987, Jeedimetla', 'attrs' => 'maxlength=120'])
                 </div>
                 <p x-show="f.city" class="mt-sm flex items-center gap-sm text-caption text-ink-secondary">
                   <span x-html="ICONS.info" class="text-primary [&>svg]:h-4 [&>svg]:w-4"></span>
@@ -164,7 +166,7 @@
               </div>
 
               <div data-field="charges_fee">
-                @include('site.ui.yesno', ['label' => 'For this job, will you charge any fee from candidates?', 'model' => 'f.charges_fee'])
+                @include('site.ui.yesno', ['label' => 'For this job, will you charge any fee from candidates?', 'model' => 'f.charges_fee', 'required' => true])
                 <p x-show="errors.charges_fee" x-text="errors.charges_fee" class="wa-error"></p>
               </div>
             </div>
@@ -172,7 +174,7 @@
 
           {{-- ── 2 · candidate requirements ──────────────────────────── --}}
           <section class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">2</span><h2 class="text-h3 text-ink">Candidate requirements</h2></div>
+            <div class="{{ $sectionHead }}"><span class="{{ $num }}">2</span><h2 class="min-w-0 text-h3 text-ink">Candidate Requirements</h2></div>
             <div class="space-y-xl">
               <div data-field="min_education" @click="$nextTick(() => recheck('min_education'))">
                 @include('site.ui.chips', ['label' => 'Minimum education', 'model' => 'f.min_education', 'items' => "opt('education_levels')", 'required' => true, 'error' => 'errors.min_education'])
@@ -185,13 +187,13 @@
               <div>
                 <template x-if="!showMoreReqs">
                   <button type="button" @click="showMoreReqs = true" class="{{ $addLink }}">
-                    @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-[18px] w-[18px]']) Add skills & qualifications (optional)
+                    @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-[18px] w-[18px]']) Add skills & qualifications
                   </button>
                 </template>
                 <template x-if="showMoreReqs">
                   <div class="space-y-xl">
-                    @include('site.ui.multi-add', ['label' => 'Skills required (optional)', 'model' => 'f.skills', 'items' => "opt('professional_skills')", 'placeholder' => 'Add a skill'])
-                    @include('site.ui.multi-add', ['label' => 'Specific qualifications (optional)', 'model' => 'f.qualifications', 'items' => "opt('qualifications')", 'placeholder' => 'e.g. B.Sc Nursing, DMLT'])
+                    @include('site.ui.multi-add', ['label' => 'Skills required', 'model' => 'f.skills', 'items' => "opt('professional_skills')", 'placeholder' => 'Add a skill'])
+                    @include('site.ui.multi-add', ['label' => 'Specific qualifications', 'model' => 'f.qualifications', 'items' => "opt('qualifications')", 'placeholder' => 'e.g. B.Sc Nursing, DMLT'])
                   </div>
                 </template>
               </div>
@@ -200,14 +202,14 @@
 
           {{-- ── 3 · contact preferences ─────────────────────────────── --}}
           <section class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">3</span><h2 class="text-h3 text-ink">Contact preferences</h2></div>
+            <div class="{{ $sectionHead }}"><span class="{{ $num }}">3</span><h2 class="min-w-0 text-h3 text-ink">Contact Preferences</h2></div>
             <div class="space-y-lg" data-field="contact_mode">
               <div>
-                <span class="wa-label">Manage candidates through<span class="text-primary"> *</span></span>
+                <span class="wa-label">Manage candidates through @include('site.ui.mark', ['required' => true])</span>
                 <div class="flex flex-wrap gap-xs">
                   <template x-for="[id, label] in Object.entries(contactModes)" :key="id">
                     <button type="button" @click="f.contact_mode = id; errors.contact_mode = ''" :class="f.contact_mode === id && 'wa-chip-on'" class="wa-chip">
-                      <span x-html="id === 'calls' ? ICONS.phone : (id === 'calls_whatsapp' ? ICONS.whatsapp : ICONS.clipboard)" class="{{ $chipIcon }}" :class="f.contact_mode === id && '!text-primary'"></span>
+                      <span x-html="id === 'calls' ? ICONS.phone : (id === 'calls_whatsapp' ? ICONS.whatsapp : ICONS.clipboard)" class="{{ $chipIcon }}" :class="id === 'calls_whatsapp' ? '!text-[#25D366]' : (f.contact_mode === id && '!text-primary')"></span>
                       <span x-text="label"></span>
                     </button>
                   </template>
@@ -243,11 +245,11 @@
 
           {{-- ── 4 · company ──────────────────────────────────────────── --}}
           <section class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">4</span><h2 class="text-h3 text-ink">Company</h2></div>
+            <div class="{{ $sectionHead }}"><span class="{{ $num }}">4</span><h2 class="min-w-0 text-h3 text-ink">Company Details</h2></div>
 
             <template x-if="orgs.length">
               <div class="mb-lg">
-                <span class="wa-label">Hiring for</span>
+                <span class="wa-label">Hiring for @include('site.ui.mark', ['required' => true])</span>
                 <div class="flex flex-wrap gap-xs">
                   <template x-for="o in orgs" :key="o.id">
                     <button type="button" @click="pickOrg(o.id)" :class="orgChoice === o.id && 'wa-chip-on'" class="wa-chip">
@@ -263,7 +265,7 @@
               </div>
             </template>
 
-            {{-- A saved company: a summary, its document if it still needs one, and the full form on request. --}}
+            {{-- A saved company: a summary, and the full form on request. --}}
             <template x-if="pickedOrg && !coEditing">
               <div class="space-y-lg">
                 <div class="flex items-start gap-md rounded-field border-hair border-hairline p-md">
@@ -280,25 +282,6 @@
                     @include('admin.partials.icon', ['name' => 'pencil', 'class' => 'h-4 w-4']) Edit details
                   </button>
                 </div>
-                <template x-if="!co.has_doc">
-                  <div data-field="co.doc">
-                    <span class="wa-label">Company document<span class="text-primary"> *</span></span>
-                    <label :class="coErrors.doc ? 'border-danger bg-danger-bg' : (co.doc_name ? 'border-success/40 bg-success-bg' : 'border-hairline bg-surface-muted hover:bg-hairline/50')"
-                           class="flex cursor-pointer items-center gap-md rounded-field border-hair p-md transition-colors">
-                      <input type="file" class="sr-only" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" @change="coPick('doc', $event)">
-                      <span class="flex h-9 w-9 shrink-0 items-center justify-center [&>svg]:h-6 [&>svg]:w-6" :class="co.doc_name ? 'text-success' : 'text-primary'" x-html="co.doc_name ? ICONS.fileText : ICONS.upload"></span>
-                      <span class="min-w-0 flex-1">
-                        <span class="block truncate text-bodysm font-semibold text-ink" x-text="co.doc_name || 'Upload company document'"></span>
-                        <span class="block text-caption text-ink-secondary">GST certificate, shop licence or company registration — PDF, JPG or PNG</span>
-                      </span>
-                      <button type="button" x-show="co.doc_new" @click.prevent.stop="coRemove('doc')" aria-label="Remove" class="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-muted hover:bg-surface">
-                        @include('admin.partials.icon', ['name' => 'x', 'class' => 'h-4 w-4'])
-                      </button>
-                    </label>
-                    <p class="mt-xs text-caption text-ink-muted">Needed before the post can go live — it's what we check to verify your company.</p>
-                    <p x-show="coErrors.doc" x-text="coErrors.doc" class="wa-error"></p>
-                  </div>
-                </template>
               </div>
             </template>
 

@@ -2,7 +2,7 @@
      SkillsInterestsFields) — pick from the list, or add your own. --}}
 <div class="space-y-xl">
   <div x-data="{ draft: '' }">
-    <span class="wa-label">Professional skills</span>
+    <span class="wa-label">Professional skills @include('site.ui.mark', ['required' => false])</span>
     <div class="flex flex-wrap gap-xs">
       <template x-for="s in profChipList(opt('professional_skills'), pf.skills)" :key="s">
         <button type="button" @click="profToggleSkill(s)" :class="pf.skills.some((x) => x.toLowerCase() === s.toLowerCase()) && 'wa-chip-on'" class="wa-chip">
@@ -18,7 +18,7 @@
   </div>
 
   <div x-data="{ draft: '' }">
-    <span class="wa-label">Hobbies &amp; interests <span class="ml-xs text-caption text-ink-muted" x-text="pf.hobbies.length + '/' + PROF_MAX_HOBBIES"></span></span>
+    <span class="wa-label">Hobbies &amp; interests @include('site.ui.mark', ['required' => false]) <span class="ml-xs text-caption text-ink-muted" x-text="pf.hobbies.length + '/' + PROF_MAX_HOBBIES"></span></span>
     <div class="flex flex-wrap gap-xs">
       <template x-for="h in profChipList(opt('hobby_interests'), pf.hobbies)" :key="h">
         <button type="button" @click="profToggleHobby(h)" :class="pf.hobbies.includes(h) && 'wa-chip-on'" class="wa-chip">

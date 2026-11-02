@@ -1,9 +1,9 @@
 /**
  * /employer/companies — the companies an employer posts for
  * (recruiter_profile organisations_view + organisation_form_sheet): their
- * verification state, company document, logo, and add / edit / remove.
- * `?doc=<organisationId>` (from a "Upload document" notice) opens that
- * company's form at its document.
+ * verification state, business document, and add / edit / remove. The
+ * document is uploaded from each company's card (the form has no document,
+ * GST or logo field). `?doc=<organisationId>` scrolls to that company's card.
  */
 document.addEventListener('alpine:init', () => {
   Alpine.data('empCompanies', () => ({
@@ -29,10 +29,7 @@ document.addEventListener('alpine:init', () => {
       if (first) {
         const id = new URLSearchParams(location.search).get('doc')
         const org = id && this.orgs.find((o) => o.id === id)
-        if (org) {
-          this.openForm(org)
-          this.$nextTick(() => setTimeout(() => document.querySelector('[data-field="co.doc"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250))
-        }
+        if (org) this.$nextTick(() => setTimeout(() => document.querySelector(`[data-org="${CSS.escape(org.id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250))
       }
     },
 
@@ -59,14 +56,6 @@ document.addEventListener('alpine:init', () => {
         return
       }
       const isNew = !this.coSaved
-      if (!isNew && this.co.doc_new && this.coSaved.verified) {
-        const ok = await Inthes.confirm({
-          title: 'Replace the company document?',
-          message: `${this.coSaved.name} is verified. A new document sends it back for verification, and its jobs are hidden from candidates until it is checked.`,
-          ok: 'Replace & save', danger: true,
-        })
-        if (!ok) return
-      }
       this.formBusy = true
       try {
         await this.coSave()
@@ -128,7 +117,7 @@ document.addEventListener('alpine:init', () => {
       this.docBusy = org.id
       try {
         await Inthes.upload(`/recruiter/organisations/${encodeURIComponent(org.id)}/document`, file)
-        Inthes.toast('Company document uploaded — we’ll verify it shortly')
+        Inthes.toast("Document received — we'll verify it and then make your job live")
         await this.load()
       } catch (e) { Inthes.toast(e.message, true) }
       this.docBusy = ''

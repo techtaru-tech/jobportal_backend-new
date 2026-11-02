@@ -12,7 +12,7 @@
 @endphp
 <div>
   @if (!empty($label))
-    <span class="wa-label">{{ $label }}@if (!empty($required))<span class="text-primary"> *</span>@endif</span>
+    <span class="wa-label">{{ $label }}@include('site.ui.mark', ['required' => $required ?? false, 'optional' => $optional ?? true])</span>
   @endif
   @if (!empty($hint))<p class="-mt-[2px] mb-sm text-caption text-ink-muted">{{ $hint }}</p>@endif
   <div class="flex flex-wrap gap-xs">

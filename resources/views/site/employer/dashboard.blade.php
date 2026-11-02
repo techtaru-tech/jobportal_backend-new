@@ -84,7 +84,7 @@
   </section>
 
   <section class="grid gap-md md:grid-cols-3">
-    @foreach ([['1', 'Describe the job', 'Title, salary, shift and location — one page.'], ['2', 'Add your company', 'With your GST certificate or registration, so we can verify you.'], ['3', 'Choose a plan', 'Your post goes for a quick review, then live to candidates.']] as [$n, $t, $d])
+    @foreach ([['1', 'Describe the job', 'Title, salary, shift and location — one page.'], ['2', 'Add your company', 'Name, email and size — that is all it takes.'], ['3', 'Choose a plan', 'Then upload your business document; the post goes live once it is verified.']] as [$n, $t, $d])
       <div class="flex gap-md rounded-card bg-surface p-lg">
         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-bodysm font-bold text-ink-onPrimary">{{ $n }}</span>
         <div><p class="text-h5 text-ink">{{ $t }}</p><p class="mt-xs text-caption text-ink-secondary">{{ $d }}</p></div>
@@ -176,7 +176,7 @@
           </div>
           <ul class="divide-y divide-hairline-divider">
             <template x-for="job in recentJobs" :key="job.id">
-              <li class="flex items-center gap-md px-xl py-md hover:bg-surface-muted/60">
+              <li class="flex flex-wrap items-center gap-x-md gap-y-sm px-xl py-md hover:bg-surface-muted/60">
                 <a :href="jobUrl(job)" class="min-w-0 flex-1">
                   <p class="truncate text-h5 text-ink" x-text="job.title"></p>
                   <p class="truncate text-caption text-ink-secondary" x-text="[job.organisation, job.city, 'Posted ' + day(job.posted_at)].filter(Boolean).join(' · ')"></p>
@@ -186,6 +186,7 @@
                   <span class="block text-[11px] text-ink-muted">applicants</span>
                 </span>
                 <span class="wa-pill shrink-0" :class="statusPill(job.posting_status)" x-text="statusLabel(job.posting_status)"></span>
+                <div class="order-last basis-full">@include('site.employer.partials.job-buttons', ['job' => 'job', 'full' => false])</div>
                 @include('site.employer.partials.job-menu', ['job' => 'job'])
               </li>
             </template>

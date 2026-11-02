@@ -63,7 +63,7 @@
               <th class="px-md py-md font-semibold">Status</th>
               <th class="px-md py-md text-right font-semibold">Applicants</th>
               <th class="hidden px-md py-md font-semibold lg:table-cell">Posted</th>
-              <th class="w-12 px-sm py-md"><span class="sr-only">Actions</span></th>
+              <th class="px-sm py-md"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-hairline-divider">
@@ -80,7 +80,8 @@
                     <p class="mt-xs flex items-center gap-xs text-caption" :class="n.tone === 'danger' ? 'text-danger' : (n.tone === 'brand' ? 'text-primary-dark' : 'text-warning')">
                       <span x-html="ICONS[n.icon]" class="shrink-0 [&>svg]:h-[13px] [&>svg]:w-[13px]"></span>
                       <span x-text="n.message"></span>
-                      <template x-if="n.action"><a :href="noticeHref(job, n.action)" @click.stop class="ml-xs font-bold underline-offset-2 hover:underline" x-text="n.label"></a></template>
+                      <template x-if="n.action === 'plan'"><a :href="noticeHref(job, n.action)" @click.stop class="ml-xs font-bold underline-offset-2 hover:underline" x-text="n.label"></a></template>
+                      <template x-if="n.action === 'doc'">@include('site.employer.partials.doc-upload', ['change' => 'jobUploadDoc(job, $event)', 'busy' => 'jobBusy === job.id', 'disabled' => '!!jobBusy', 'text' => 'n.label', 'class' => 'ml-xs font-bold underline-offset-2 hover:underline', 'icon' => false])</template>
                     </p>
                   </template>
                 </td>
@@ -98,7 +99,7 @@
                   <a :href="jobUrl(job)" @click.stop class="text-h5 tabular-nums text-ink hover:text-primary" x-text="job.applicants_count || 0"></a>
                 </td>
                 <td class="hidden whitespace-nowrap px-md py-md text-bodysm text-ink-secondary lg:table-cell" x-text="day(job.posted_at)"></td>
-                <td class="px-sm py-sm">@include('site.employer.partials.job-menu', ['job' => 'job'])</td>
+                <td class="px-sm py-md"><div class="flex items-center justify-end gap-xs">@include('site.employer.partials.job-buttons', ['job' => 'job', 'full' => false])@include('site.employer.partials.job-menu', ['job' => 'job'])</div></td>
               </tr>
             </template>
           </tbody>
@@ -124,13 +125,15 @@
               <div class="mt-sm flex items-center gap-sm rounded-field border-hair px-md py-sm" :class="noticeClass(n.tone)">
                 <span x-html="ICONS[n.icon]" class="shrink-0 [&>svg]:h-[14px] [&>svg]:w-[14px]"></span>
                 <p class="flex-1 text-caption leading-[1.4]" x-text="n.message"></p>
-                <template x-if="n.action"><a :href="noticeHref(job, n.action)" class="shrink-0 text-caption font-bold" x-text="n.label"></a></template>
+                <template x-if="n.action === 'plan'"><a :href="noticeHref(job, n.action)" class="shrink-0 text-caption font-bold" x-text="n.label"></a></template>
+                <template x-if="n.action === 'doc'">@include('site.employer.partials.doc-upload', ['change' => 'jobUploadDoc(job, $event)', 'busy' => 'jobBusy === job.id', 'disabled' => '!!jobBusy', 'text' => 'n.label', 'class' => 'shrink-0 text-caption font-bold', 'icon' => false])</template>
               </div>
             </template>
             <a :href="jobUrl(job)" class="mt-md flex min-h-[40px] items-center justify-between border-t border-hairline-divider pt-md text-bodysm">
               <span class="text-ink-secondary"><span class="font-semibold text-ink" x-text="job.applicants_count || 0"></span> applicants</span>
               <span class="text-caption text-ink-muted" x-text="'Posted ' + day(job.posted_at)"></span>
             </a>
+            <div class="mt-sm">@include('site.employer.partials.job-buttons', ['job' => 'job', 'full' => true])</div>
           </div>
         </template>
       </div>

@@ -3,7 +3,7 @@
      it is sent. 'heading' => false where the step title already says it. --}}
 <div>
   @if ($heading ?? true)
-    <span class="wa-label">1-minute intro video</span>
+    <span class="wa-label">1-minute intro video @include('site.ui.mark', ['required' => false])</span>
   @endif
   <p class="text-caption text-ink-muted">Recruiters are more likely to shortlist candidates with a short intro video — it helps them see how you communicate before they even call. Keep it to 60 seconds: who you are, what you've done, and the kind of role you want.</p>
 
