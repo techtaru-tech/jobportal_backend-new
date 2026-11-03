@@ -48,5 +48,14 @@
   </label>
   <p x-show="profExpDuration" class="-mt-sm text-caption text-ink-secondary" x-text="'Duration: ' + profExpDuration"></p>
 
-  @include('site.ui.textarea', ['label' => 'Responsibilities', 'model' => 'pf.exp.description', 'rows' => 3, 'placeholder' => 'Briefly describe what you did in this role'])
+  <div>
+    @include('site.ui.textarea', ['label' => 'Responsibilities', 'model' => 'pf.exp.description', 'rows' => 5, 'placeholder' => 'Briefly describe what you did in this role'])
+    {{-- AI Resume Builder: drafts these from the fields above, before saving. --}}
+    <div class="mt-xs flex justify-end">
+      <button type="button" @click="profWriteExp()" :disabled="!!aiWriting" class="inline-flex items-center gap-xs rounded-button px-sm py-xs text-bodysm font-semibold text-primary hover:bg-primary-light disabled:opacity-60">
+        <span x-html="ICONS.sparkles" class="[&>svg]:h-4 [&>svg]:w-4" :class="aiWriting === 'exp' && 'animate-pulse'"></span>
+        <span x-text="aiWriting === 'exp' ? 'Writing…' : 'Write with AI'"></span>
+      </button>
+    </div>
+  </div>
 </div>

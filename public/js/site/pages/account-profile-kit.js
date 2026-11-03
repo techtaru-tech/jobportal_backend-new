@@ -714,6 +714,39 @@
 
       // ── about, skills & hobbies ─────────────────────────────────────────
       profSuggestAbout() { this.pf.about = suggestAbout(this.me || {}).slice(0, ABOUT_MAX) },
+
+      // ── AI Resume Builder ───────────────────────────────────────────────
+      // "Write with AI": the server asks Gemini for a draft (nothing saved);
+      // it lands in the field to edit and save as usual. When AI cannot
+      // answer, the plain draft from the profile stands in — except a 422,
+      // whose "add your designation first" is the useful answer.
+      aiWriting: '',
+      async _profAiWrite(key, path, body, apply, fallback) {
+        if (this.aiWriting) return
+        this.aiWriting = key
+        try {
+          const res = await api(path, { method: 'POST', body })
+          apply(res.data || {})
+          toast('Written by AI — check it and change anything that is not right.')
+        } catch (e) {
+          if (e.status === 422 || e.code === 'wrong_account_role' || !fallback) { toast(e.message, true); return }
+          fallback()
+          toast('AI is busy right now — here is a quick draft from your profile.')
+        } finally {
+          this.aiWriting = ''
+        }
+      },
+      profWriteAbout() {
+        return this._profAiWrite('about', '/candidate/profile/ai/about', compact({ about: orNull(this.pf.about) }),
+          (d) => { if (trim(d.about)) this.pf.about = d.about.slice(0, ABOUT_MAX) },
+          () => this.profSuggestAbout())
+      },
+      profWriteExp() {
+        const { cities, ...body } = this._profExpBody()
+        return this._profAiWrite('exp', '/candidate/profile/ai/experience', compact(body),
+          (d) => { if (trim(d.description)) this.pf.exp.description = d.description },
+          null)
+      },
       profToggleHobby(h) {
         const i = this.pf.hobbies.indexOf(h)
         if (i >= 0) { this.pf.hobbies.splice(i, 1); return }

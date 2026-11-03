@@ -8,6 +8,8 @@ use App\Http\Resources\CandidateProfileResource;
 use App\Models\CandidateProfile;
 use App\Services\OptionListService;
 use App\Services\ResumeRenderer;
+use App\Services\ResumeWriter;
+use App\Services\ResumeWriterUnavailable;
 use App\Support\ApiResponse;
 use App\Support\Display;
 use App\Support\FileRetention;
@@ -274,6 +276,59 @@ class CandidateProfileController extends ApiController
             'resume' => $fileName,
             'resume_url' => $url,
         ], 'Resume created from your profile.');
+    }
+
+    /**
+     * POST /candidate/profile/ai/about — AI Resume Builder.
+     *
+     * Drafts the About summary from the profile (improving `about` when one
+     * is sent). Returns the draft only; the candidate saves it, edited or
+     * not, with PATCH /candidate/profile/about.
+     */
+    public function writeAbout(Request $request, ResumeWriter $writer): JsonResponse
+    {
+        $validated = $request->validate([
+            'about' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        return $this->drafted(fn () => ['about' => $writer->about($this->profile($request), $validated['about'] ?? null)]);
+    }
+
+    /**
+     * POST /candidate/profile/ai/experience — AI Resume Builder.
+     *
+     * Drafts one job's description from the fields in the form, so it works
+     * before the entry is saved. Returns the draft only.
+     */
+    public function writeExperience(Request $request, ResumeWriter $writer): JsonResponse
+    {
+        $validated = $request->validate([
+            'designation' => ['required', 'string', 'max:120'],
+            'organization' => ['required', 'string', 'max:150'],
+            'department' => ['nullable', 'string', 'max:120'],
+            'start_date' => ['nullable', 'string', 'max:20'],
+            'end_date' => ['nullable', 'string', 'max:20'],
+            'currently_working' => ['nullable', 'boolean'],
+            'description' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'designation.required' => 'Add your designation first.',
+            'organization.required' => 'Add the organisation name first.',
+        ]);
+
+        $end = ($validated['currently_working'] ?? false) ? 'Present' : ($validated['end_date'] ?? null);
+        $validated['period'] = collect([$validated['start_date'] ?? null, $end])->filter()->implode(' – ');
+
+        return $this->drafted(fn () => ['description' => $writer->experience($this->profile($request), $validated)]);
+    }
+
+    /** 503 with the writer's own message when Gemini is not set up or busy. */
+    private function drafted(Closure $draft): JsonResponse
+    {
+        try {
+            return ApiResponse::data($draft(), 'Written by AI — check it and edit anything that is not right.');
+        } catch (ResumeWriterUnavailable $e) {
+            return ApiResponse::error($e->getMessage(), 503);
+        }
     }
 
     /** POST /candidate/profile/photo (§3.12) */

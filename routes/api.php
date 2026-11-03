@@ -83,6 +83,13 @@ Route::prefix('v1')->group(function () {
                 Route::patch('availability', [CandidateProfileController::class, 'updateAvailability']);
 
                 Route::post('resume/generate', [CandidateProfileController::class, 'generateResume']);
+
+                // AI Resume Builder (ResumeWriter): drafts only, nothing is
+                // saved. Each call is a paid Gemini request — 30 an hour each.
+                Route::middleware('throttle:30,60')->group(function () {
+                    Route::post('ai/about', [CandidateProfileController::class, 'writeAbout']);
+                    Route::post('ai/experience', [CandidateProfileController::class, 'writeExperience']);
+                });
                 Route::post('photo', [CandidateProfileController::class, 'uploadPhoto']);
                 Route::delete('photo', [CandidateProfileController::class, 'deletePhoto']);
                 Route::post('intro-video', [CandidateProfileController::class, 'uploadIntroVideo']);

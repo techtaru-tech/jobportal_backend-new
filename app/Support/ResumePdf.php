@@ -91,8 +91,10 @@ class ResumePdf
                     $add(implode('  |  ', $meta), 9.5);
                 }
 
-                foreach ($experience->bullets ?? [] as $bullet) {
-                    foreach (self::wrap('- '.$bullet, 92) as $line) {
+                // `description` replaced `bullets` (2026_08_13) as free text,
+                // one point per line — the old key printed nothing at all.
+                foreach (self::points($experience->description) as $point) {
+                    foreach (self::wrap('- '.$point, 92) as $line) {
                         $add($line);
                     }
                 }
@@ -253,6 +255,21 @@ class ResumePdf
     }
 
     /** WinAnsi has no ₹ or en dash — transliterate rather than emit mojibake. */
+    /**
+     * A description's lines as points, without the "-", "*" or "•" the
+     * candidate (or the AI writer) may have started them with.
+     *
+     * @return array<int, string>
+     */
+    private static function points(?string $text): array
+    {
+        return collect(preg_split('/\R/u', (string) $text))
+            ->map(fn (string $line) => trim(preg_replace('/^\s*[-*•]+\s*/u', '', $line)))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
     private static function ascii(string $text): string
     {
         $text = strtr($text, [
