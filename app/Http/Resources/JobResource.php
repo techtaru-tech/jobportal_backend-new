@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\JobPostingStatus;
 use App\Models\JobPosting;
 use App\Services\JobMatcher;
 use App\Support\JobShareLink;
@@ -120,8 +119,7 @@ class JobResource extends JsonResource
             // its window has not passed (scopeDocumentWaived).
             'visible_to_candidates' => $this->when(
                 $request->user() !== null && $this->user_id === $request->user()->id,
-                fn () => $this->posting_status === JobPostingStatus::Active
-                    && ($this->organisationRecord === null || $this->organisationRecord->verified || $this->isDocumentWaived()),
+                fn () => $this->isPubliclyVisible(),
             ),
 
             // Present only where the caller's saved/applied state was eager-loaded.

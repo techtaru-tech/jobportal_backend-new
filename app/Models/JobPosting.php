@@ -263,7 +263,13 @@ class JobPosting extends Model
         // (the column is nullable only for that reason — every posting made
         // through the API today is required to name one) and is treated as
         // visible rather than newly hidden by a rule it predates.
-        return $this->organisation_id === null || (bool) $this->organisationRecord?->verified;
+        //
+        // Keep in lockstep with scopePubliclyVisible — including a job an
+        // admin approved without the document (isDocumentWaived). Missing it
+        // here once let such a job be listed and opened but not applied to.
+        return $this->organisation_id === null
+            || (bool) $this->organisationRecord?->verified
+            || $this->isDocumentWaived();
     }
 
     /**

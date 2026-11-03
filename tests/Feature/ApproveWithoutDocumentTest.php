@@ -198,6 +198,22 @@ class ApproveWithoutDocumentTest extends TestCase
             ->assertJsonPath('data.attention.live_without_document', 1);
     }
 
+    /** The live bug: listed and opened, but applying said "no longer available". */
+    public function test_a_candidate_can_apply_to_it_until_the_deadline(): void
+    {
+        $this->actingAsAdmin();
+        $job = $this->waitingJob(['required_fields' => []]);
+        $this->approve($job, true)->assertOk();
+
+        $this->actingAsCandidate();
+        $this->getJson("{$this->api}/jobs/j_{$job->id}")->assertOk();
+        $this->postJson("{$this->api}/applications", ["job_id" => "j_{$job->id}"])->assertSuccessful();
+
+        $this->assertTrue($job->fresh()->isPubliclyVisible());
+        $this->travel(16)->days();
+        $this->assertFalse($job->fresh()->isPubliclyVisible(), 'Past the deadline it closes to applications too');
+    }
+
     public function test_the_admin_job_row_offers_the_option(): void
     {
         $this->actingAsAdmin();
