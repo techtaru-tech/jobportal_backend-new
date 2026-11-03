@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\JobPostingStatus;
 use App\Models\JobPosting;
 use App\Services\JobMatcher;
 use App\Support\JobShareLink;
@@ -113,6 +114,14 @@ class JobResource extends JsonResource
             'hiring_stage_label' => $this->when(
                 $request->user() !== null && $this->user_id === $request->user()->id,
                 fn () => $this->employerStageLabel(),
+            ),
+            // Can candidates see it right now? An unverified company's live
+            // job can — when an admin approved it without the document and
+            // its window has not passed (scopeDocumentWaived).
+            'visible_to_candidates' => $this->when(
+                $request->user() !== null && $this->user_id === $request->user()->id,
+                fn () => $this->posting_status === JobPostingStatus::Active
+                    && ($this->organisationRecord === null || $this->organisationRecord->verified || $this->isDocumentWaived()),
             ),
 
             // Present only where the caller's saved/applied state was eager-loaded.

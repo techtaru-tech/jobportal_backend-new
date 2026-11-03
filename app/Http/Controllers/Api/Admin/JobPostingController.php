@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\JobPostingStatus;
+use App\Enums\NotificationAudience;
+use App\Enums\NotificationType;
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Application;
 use App\Models\JobPosting;
@@ -262,34 +264,66 @@ class JobPostingController extends ApiController
             );
         }
 
-        $this->requireVerifiedCompany($job);
+        // `without_document`: the admin's deliberate choice to publish before
+        // the company is verified (the client's "approve without document").
+        $withoutDocument = $request->boolean('without_document');
+        $org = $job->organisationRecord;
+        $waived = $org !== null && ! $org->verified;
+
+        if (! $withoutDocument) {
+            $this->requireVerifiedCompany($job);
+        }
 
         $from = $job->posting_status;
         $job->markApproved((int) $request->user()->id);
 
+        if ($waived) {
+            $job->waiveDocument();
+        }
+
         $this->auditor->log(
-            action: 'job.approve',
-            summary: "Approved {$job->code} — {$job->title}",
+            action: $waived ? 'job.approve_without_document' : 'job.approve',
+            summary: $waived
+                ? "Approved {$job->code} — {$job->title} without the document (due {$job->document_due_at->format('j M Y')})"
+                : "Approved {$job->code} — {$job->title}",
             subjectType: 'JobPosting',
             subjectId: PublicId::encode('j', $job->id),
-            changes: [
+            changes: array_filter([
                 'posting_status' => ['from' => $from->value, 'to' => $job->posting_status->value],
-            ],
+                'document_due_at' => $waived ? ['from' => null, 'to' => $job->document_due_at->toIso8601String()] : null,
+            ]),
         );
 
         $this->notifier->jobApproved($job);
+
+        // Live now, but the document is still owed — say so straight away,
+        // with the date. The daily reminders take it from here.
+        if ($waived && ! $org->hasDocument()) {
+            $this->notifier->create(
+                $job->recruiter,
+                NotificationAudience::Recruiter,
+                "Your {$job->title} post is live. Upload the business document for {$org->name} "
+                    .'(GST certificate, shop licence or registration) by '.$job->document_due_at->format('j M')
+                    .' to keep it visible to candidates.',
+                NotificationType::System,
+                ['job_posting_id' => $job->id],
+            );
+        }
 
         // Approval is the moment the posting becomes something a candidate
         // can open, so it is also the moment their standing job alerts should
         // hear about it.
         $alerted = $this->notifier->jobAlertsMatching($job);
 
-        return ApiResponse::data(
-            $this->row($job->refresh()),
-            $alerted === 0
-                ? 'Posting approved and published.'
-                : "Posting approved — {$alerted} matching job alert".($alerted === 1 ? '' : 's').' notified.',
-        );
+        $message = $alerted === 0
+            ? 'Posting approved and published.'
+            : "Posting approved — {$alerted} matching job alert".($alerted === 1 ? '' : 's').' notified.';
+
+        if ($waived && ! $org->hasDocument()) {
+            $message .= ' Without the document: live until '.$job->document_due_at->format('j M').', the employer is being reminded.';
+        }
+
+        return ApiResponse::data($this->row($job->refresh()), $message);
     }
 
     /**
@@ -386,9 +420,15 @@ class JobPostingController extends ApiController
             'organisation' => $job->organisation,
             'organisation_id' => $job->organisation_id === null ? null : PublicId::encode('org', $job->organisation_id),
             'organisation_verified' => (bool) ($job->organisationRecord?->verified ?? false),
-            // Approve is offered only once the company is verified.
+            // Approve is offered once the company is verified...
             'can_approve' => $job->posting_status->isAwaitingReview()
                 && ($job->organisationRecord === null || (bool) $job->organisationRecord->verified),
+            // ...or deliberately without it, giving the employer
+            // `job_plans.document_grace_days` to upload the document.
+            'can_approve_without_document' => $job->posting_status->isAwaitingReview()
+                && $job->organisationRecord !== null && ! $job->organisationRecord->verified,
+            'document_grace_days' => (int) config('job_plans.document_grace_days', 15),
+            'document_due_at' => $job->document_due_at?->toIso8601String(),
             'city' => $job->city,
             'type' => $job->type,
             'status' => $job->posting_status->value,
@@ -443,7 +483,8 @@ class JobPostingController extends ApiController
             throw ValidationException::withMessages([
                 'organisation' => [
                     "Verify the company first — {$org->name} is not verified yet. "
-                    .'Open the company, check its document and verify it; then approve this job.',
+                    .'Open the company, check its document and verify it; then approve this job — '
+                    .'or approve it without the document.',
                 ],
             ]);
         }

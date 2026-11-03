@@ -33,6 +33,8 @@ class JobPosting extends Model
             'posted_at' => 'datetime',
             'expires_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            'document_due_at' => 'datetime',
+            'document_overdue_notified_at' => 'datetime',
             'latitude' => 'float',
             'longitude' => 'float',
             'posting_status' => JobPostingStatus::class,
@@ -128,7 +130,10 @@ class JobPosting extends Model
             JobPostingStatus::Active, JobPostingStatus::Paused => match ($document) {
                 'verified' => 'live',
                 'submitted' => 'document_under_review',
-                default => 'posted_document_missing',
+                // Approved without the document and still inside its window.
+                default => $this->document_due_at?->isFuture()
+                    ? 'live_document_missing'
+                    : 'posted_document_missing',
             },
             JobPostingStatus::PendingApproval => match ($document) {
                 'verified' => 'document_verified',
@@ -147,6 +152,7 @@ class JobPosting extends Model
             'posted_document_missing' => 'Ad posted – Document not given',
             'document_under_review' => 'Document submitted – Under review',
             'document_verified' => 'Document verified – Awaiting approval',
+            'live_document_missing' => 'Approved without document – Live',
             'live' => 'Approved – Live',
             'rejected' => 'Rejected',
             'closed' => 'Closed',
@@ -178,7 +184,11 @@ class JobPosting extends Model
                 ->whereNotNull('job_credit_id')->where($documentMissing),
             'posted_document_missing' => $query->where(fn (Builder $q) => $q
                 ->where(fn (Builder $p) => $p->where('posting_status', $inReview)->whereNull('job_credit_id'))
-                ->orWhereIn('posting_status', $out))
+                ->orWhere(fn (Builder $p) => $p->whereIn('posting_status', $out)
+                    ->where(fn (Builder $d) => $d->whereNull('document_due_at')->orWhere('document_due_at', '<=', now()))))
+                ->where($documentMissing),
+            'live_document_missing' => $query->whereIn('posting_status', $out)
+                ->where('document_due_at', '>', now())
                 ->where($documentMissing),
             'document_under_review' => $query->whereIn('posting_status', [$inReview, ...$out])
                 ->where($documentSubmitted),
@@ -200,10 +210,18 @@ class JobPosting extends Model
      */
     public function employerStageLabel(): string
     {
+        $live = in_array($this->posting_status, [JobPostingStatus::Active, JobPostingStatus::Paused], true);
+
         return match ($this->hiringStage()) {
             'paid_document_missing' => 'Under review – Upload business document',
-            'posted_document_missing' => 'Under review – Upload business document',
-            'document_under_review' => 'Under review – Document being verified',
+            'live_document_missing' => 'Live – Upload business document by '.$this->document_due_at->format('j M'),
+            // Approved, but the window to send the document has passed.
+            'posted_document_missing' => $live
+                ? 'Hidden – Upload business document'
+                : 'Under review – Upload business document',
+            'document_under_review' => $live && $this->isDocumentWaived()
+                ? 'Live – Document being verified'
+                : 'Under review – Document being verified',
             'document_verified' => 'Under review',
             default => $this->hiringStageLabel(),
         };
@@ -272,8 +290,42 @@ class JobPosting extends Model
             ->where('posting_status', JobPostingStatus::Active)
             ->where(function (Builder $q) {
                 $q->whereNull('organisation_id')
-                    ->orWhereHas('organisationRecord', fn (Builder $org) => $org->where('verified', true));
+                    ->orWhereHas('organisationRecord', fn (Builder $org) => $org->where('verified', true))
+                    ->orWhere(fn (Builder $w) => $w->documentWaived());
             });
+    }
+
+    /**
+     * Approved by an admin without the company's document, and still allowed
+     * to show: inside its window to upload one, or one has been uploaded and
+     * is waiting to be checked. Past the window with nothing uploaded, it
+     * drops out — and comes back the moment a document arrives.
+     */
+    public function scopeDocumentWaived(Builder $query): Builder
+    {
+        return $query->whereNotNull('document_due_at')
+            ->where(fn (Builder $q) => $q->where('document_due_at', '>', now())
+                ->orWhereHas('organisationRecord', fn (Builder $org) => $org->whereNotNull('document_path')));
+    }
+
+    /** [scopeDocumentWaived] for one loaded posting. */
+    public function isDocumentWaived(): bool
+    {
+        return $this->document_due_at !== null
+            && ($this->document_due_at->isFuture() || (bool) $this->organisationRecord?->hasDocument());
+    }
+
+    /**
+     * Publishes without the company's document: the employer gets
+     * `job_plans.document_grace_days` to upload it. A job already given a
+     * window (re-approved after an edit) keeps its original date.
+     */
+    public function waiveDocument(): void
+    {
+        $this->forceFill([
+            'document_due_at' => $this->document_due_at
+                ?? now()->addDays((int) config('job_plans.document_grace_days', 15)),
+        ])->save();
     }
 
     /** Always eager-load the relation JobResource reads `organisation_verified` from. */

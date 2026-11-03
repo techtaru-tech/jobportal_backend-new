@@ -90,7 +90,16 @@
         action: null,
       })
     }
-    if (s === 'active' && !job.organisation_verified) {
+    if (s === 'active' && !job.organisation_verified && job.visible_to_candidates) {
+      // Approved without the document: live, but only until its due date.
+      const owed = job.hiring_stage === 'live_document_missing'
+      out.push({
+        tone: 'warning', icon: 'clock',
+        message: owed ? job.hiring_stage_label + ' to keep it visible to candidates.'
+          : `Live — we're verifying ${job.organisation}'s document.`,
+        action: owed ? 'doc' : null, label: 'Upload document',
+      })
+    } else if (s === 'active' && !job.organisation_verified) {
       const doc = job.hiring_stage === 'posted_document_missing'
       out.push({
         tone: 'brand', icon: 'eye',

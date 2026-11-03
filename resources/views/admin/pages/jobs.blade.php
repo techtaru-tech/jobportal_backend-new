@@ -153,18 +153,28 @@
           one case where the action belongs above the detail rather than beside
           it — an operator here is deciding, not browsing.
         --}}
-        {{-- The company comes first: until it is verified, this job cannot be
-             approved — the way forward is the company page. --}}
+        {{-- The company comes first: verify it, then approve. Or approve
+             without the document — live for `document_grace_days` while the
+             employer is reminded, then hidden until the document arrives. --}}
         <template x-if="jobDetail.data.job.awaiting_review && !jobDetail.data.job.can_approve && canWrite">
           <div class="mb-md flex flex-wrap items-center justify-between gap-md rounded-card border-hair border-warning/40 bg-warning-bg p-lg">
             <div class="min-w-0">
-              <p class="text-bodysm font-semibold text-warning">Verify the company first.</p>
+              <p class="text-bodysm font-semibold text-warning">The company is not verified yet.</p>
               <p class="mt-[2px] text-caption text-ink-secondary">
-                <span x-text="jobDetail.data.employer?.name || 'This company'"></span>
-                is not verified yet. Check its company document and verify it — then this job can be approved.
+                Verify <span x-text="jobDetail.data.employer?.name || 'the company'"></span> first, or approve without the document —
+                the employer then has <span x-text="jobDetail.data.job.document_grace_days"></span> days to upload it.
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-sm">
+              <template x-if="jobDetail.data.job.can_approve_without_document">
+                <button @click="approveJob(true)"
+                        class="inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
+                               bg-surface text-primary border-btn border-primary transition-[background-color,transform] duration-micro ease-out
+                               hover:bg-primary-light active:scale-[0.97]">
+                  <span x-html="ICONS.check" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
+                  <span>Approve without document</span>
+                </button>
+              </template>
               <template x-if="jobDetail.data.employer">
                 <button @click="openOrganisation(jobDetail.data.employer.id)"
                         class="inline-flex h-[42px] items-center justify-center gap-sm rounded-button px-md text-btn font-semibold
@@ -181,6 +191,18 @@
                 <span>Reject</span>
               </button>
             </div>
+          </div>
+        </template>
+
+        {{-- Approved without the document and the company still unverified. --}}
+        <template x-if="jobDetail.data.job.document_due_at && !jobDetail.data.job.organisation_verified && !jobDetail.data.job.awaiting_review">
+          <div class="mb-md rounded-card border-hair border-warning/40 bg-warning-bg p-lg">
+            <p class="text-bodysm font-semibold text-warning">Approved without the business document.</p>
+            <p class="mt-[2px] text-caption text-ink-secondary">
+              <span x-text="new Date(jobDetail.data.job.document_due_at) > new Date()
+                ? 'Live until ' + new Date(jobDetail.data.job.document_due_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' unless the document is uploaded — the employer is being reminded.'
+                : 'The upload window has passed: hidden from candidates until the document is uploaded.'"></span>
+            </p>
           </div>
         </template>
 

@@ -22,6 +22,14 @@
 
 return [
 
+    /*
+    | A job an admin approves without the company's business document stays
+    | live this many days for the employer to upload it. After that it is
+    | hidden from candidates until the document arrives (it comes back the
+    | moment it is uploaded). See 2026_11_03_000001.
+    */
+    'document_grace_days' => (int) env('DOCUMENT_GRACE_DAYS', 15),
+
     'tiers' => [
         'basic' => [
             'name' => 'Basic',

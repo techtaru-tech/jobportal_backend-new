@@ -660,6 +660,8 @@
             go: () => { this.orgs.state = 'pending'; this.go('organisations') } },
           { key: 'paid_awaiting_document', label: 'Paid — call for document', icon: 'fileText',
             go: () => { this.jobs.stage = 'paid_document_missing'; this.go('jobs') } },
+          { key: 'live_without_document', label: 'Live without document — call', icon: 'fileText',
+            go: () => { this.jobs.stage = 'live_document_missing'; this.go('jobs') } },
           { key: 'unverified_no_document', label: 'No business document', icon: 'fileText',
             go: () => { this.orgs.state = 'no_document'; this.go('organisations') } },
           { key: 'zero_applicant_active_jobs', label: 'Zero applicants', icon: 'briefcase',
@@ -940,6 +942,7 @@
           payment_pending: 'bg-warning-bg text-warning',
           paid_document_missing: 'bg-danger-bg text-danger',
           posted_document_missing: 'bg-danger-bg text-danger',
+          live_document_missing: 'bg-warning-bg text-warning',
           document_under_review: 'bg-warning-bg text-warning',
           document_verified: 'bg-primary-light text-primary-dark',
           live: 'bg-success-bg text-success',
@@ -997,9 +1000,20 @@
           .finally(() => { this.jobDetail.busy = false })
       },
 
-      approveJob() {
-        const id = this.jobDetail.data.job.id
-        this.api('/admin/jobs/' + id + '/approve', { method: 'POST' })
+      /**
+       * `withoutDocument`: publish before the company is verified. The job
+       * stays live `document_grace_days` for the employer to upload it, with
+       * daily reminders; after that it is hidden until the document arrives.
+       */
+      approveJob(withoutDocument = false) {
+        const job = this.jobDetail.data.job
+        const id = job.id
+        if (withoutDocument && !confirm(
+          `Approve without the business document?\n\nThe job goes live now. ${this.jobDetail.data.employer?.name || 'The employer'} `
+          + `gets ${job.document_grace_days} days to upload the document and is reminded until then. `
+          + 'If it does not come, the job is hidden from candidates until it does.',
+        )) return
+        this.api('/admin/jobs/' + id + '/approve', { method: 'POST', body: withoutDocument ? { without_document: true } : undefined })
           .then((res) => { this.showToast(res.message || 'Approved.'); this.openJob(id); this.loadNotifications() })
           .catch((e) => this.showToast(e.message, true))
       },

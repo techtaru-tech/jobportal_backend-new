@@ -33,7 +33,21 @@ class Organisation extends Model
             'longitude' => 'float',
             'verified' => 'boolean',
             'verified_at' => 'datetime',
+            'document_reminders_sent' => 'integer',
+            'document_reminded_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // A new document ends the chase; if it is ever removed again, the
+        // reminders start over rather than resuming at day 30.
+        static::saving(function (self $organisation) {
+            if ($organisation->isDirty('document_path')) {
+                $organisation->document_reminders_sent = 0;
+                $organisation->document_reminded_at = null;
+            }
+        });
     }
 
     public function recruiter(): BelongsTo
@@ -107,8 +121,11 @@ class Organisation extends Model
             return (int) $this->active_job_count;
         }
 
+        // Jobs an admin approved without the document stay visible for
+        // their grace period, so they are not counted as hidden.
         return $this->jobPostings()
             ->where('posting_status', JobPostingStatus::Active->value)
+            ->whereNot(fn ($q) => $q->documentWaived())
             ->count();
     }
 }

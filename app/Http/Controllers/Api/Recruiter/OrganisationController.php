@@ -41,10 +41,11 @@ class OrganisationController extends ApiController
             // with ten organisations still costs one query for the figure that
             // drives "N of your postings are hidden".
             ->withCount([
-                'jobPostings as active_job_count' => fn ($q) => $q->where(
-                    'posting_status',
-                    JobPostingStatus::Active->value,
-                ),
+                // Live jobs approved without the document are not hidden
+                // during their grace period (JobPosting::scopeDocumentWaived).
+                'jobPostings as active_job_count' => fn ($q) => $q
+                    ->where('posting_status', JobPostingStatus::Active->value)
+                    ->whereNot(fn ($w) => $w->documentWaived()),
             ])
             ->latest()
             ->get();

@@ -420,6 +420,12 @@ class DashboardController extends ApiController
                 ->atHiringStage('paid_document_missing')
                 ->count(),
 
+            // Approved without the document: live, but only until its due
+            // date — the ones to call before they drop off the board.
+            'live_without_document' => JobPosting::query()
+                ->atHiringStage('live_document_missing')
+                ->count(),
+
             // Uploaded nothing to verify against: a different conversation.
             'unverified_no_document' => Organisation::where('verified', false)
                 ->whereNull('document_path')
