@@ -868,7 +868,7 @@ class CandidateProfileTest extends TestCase
         $path = $user->fresh()->candidateProfile->resume_path;
 
         Storage::disk('local')->assertExists($path);
-        $this->assertStringStartsWith('%PDF-1.4', Storage::disk('local')->get($path));
+        $this->assertStringStartsWith('%PDF-', Storage::disk('local')->get($path));
         $this->assertStringContainsString('%%EOF', Storage::disk('local')->get($path));
         $this->assertStringEndsWith('_Resume.pdf', $response->json('data.resume'));
     }

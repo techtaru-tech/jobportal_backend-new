@@ -176,6 +176,7 @@ main{overflow-x:clip}
 <script defer src="{{ asset('js/site/quick-apply.js') }}?v={{ filemtime(public_path('js/site/quick-apply.js')) }}"></script>
 <script defer src="{{ asset('js/site/notifications.js') }}?v={{ filemtime(public_path('js/site/notifications.js')) }}"></script>
 <script defer src="{{ asset('js/site/profile-nudge.js') }}?v={{ filemtime(public_path('js/site/profile-nudge.js')) }}"></script>
+<script defer src="{{ asset('js/site/coverage.js') }}?v={{ filemtime(public_path('js/site/coverage.js')) }}"></script>
 @stack('page-scripts')
 @include('partials.alpine')
 

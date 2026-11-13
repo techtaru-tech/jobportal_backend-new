@@ -57,6 +57,7 @@ Route::prefix('v1')->group(function () {
     /* §4 Public job browse — readable by guests --------------------------- */
     Route::middleware('guest.token')->group(function () {
         Route::get('jobs', [JobController::class, 'index']);
+        Route::get('jobs/coverage', [JobController::class, 'coverage']);
         Route::get('jobs/categories', [JobController::class, 'categories']);
         Route::get('jobs/search/suggestions', [JobController::class, 'suggestions']);
         Route::get('jobs/search/trending', [JobController::class, 'trending']);

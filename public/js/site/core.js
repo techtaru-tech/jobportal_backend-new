@@ -477,6 +477,111 @@
     })
   }
 
+  // ── camera ──────────────────────────────────────────────────────────
+  /**
+   * "Take photo". Resolves with a JPEG File, or null when cancelled.
+   *
+   * `<input capture>` opens the camera only on a phone — a desktop browser
+   * ignores it and shows the file picker, so "Take photo" just picked a
+   * file. On a computer this opens the webcam in a dialog instead (preview,
+   * Capture, Retake, Use photo). A phone keeps its own camera app; so does a
+   * browser with no camera API (or a page not on https), where the picker
+   * is all there is.
+   */
+  function takePhoto({ facing = 'user' } = {}) {
+    const phone = window.matchMedia && window.matchMedia('(pointer: coarse)').matches
+    if (phone || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return pickWithCamera(facing)
+
+    const c = $ui().camera
+    return new Promise((resolve) => {
+      Object.assign(c, { open: true, error: '', shot: '', starting: true })
+      $ui()._cameraResolve = resolve
+      startCamera(facing)
+    })
+  }
+
+  /** The browser's own picker, asking for the camera where it can. */
+  function pickWithCamera(facing) {
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/jpeg,image/png'
+      input.setAttribute('capture', facing)
+      input.addEventListener('change', () => resolve((input.files && input.files[0]) || null), { once: true })
+      input.addEventListener('cancel', () => resolve(null), { once: true })
+      input.click()
+    })
+  }
+
+  let cameraStream = null
+  let cameraBlob = null
+  const cameraVideo = () => document.getElementById('inthes-camera-video')
+
+  async function startCamera(facing) {
+    const c = $ui().camera
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 960 } },
+        audio: false,
+      })
+      // Closed while the browser was still asking for permission.
+      if (!c.open) { stopCamera(); return }
+      const video = cameraVideo()
+      video.srcObject = cameraStream
+      await video.play()
+    } catch (e) {
+      c.error = e && e.name === 'NotAllowedError'
+        ? 'Camera access was blocked. Allow the camera for this site in your browser, or choose a photo instead.'
+        : e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')
+          ? 'No camera was found on this device. Choose a photo instead.'
+          : 'The camera could not be started. Choose a photo instead.'
+    } finally {
+      c.starting = false
+    }
+  }
+
+  function stopCamera() {
+    if (cameraStream) cameraStream.getTracks().forEach((t) => t.stop())
+    cameraStream = null
+    const video = cameraVideo()
+    if (video) video.srcObject = null
+  }
+
+  /** Freezes the current frame — at most 1024px, well under the 3 MB limit. */
+  function captureCamera() {
+    const video = cameraVideo()
+    if (!video || !video.videoWidth) return
+    const scale = Math.min(1, 1024 / Math.max(video.videoWidth, video.videoHeight))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(video.videoWidth * scale)
+    canvas.height = Math.round(video.videoHeight * scale)
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height)
+    canvas.toBlob((blob) => {
+      if (!blob) return
+      cameraBlob = blob
+      $ui().camera.shot = URL.createObjectURL(blob)
+    }, 'image/jpeg', 0.9)
+  }
+
+  function retakeCamera() {
+    const c = $ui().camera
+    if (c.shot) URL.revokeObjectURL(c.shot)
+    cameraBlob = null
+    c.shot = ''
+  }
+
+  /** Closes the dialog; `use` hands the captured frame back as a File. */
+  function closeCamera(use) {
+    const u = $ui()
+    const file = use && cameraBlob ? new File([cameraBlob], 'photo.jpg', { type: 'image/jpeg' }) : null
+    stopCamera()
+    retakeCamera()
+    Object.assign(u.camera, { open: false, error: '' })
+    const r = u._cameraResolve
+    u._cameraResolve = null
+    if (r) r(file)
+  }
+
   // ── payments ────────────────────────────────────────────────────────
   /**
    * The payment-method sheet. Resolves with `upi` | `card` | `netbanking`, or
@@ -649,6 +754,7 @@
       return false
     },
     toast, confirm, pay, confirmOrder,
+    takePhoto, captureCamera, retakeCamera, closeCamera,
     opt, citiesOf, copy, share, toggleIn, comboList, comboCanAdd,
     reverseGeocode, currentPosition, joinAddressParts, localityOf, findIn,
     fmtNumber, rupees, timeAgo, fmtDate, initials, clone,
@@ -683,6 +789,8 @@
       toastError: false,
       confirm: { open: false, title: '', message: '', ok: 'OK', cancel: 'Cancel', danger: false },
       pay: { open: false, amount: '', methods: [], method: '' },
+      camera: { open: false, starting: false, error: '', shot: '' },
+      _cameraResolve: null,
       roleSwitch: { open: false, role: 'recruiter', next: '', at: 0 },
       _confirmResolve: null,
       _payResolve: null,

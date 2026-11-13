@@ -356,6 +356,14 @@
       profPickPhoto(input) {
         const file = input.files && input.files[0]
         input.value = ''
+        this._profPhotoChosen(file)
+      },
+      /** The camera — the webcam dialog on a computer, the camera app on a phone. */
+      async profTakePhoto() {
+        if (this.profPhotoBusy) return
+        this._profPhotoChosen(await window.Inthes.takePhoto())
+      },
+      _profPhotoChosen(file) {
         if (!file) return
         if (!/^image\/(jpe?g|png)$/i.test(file.type) && !/\.(jpe?g|png)$/i.test(file.name)) { toast('Upload a JPG or PNG image.', true); return }
         if (file.size > 3 * 1024 * 1024) { toast('Your photo must be smaller than 3 MB.', true); return }

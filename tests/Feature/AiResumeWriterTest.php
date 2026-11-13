@@ -162,9 +162,9 @@ class AiResumeWriterTest extends TestCase
             'description' => "Handled patient admissions\n• Maintained records",
         ]));
 
-        $pdf = ResumePdf::render($profile->fresh());
+        $html = ResumePdf::html($profile->fresh());
 
-        $this->assertStringContainsString('- Handled patient admissions', $pdf);
-        $this->assertStringContainsString('- Maintained records', $pdf);
+        $this->assertStringContainsString('Handled patient admissions<br', $html);
+        $this->assertStringContainsString('Maintained records', $html);
     }
 }

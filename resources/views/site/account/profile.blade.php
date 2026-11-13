@@ -30,9 +30,11 @@
         <div class="hero-wash dot-grid h-[72px] bg-primary-light/60"></div>
         <div class="-mt-[44px] flex flex-col gap-xl px-lg pb-lg sm:px-xl md:flex-row md:items-end">
           <div class="flex min-w-0 flex-1 flex-col gap-md sm:flex-row sm:items-end">
-            {{-- Photo: click to add or replace. --}}
-            <div class="relative shrink-0 self-start">
-              <label class="group relative block cursor-pointer" :title="me?.photo ? 'Change photo' : 'Add a photo'">
+            {{-- Photo: click to add or replace — from the device, or with the
+                 camera (Inthes.takePhoto: the webcam on a computer). --}}
+            <div class="relative shrink-0 self-start" x-data="{ photoMenu: false }" @click.outside="photoMenu = false" @keydown.escape="photoMenu = false">
+              <button type="button" @click="photoMenu = !photoMenu" :disabled="profPhotoBusy" aria-haspopup="menu" :aria-expanded="photoMenu"
+                      class="group relative block cursor-pointer" :title="me?.photo ? 'Change photo' : 'Add a photo'">
                 <span class="flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full bg-surface-muted text-h2 font-semibold text-ink-secondary ring-4 ring-surface">
                   <template x-if="me?.photo_url"><img :src="me.photo_url" alt="Your photo" class="h-full w-full object-cover"></template>
                   <template x-if="!me?.photo_url && profInitials(me?.name)"><span x-text="profInitials(me?.name)"></span></template>
@@ -45,8 +47,25 @@
                 <span class="absolute bottom-[2px] right-[2px] flex h-7 w-7 items-center justify-center rounded-full bg-primary text-ink-onPrimary ring-2 ring-surface">
                   <span x-html="ICONS.camera" class="[&>svg]:h-[14px] [&>svg]:w-[14px]"></span>
                 </span>
-                <input x-ref="photoInput" type="file" accept="image/jpeg,image/png" class="sr-only" @change="profPickPhoto($event.target)" aria-label="Upload a profile photo (JPG or PNG, up to 3 MB)">
-              </label>
+              </button>
+              <div x-show="photoMenu" x-cloak x-transition.opacity role="menu"
+                   class="absolute left-0 top-full z-30 mt-xs w-[210px] rounded-card border-hair border-hairline bg-surface p-xs shadow-raised">
+                <button type="button" role="menuitem" @click="photoMenu = false; profTakePhoto()"
+                        class="flex w-full items-center gap-sm rounded-button px-md py-sm text-left text-bodysm text-ink hover:bg-surface-muted">
+                  <span x-html="ICONS.camera" class="text-ink-secondary [&>svg]:h-4 [&>svg]:w-4"></span> Take photo
+                </button>
+                <button type="button" role="menuitem" @click="photoMenu = false; document.getElementById('profile-photo-input').click()"
+                        class="flex w-full items-center gap-sm rounded-button px-md py-sm text-left text-bodysm text-ink hover:bg-surface-muted">
+                  <span x-html="ICONS.image" class="text-ink-secondary [&>svg]:h-4 [&>svg]:w-4"></span> Choose from device
+                </button>
+                <template x-if="me?.photo">
+                  <button type="button" role="menuitem" @click="photoMenu = false; profDeletePhoto()"
+                          class="flex w-full items-center gap-sm rounded-button px-md py-sm text-left text-bodysm text-danger hover:bg-danger-bg">
+                    <span x-html="ICONS.trash" class="[&>svg]:h-4 [&>svg]:w-4"></span> Remove photo
+                  </button>
+                </template>
+              </div>
+              <input id="profile-photo-input" type="file" accept="image/jpeg,image/png" class="sr-only" @change="profPickPhoto($event.target)" aria-label="Upload a profile photo (JPG or PNG, up to 3 MB)">
             </div>
             <div class="min-w-0 flex-1 sm:pb-[2px]">
               <h1 class="truncate text-h2 text-ink" x-text="me?.name || 'Your name'"></h1>

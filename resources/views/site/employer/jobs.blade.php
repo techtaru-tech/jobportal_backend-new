@@ -25,6 +25,18 @@
         </button>
       </template>
     </nav>
+    {{-- Which company each job was posted for — once there is more than one. --}}
+    <template x-if="companies.length > 1">
+      <label class="block lg:w-[220px]">
+        <span class="sr-only">Company</span>
+        <select x-model="company" class="wa-input h-10 bg-surface">
+          <option value="" x-text="'All companies · ' + jobs.length"></option>
+          <template x-for="c in companies" :key="c.key">
+            <option :value="c.key" :selected="company === c.key" x-text="c.name + ' · ' + c.count"></option>
+          </template>
+        </select>
+      </label>
+    </template>
     <label class="relative block lg:w-[280px]">
       <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'search', 'class' => 'h-[18px] w-[18px]'])</span>
       <input type="search" x-model.debounce.200ms="q" placeholder="Search title, code, city" class="wa-input h-10 bg-surface pl-[40px]">

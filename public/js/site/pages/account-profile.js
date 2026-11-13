@@ -118,7 +118,7 @@ document.addEventListener('alpine:init', () => {
     },
     boostGo(b) {
       if (b.href) { location.href = b.href; return }
-      if (b.photo) { this.$refs.photoInput?.click(); return }
+      if (b.photo) { document.getElementById('profile-photo-input')?.click(); return }
       this.jump(b.to, b.edit)
     },
 

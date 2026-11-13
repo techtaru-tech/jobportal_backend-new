@@ -5,289 +5,300 @@ namespace App\Support;
 use App\Models\CandidateProfile;
 use App\Models\Education;
 use App\Models\WorkExperience;
+use Dompdf\Dompdf;
+use Dompdf\Options;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 /**
- * Renders the "build resume from profile" PDF (§3.10).
+ * Renders the candidate's resume PDF (§3.10) — the one the website shows and
+ * a recruiter downloads.
  *
- * Deliberately dependency-free: a plain single-column CV needs a text layout
- * engine far less than it needs to never break, so this emits a minimal but
- * valid PDF 1.4 with the two standard Helvetica faces. Swap in dompdf later if
- * the design ever needs real typography.
+ * The app's design, not a design of its own: lib/app/core/utils/
+ * resume_pdf.dart, section for section — photo, name and red headline, the
+ * INTHES logo, red-barred sections, chips, the faint centred logo behind the
+ * text, and "INTHES · Built from the candidate's profile · date" with page
+ * numbers in the footer. It was a plain Helvetica text dump before, so the
+ * same profile looked like two different documents in the app and on the
+ * web. HTML (resources/views/pdf/resume.blade.php) through dompdf, in the
+ * app's own font (Plus Jakarta Sans, resources/pdf/fonts).
+ *
+ * The paid copy (`resume_watermark_free`) carries no INTHES anywhere —
+ * watermark, header logo, footer wordmark, metadata — only the date.
  */
 class ResumePdf
 {
-    private const PAGE_WIDTH = 595.28;   // A4 at 72dpi
+    private const BRAND = [0.922, 0.016, 0.004];   // #EB0401
 
-    private const PAGE_HEIGHT = 841.89;
+    private const MUTED = [0.42, 0.42, 0.44];       // #6B6B70
 
-    private const MARGIN = 56.0;
+    private const RULE = [0.93, 0.93, 0.937];       // #EDEDEF
 
-    private const LEADING = 15.0;
-
-    public static function render(CandidateProfile $profile): string
+    /** @param  bool|null  $branded  null: the profile's own entitlement. */
+    public static function render(CandidateProfile $profile, ?bool $branded = null): string
     {
-        return (new self)->build(self::lines($profile));
+        $branded ??= ! $profile->hasWatermarkFreeResume();
+
+        $options = new Options;
+        $options->setChroot([resource_path('pdf')]);
+        $options->setFontDir(self::fontCache());
+        $options->setFontCache(self::fontCache());
+        $options->setIsRemoteEnabled(false);
+        $options->setDefaultFont('Jakarta');
+        $options->setDpi(96);
+
+        $pdf = new Dompdf($options);
+        $pdf->loadHtml(self::html($profile, $branded), 'UTF-8');
+        $pdf->setPaper('A4');
+        $pdf->addInfo('Title', self::name($profile).' — Resume');
+        $pdf->addInfo('Subject', 'Candidate resume');
+        $pdf->addInfo('Author', $branded ? 'INTHES' : self::name($profile));
+        $pdf->addInfo('Creator', $branded ? 'INTHES' : '');
+        $pdf->addInfo('Producer', $branded ? 'INTHES' : '');
+        $pdf->render();
+
+        self::footer($pdf, $branded);
+
+        return $pdf->output();
+    }
+
+    /** The page as HTML — what [render] lays out, and what the tests read. */
+    public static function html(CandidateProfile $profile, bool $branded = true): string
+    {
+        $profile->loadMissing(['educations', 'workExperiences', 'user']);
+
+        return view('pdf.resume', [
+            'branded' => $branded,
+            'name' => self::name($profile),
+            'headline' => self::join([$profile->qualification, $profile->experience]),
+            'meta' => self::join([
+                $profile->dob ? 'Age '.$profile->dob->age : null,
+                self::join([$profile->home_city, $profile->home_state], ', '),
+            ]),
+            'contact' => self::join([$profile->user?->phone, $profile->email]),
+            'photo' => self::photo($profile),
+            'logo' => resource_path('pdf/inthes-logo.jpg'),
+            'fonts' => [
+                'regular' => resource_path('pdf/fonts/PlusJakartaSans-Regular.ttf'),
+                'semiBold' => resource_path('pdf/fonts/PlusJakartaSans-SemiBold.ttf'),
+                'bold' => resource_path('pdf/fonts/PlusJakartaSans-Bold.ttf'),
+            ],
+            'sections' => self::sections($profile),
+        ])->render();
     }
 
     /**
-     * @return array<int, array{text: string, size: float, bold: bool, gap: float}>
-     */
-    private static function lines(CandidateProfile $profile): array
-    {
-        $lines = [];
-
-        $add = function (string $text, float $size = 10.5, bool $bold = false, float $gap = 0) use (&$lines) {
-            $lines[] = ['text' => self::ascii($text), 'size' => $size, 'bold' => $bold, 'gap' => $gap];
-        };
-
-        $heading = function (string $title) use ($add) {
-            $add(strtoupper($title), 11, true, 12);
-        };
-
-        $add($profile->name ?: 'Candidate', 20, true);
-
-        $contact = array_filter([
-            $profile->user?->phone,
-            $profile->email,
-            $profile->address,
-        ]);
-
-        if ($contact !== []) {
-            $add(implode('  |  ', $contact), 10, false, 4);
-        }
-
-        $summary = array_filter([
-            $profile->qualification,
-            $profile->experience ? $profile->experience.' experience' : null,
-            filled($profile->location) ? implode(', ', $profile->location) : null,
-        ]);
-
-        if ($summary !== []) {
-            $add(implode('  |  ', $summary), 10, false, 2);
-        }
-
-        if (filled($profile->about)) {
-            $heading('About');
-            foreach (self::wrap($profile->about, 96) as $line) {
-                $add($line);
-            }
-        }
-
-
-        if ($profile->workExperiences->isNotEmpty()) {
-            $heading('Work Experience');
-
-            foreach ($profile->workExperiences as $experience) {
-                /** @var WorkExperience $experience */
-                $add(trim($experience->designation.' — '.$experience->organization), 11, true, 6);
-
-                $meta = array_filter([
-                    $experience->department,
-                    implode(', ', $experience->cities ?? []),
-                    $experience->period(),
-                ]);
-
-                if ($meta !== []) {
-                    $add(implode('  |  ', $meta), 9.5);
-                }
-
-                // `description` replaced `bullets` (2026_08_13) as free text,
-                // one point per line — the old key printed nothing at all.
-                foreach (self::points($experience->description) as $point) {
-                    foreach (self::wrap('- '.$point, 92) as $line) {
-                        $add($line);
-                    }
-                }
-            }
-        }
-
-        if ($profile->educations->isNotEmpty()) {
-            $heading('Education');
-
-            foreach ($profile->educations as $education) {
-                /** @var Education $education */
-                $add($education->qualification, 11, true, 6);
-
-                $meta = array_filter([
-                    $education->specialization,
-                    $education->institute,
-                    $education->year,
-                    $education->percentage === null ? null : $education->percentage.'%',
-                ]);
-
-                if ($meta !== []) {
-                    $add(implode('  |  ', $meta), 9.5);
-                }
-            }
-        }
-
-        if (filled($profile->languages)) {
-            $heading('Languages');
-
-            // "Hindi (Native · Read, Write & Speak)" — how well, then what.
-            $languages = collect($profile->languages)
-                ->map(function (string $language) use ($profile) {
-                    $details = array_filter([
-                        $profile->language_proficiencies[$language] ?? null,
-                        $profile->language_levels[$language] ?? null,
-                    ]);
-
-                    return $details === [] ? $language : $language.' ('.implode(' · ', $details).')';
-                })
-                ->implode(', ');
-
-            foreach (self::wrap($languages, 96) as $line) {
-                $add($line);
-            }
-        }
-
-        return $lines;
-    }
-
-    /**
-     * @param  array<int, array{text: string, size: float, bold: bool, gap: float}>  $lines
-     */
-    private function build(array $lines): string
-    {
-        $pages = [];
-        $current = '';
-        $y = self::PAGE_HEIGHT - self::MARGIN;
-
-        foreach ($lines as $line) {
-            $y -= $line['gap'];
-
-            if ($y < self::MARGIN) {
-                $pages[] = $current;
-                $current = '';
-                $y = self::PAGE_HEIGHT - self::MARGIN;
-            }
-
-            $font = $line['bold'] ? '/F2' : '/F1';
-            $current .= sprintf(
-                "BT %s %.1f Tf 1 0 0 1 %.2f %.2f Tm (%s) Tj ET\n",
-                $font,
-                $line['size'],
-                self::MARGIN,
-                $y,
-                self::escape($line['text']),
-            );
-
-            $y -= max(self::LEADING, $line['size'] * 1.35);
-        }
-
-        $pages[] = $current;
-
-        return $this->assemble($pages);
-    }
-
-    /** @param  array<int, string>  $pages */
-    private function assemble(array $pages): string
-    {
-        $objects = [];
-        $pageCount = count($pages);
-
-        // 1 = catalog, 2 = pages, 3 = F1, 4 = F2, then page/content pairs.
-        $firstPageObject = 5;
-        $kids = [];
-
-        foreach (range(0, $pageCount - 1) as $index) {
-            $kids[] = ($firstPageObject + $index * 2).' 0 R';
-        }
-
-        $objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
-        $objects[2] = sprintf(
-            '<< /Type /Pages /Count %d /Kids [%s] >>',
-            $pageCount,
-            implode(' ', $kids),
-        );
-        $objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
-        $objects[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
-
-        foreach ($pages as $index => $content) {
-            $pageObject = $firstPageObject + $index * 2;
-            $contentObject = $pageObject + 1;
-
-            $objects[$pageObject] = sprintf(
-                '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2f %.2f] '.
-                '/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents %d 0 R >>',
-                self::PAGE_WIDTH,
-                self::PAGE_HEIGHT,
-                $contentObject,
-            );
-
-            $objects[$contentObject] = sprintf(
-                "<< /Length %d >>\nstream\n%s\nendstream",
-                strlen($content),
-                $content,
-            );
-        }
-
-        ksort($objects);
-
-        $pdf = "%PDF-1.4\n";
-        $offsets = [];
-
-        foreach ($objects as $number => $body) {
-            $offsets[$number] = strlen($pdf);
-            $pdf .= "{$number} 0 obj\n{$body}\nendobj\n";
-        }
-
-        $xrefOffset = strlen($pdf);
-        $total = count($objects) + 1;
-
-        $pdf .= "xref\n0 {$total}\n0000000000 65535 f \n";
-
-        foreach ($offsets as $offset) {
-            $pdf .= sprintf("%010d 00000 n \n", $offset);
-        }
-
-        $pdf .= "trailer\n<< /Size {$total} /Root 1 0 R >>\nstartxref\n{$xrefOffset}\n%%EOF";
-
-        return $pdf;
-    }
-
-    /** @return array<int, string> */
-    private static function wrap(string $text, int $width): array
-    {
-        $wrapped = wordwrap(trim(preg_replace('/\s+/u', ' ', $text)), $width, "\n", true);
-
-        return explode("\n", $wrapped);
-    }
-
-    /** WinAnsi has no ₹ or en dash — transliterate rather than emit mojibake. */
-    /**
-     * A description's lines as points, without the "-", "*" or "•" the
-     * candidate (or the AI writer) may have started them with.
+     * In the app's order: what the candidate is and wants first, then the
+     * work, the qualifications, the practical details — personal last.
      *
-     * @return array<int, string>
+     * @return array<int, array<string, mixed>>
      */
-    private static function points(?string $text): array
+    private static function sections(CandidateProfile $p): array
     {
-        return collect(preg_split('/\R/u', (string) $text))
-            ->map(fn (string $line) => trim(preg_replace('/^\s*[-*•]+\s*/u', '', $line)))
-            ->filter()
-            ->values()
-            ->all();
+        $sections = [];
+
+        // Never blank: no About of their own gets one written from the
+        // fields they did fill (ProfileWriter::about).
+        $sections[] = ['title' => 'Summary', 'paragraphs' => [
+            filled(trim((string) $p->about)) ? trim((string) $p->about) : ProfileWriter::about($p),
+        ]];
+        $sections[] = ['title' => 'Objective', 'paragraphs' => [ProfileWriter::objective($p)]];
+
+        // "Managed a team of N people at ORG." is written into About when
+        // known; only otherwise does the bare yes need saying.
+        $teamLine = $p->managed_team === true && ! str_contains(mb_strtolower((string) $p->about), 'managed a team');
+
+        if ($p->workExperiences->isNotEmpty() || $teamLine) {
+            $sections[] = [
+                'title' => 'Experience',
+                'entries' => $p->workExperiences->map(fn (WorkExperience $e) => self::experience($e))->all(),
+                'paragraphs' => $teamLine ? ['Has managed a team.'] : [],
+            ];
+        }
+
+        if ($p->educations->isNotEmpty()) {
+            $sections[] = ['title' => 'Education', 'entries' => $p->educations->map(fn (Education $e) => [
+                'title' => filled($e->specialization) ? "{$e->qualification} ({$e->specialization})" : (string) $e->qualification,
+                'subtitle' => (string) $e->institute,
+                'meta' => (string) $e->year,
+                'detail' => '',
+                'bullets' => [],
+            ])->all()];
+        }
+
+        $skills = array_values(array_filter(array_map('trim', $p->skills ?? [])));
+        if ($skills !== []) {
+            $sections[] = ['title' => 'Skills', 'chips' => $skills];
+        }
+
+        if (filled($p->languages)) {
+            $sections[] = ['title' => 'Languages', 'chips' => array_map(function (string $language) use ($p) {
+                $level = $p->language_levels[$language] ?? '';
+
+                return filled($level) ? "{$language} · {$level}" : $language;
+            }, $p->languages)];
+        }
+
+        $availability = self::availability($p);
+        if ($availability !== []) {
+            $sections[] = ['title' => 'Availability', 'lines' => $availability];
+        }
+
+        // Expected salary deliberately not printed — what the candidate asks
+        // for does not belong in a document that is forwarded (see the app).
+        $looking = array_values(array_filter([
+            ['Roles', implode(', ', $p->preferred_roles ?? [])],
+            ['Locations', implode(', ', $p->location ?? [])],
+            ['Job type', implode(', ', $p->preferred_job_types ?? [])],
+            ['Shift', implode(', ', $p->preferred_shifts ?? [])],
+        ], fn ($row) => $row[1] !== ''));
+        if (filled($p->location) || filled($p->preferred_roles)) {
+            $sections[] = ['title' => 'Looking for', 'lines' => $looking];
+        }
+
+        $personal = self::personal($p);
+        if ($personal !== []) {
+            $sections[] = ['title' => 'Personal details', 'lines' => $personal];
+        }
+
+        return $sections;
     }
 
-    private static function ascii(string $text): string
+    /**
+     * One role. Their own description wins whenever there is one; a role
+     * left blank gets ProfileWriter::roleBullets rather than an entry that
+     * reads as "did nothing there".
+     *
+     * @return array<string, mixed>
+     */
+    private static function experience(WorkExperience $e): array
     {
-        $text = strtr($text, [
-            '₹' => 'Rs.',
-            '–' => '-',
-            '—' => '-',
-            '•' => '-',
-            '‘' => "'",
-            '’' => "'",
-            '“' => '"',
-            '”' => '"',
-        ]);
+        $description = trim((string) $e->description);
 
-        return preg_replace('/[^\x20-\x7E]/', '', $text) ?? '';
+        return [
+            'title' => (string) $e->designation,
+            'subtitle' => (string) $e->organization,
+            'meta' => $e->period(),
+            'detail' => self::join([
+                self::join([$e->department, implode(', ', $e->cities ?? [])]),
+                $description,
+            ], "\n"),
+            'bullets' => $description === '' ? ProfileWriter::roleBullets($e) : [],
+        ];
     }
 
-    private static function escape(string $text): string
+    /**
+     * Only what the candidate answered — every one starts null on purpose,
+     * and printing "No" for an unopened section would put words in their
+     * mouth.
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private static function availability(CandidateProfile $p): array
     {
-        return strtr($text, ['\\' => '\\\\', '(' => '\\(', ')' => '\\)']);
+        $yesNo = fn (?bool $v) => $v === null ? '' : ($v ? 'Yes' : 'No');
+
+        return array_values(array_filter([
+            ['Currently employed', $yesNo($p->currently_employed)],
+            ['Notice period', trim((string) $p->notice_period)],
+            ['Last working day', $p->last_working_date?->format('j M Y') ?? ''],
+            ['Can join immediately', $yesNo($p->immediate_joiner)],
+            ['Earliest joining', $p->earliest_joining_date?->format('j M Y') ?? ''],
+            ['Willing to relocate', $yesNo($p->willing_to_relocate)],
+            ['Own vehicle', $yesNo($p->has_vehicle)],
+            ['Driving licence', $yesNo($p->has_driving_licence)],
+        ], fn ($row) => $row[1] !== ''));
+    }
+
+    /** @return array<int, array{0: string, 1: string}> */
+    private static function personal(CandidateProfile $p): array
+    {
+        $dob = $p->dob ? $p->dob->format('j M Y').'  (Age '.$p->dob->age.')' : '';
+
+        return array_values(array_filter([
+            ['Gender', ucfirst(trim((string) $p->gender))],
+            ['Date of birth', $dob],
+            ['Marital status', ucfirst(trim((string) $p->marital_status))],
+            ["Father's name", trim((string) $p->father_name)],
+            ["Mother's name", trim((string) $p->mother_name)],
+            ['Native place', trim((string) $p->native_place)],
+            ['Nationality', trim((string) $p->nationality)],
+            ['Alternate phone', trim((string) $p->alternate_phone)],
+            ['WhatsApp', trim((string) $p->whatsapp_number)],
+        ], fn ($row) => $row[1] !== ''));
+    }
+
+    /**
+     * "INTHES · Built from the candidate's profile · 12 Nov 2026" on the left
+     * and "Page 1 of 2" on the right, over a hairline — on every page. Drawn
+     * on the canvas because only it knows the page count.
+     */
+    private static function footer(Dompdf $pdf, bool $branded): void
+    {
+        $date = now()->format('j M Y');
+
+        // A page script, not page_text: drawn at full opacity on purpose —
+        // the watermark's 8% would otherwise carry over and fade the footer
+        // to nothing.
+        $pdf->getCanvas()->page_script(function (int $page, int $pages, $canvas, $metrics) use ($branded, $date) {
+            $regular = $metrics->getFont('Jakarta', 'normal');
+            $semiBold = $metrics->getFont('Jakarta', 'bold');
+            $x = 38;                                  // the page margin, in points
+            $right = $canvas->get_width() - 38;
+            $y = $canvas->get_height() - 40;
+
+            $canvas->set_opacity(1.0);
+            $canvas->line($x, $y - 6, $right, $y - 6, self::RULE, 0.7);
+
+            if ($branded) {
+                $canvas->text($x, $y, 'INTHES', $semiBold, 8, self::BRAND, 0, 1);
+                $brand = $metrics->getTextWidth('INTHES', $semiBold, 8, 0, 1);
+                $canvas->text($x + $brand, $y, "  ·  Built from the candidate's profile  ·  {$date}", $regular, 8, self::MUTED);
+            } else {
+                $canvas->text($x, $y, $date, $regular, 8, self::MUTED);
+            }
+
+            $label = "Page {$page} of {$pages}";
+            $canvas->text($right - $metrics->getTextWidth($label, $regular, 8), $y, $label, $regular, 8, self::MUTED);
+        });
+    }
+
+    /** The profile photo as a data URI, or null — a missing file costs the photo, not the resume. */
+    private static function photo(CandidateProfile $p): ?string
+    {
+        if (blank($p->photo_path)) {
+            return null;
+        }
+
+        try {
+            $disk = Storage::disk('public');
+            if (! $disk->exists($p->photo_path)) {
+                return null;
+            }
+
+            return 'data:'.($disk->mimeType($p->photo_path) ?: 'image/jpeg').';base64,'.base64_encode($disk->get($p->photo_path));
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private static function name(CandidateProfile $p): string
+    {
+        return filled($p->name) ? (string) $p->name : 'Candidate';
+    }
+
+    /** Filled values joined — "B.Sc Nursing  ·  3–5 yrs". */
+    private static function join(array $parts, string $glue = '  ·  '): string
+    {
+        return implode($glue, array_filter(array_map(fn ($v) => trim((string) $v), $parts), fn ($v) => $v !== ''));
+    }
+
+    private static function fontCache(): string
+    {
+        $dir = storage_path('fonts');
+        File::ensureDirectoryExists($dir);
+
+        return $dir;
     }
 }

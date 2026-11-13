@@ -252,6 +252,34 @@ class JobController extends ApiController
         return ApiResponse::data(new JobResource($job));
     }
 
+    /**
+     * GET /jobs/coverage — where Inthes is open: every state with a job a
+     * candidate can see right now, and how many.
+     *
+     * There is no list of "launched" states to keep up to date: a state is
+     * open while it has live jobs. The website asks once for the visitor's
+     * location and, when their state is not in here, says Inthes is not in
+     * their area yet — they can still browse and apply to these.
+     */
+    public function coverage(): JsonResponse
+    {
+        $states = JobPosting::query()
+            ->publiclyVisible()
+            ->whereNotNull('state')
+            ->where('state', '!=', '')
+            ->selectRaw('state, count(*) as aggregate')
+            ->groupBy('state')
+            ->orderByDesc('aggregate')
+            ->pluck('aggregate', 'state');
+
+        return ApiResponse::data([
+            'states' => $states->map(fn ($count, string $state) => [
+                'state' => $state,
+                'job_count' => (int) $count,
+            ])->values()->all(),
+        ]);
+    }
+
     /** GET /jobs/categories (§4.3) */
     public function categories(): JsonResponse
     {

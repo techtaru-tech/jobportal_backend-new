@@ -393,10 +393,20 @@
       /**
        * Creates the company, or updates the saved one if anything changed
        * (PostJobController._saveCompany).
+       *
+       * `newOnRename` (Post a Job): another name over the picked company is a
+       * new company, never a rename — or, if it is another saved company's
+       * name, that company (PostJobController.companyFor). Renaming one
+       * re-filed its earlier jobs and business document under the new name.
+       * Profile ▸ Companies, where renaming is the point, leaves it off.
        */
-      async coSave() {
-        const existing = this.coSaved
+      async coSave({ newOnRename = false } = {}) {
         const body = companyBody(this.co)
+        const same = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase()
+        let existing = this.coSaved
+        if (newOnRename && existing && !same(existing.name, body.name)) {
+          existing = (this.orgs || []).find((o) => same(o.name, body.name)) || null
+        }
         const unchanged = existing && Object.keys(body).every((k) => (existing[k] ?? null) === body[k])
         if (unchanged) return existing
         const res = existing

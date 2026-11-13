@@ -27,12 +27,13 @@
       <span x-text="me?.photo ? 'Change photo' : 'Choose photo'"></span>
       <input type="file" accept="image/jpeg,image/png" class="sr-only" @change="profPickPhoto($event.target)">
     </label>
-    {{-- A profile photo is usually a selfie; on a phone this opens the camera. --}}
-    <label class="wa-btn-ghost-sm cursor-pointer" :class="profPhotoBusy && 'pointer-events-none opacity-60'">
+    {{-- A profile photo is usually a selfie: the webcam on a computer, the
+         camera app on a phone (Inthes.takePhoto). `capture` on a file input
+         alone opened the file picker on a computer. --}}
+    <button type="button" @click="profTakePhoto()" :disabled="profPhotoBusy" class="wa-btn-ghost-sm disabled:opacity-60">
       <span x-html="ICONS.camera" class="[&>svg]:h-4 [&>svg]:w-4"></span>
       Take photo
-      <input type="file" accept="image/jpeg,image/png" capture="user" class="sr-only" @change="profPickPhoto($event.target)">
-    </label>
+    </button>
   </div>
   <template x-if="me?.photo">
     <div class="mt-sm text-center">

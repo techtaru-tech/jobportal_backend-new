@@ -357,7 +357,7 @@ document.addEventListener('alpine:init', () => {
       let job = null
       try {
         this.busyText = 'Saving company…'
-        const org = await this.coSave()
+        const org = await this.coSave({ newOnRename: true })
         this.storeOrg(org)
         this.orgChoice = org.id
         this.busyText = 'Saving job…'
