@@ -20,7 +20,7 @@ return [
     /*
     | The service-account key from Firebase console -> Project settings ->
     | Service accounts -> Generate new private key. Grants server-to-server
-    | send access to project `inthesnew` — never ship this to the app or a
+    | send access to project `inthes2026` — never ship this to the app or a
     | public repo (storage/app/secrets/ is gitignored for exactly this file).
     */
     'credentials' => env('FCM_CREDENTIALS_PATH', storage_path('app/secrets/firebase-service-account.json')),

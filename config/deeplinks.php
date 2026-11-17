@@ -79,7 +79,7 @@ return [
 
     'ios' => [
         /*
-        | `<TeamID>.<bundle id>`, e.g. ABCDE12345.com.techtaru.newJobPortal.
+        | `<TeamID>.<bundle id>`, e.g. ABCDE12345.com.inthesportal.inthes.
         | Found in the Apple Developer account; needs a paid membership, as
         | does the Associated Domains capability the app side requires.
         |
