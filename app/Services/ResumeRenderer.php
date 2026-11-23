@@ -79,6 +79,15 @@ class ResumeRenderer
             return;
         }
 
-        $this->generate($profile);
+        // The resume is a by-product of the edit, not the edit itself. A PDF
+        // that fails to render (a missing PHP extension on the server, an
+        // image dompdf cannot read) must not turn "save my photo" or "save my
+        // experience" into a 500 — the change is already saved, and the
+        // previous resume simply stays until the next edit renders one.
+        try {
+            $this->generate($profile);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

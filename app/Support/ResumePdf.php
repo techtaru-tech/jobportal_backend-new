@@ -277,7 +277,16 @@ class ResumePdf
                 return null;
             }
 
-            return 'data:'.($disk->mimeType($p->photo_path) ?: 'image/jpeg').';base64,'.base64_encode($disk->get($p->photo_path));
+            $mime = $disk->mimeType($p->photo_path) ?: 'image/jpeg';
+
+            // dompdf embeds a JPEG as-is but needs the GD extension for any
+            // other format (PNG included). Without GD the resume is rendered
+            // without the photo rather than not at all.
+            if ($mime !== 'image/jpeg' && ! extension_loaded('gd')) {
+                return null;
+            }
+
+            return 'data:'.$mime.';base64,'.base64_encode($disk->get($p->photo_path));
         } catch (Throwable) {
             return null;
         }
