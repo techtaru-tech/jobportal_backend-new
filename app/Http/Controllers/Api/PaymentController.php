@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\NotificationAudience;
 use App\Enums\PaymentMethod;
 use App\Models\PaymentOrder;
+use App\Services\Payments\Store\StoreProducts;
 use App\Services\Payments\PaymentService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -25,14 +26,28 @@ class PaymentController extends ApiController
 {
     public function __construct(private readonly PaymentService $payments) {}
 
-    /** GET /payments/methods — what the payment-method screen offers. */
-    public function methods(): JsonResponse
+    /**
+     * GET /payments/methods?platform=android|ios — what the payment-method
+     * screen offers.
+     *
+     * When the store for that platform is switched on (config/iap.php) it is
+     * the only method: Google Play and the App Store both require their own
+     * billing for digital purchases inside the app. Otherwise — and for an
+     * older app that sends no platform — UPI / card / net banking.
+     */
+    public function methods(Request $request): JsonResponse
     {
+        $store = PaymentMethod::enabledStoreFor($request->query('platform'));
+
         return ApiResponse::data([
             'methods' => array_map(
                 fn (PaymentMethod $m) => ['id' => $m->value, 'label' => $m->label()],
-                PaymentMethod::cases(),
+                $store !== null ? [$store] : PaymentMethod::gatewayMethods(),
             ),
+            'store' => $store?->value,
+            'store_job_plan_quantities' => $store !== null
+                ? StoreProducts::jobPlanQuantities()
+                : null,
         ]);
     }
 
