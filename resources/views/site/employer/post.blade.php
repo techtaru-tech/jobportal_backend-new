@@ -30,11 +30,13 @@
         <div class="flex items-start gap-md">
           <div class="min-w-0 flex-1">
             <p class="text-kicker uppercase tracking-[1.2px] text-ink-secondary" x-text="mode === 'edit' ? 'Edit job' : 'Post a job'"></p>
-            <h1 class="mt-xs text-h1 text-ink" x-text="mode === 'edit' ? (job.title + ' · ' + job.code) : (mode === 'draft' ? 'Finish your job post' : 'Hire the right people, fast')"></h1>
+            <h1 class="mt-xs text-h1 text-ink" x-text="mode === 'edit' ? 'Update this post' : 'Hire the right people, fast'"></h1>
           </div>
-          <template x-if="job">
-            <span class="wa-pill mt-xs" :class="statusPill(job.posting_status)" x-text="statusLabel(job.posting_status)"></span>
-          </template>
+          {{-- The app's My Jobs button, top right. --}}
+          <a href="{{ url('/employer/jobs') }}" aria-label="My Jobs" title="My Jobs"
+             class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-card bg-primary-light text-primary hover:bg-primary/15">
+            @include('admin.partials.icon', ['name' => 'clipboard', 'class' => 'h-5 w-5'])
+          </a>
         </div>
         @include('site.employer.partials.post-steps', ['current' => 'wiz'])
       </div>
@@ -63,32 +65,31 @@
 
           {{-- ── 1 · job details ─────────────────────────────────────── --}}
           <section x-show="wiz === 0" class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">1</span><h2 class="min-w-0 text-h3 text-ink">Job Details</h2></div>
+            <div class="{{ $sectionHead }}"><span class="{{ $num }}">1</span><h2 class="min-w-0 text-h3 text-ink">About the Job</h2></div>
             <div class="space-y-xl">
-              <div class="grid gap-lg sm:grid-cols-2">
+              <div class="grid gap-lg">
                 <div data-field="title" @input="recheck('title')">
-                  @include('site.ui.combo', ['label' => 'Job title', 'model' => 'f.title', 'items' => "opt('designations')", 'placeholder' => 'e.g. Staff Nurse', 'required' => true, 'error' => 'errors.title'])
+                  @include('site.ui.combo', ['label' => 'Job title', 'model' => 'f.title', 'items' => "opt('designations')", 'placeholder' => 'Select a job title', 'required' => true, 'error' => 'errors.title'])
                 </div>
                 <div data-field="role" @input="recheck('role')">
-                  @include('site.ui.combo', ['label' => 'Job category', 'model' => 'f.role', 'items' => "opt('categories')", 'placeholder' => 'e.g. Nurse', 'required' => true, 'error' => 'errors.role'])
+                  @include('site.ui.combo', ['label' => 'Job category', 'model' => 'f.role', 'items' => "opt('categories')", 'placeholder' => 'Select a category', 'required' => true, 'error' => 'errors.role'])
                 </div>
               </div>
 
               <div>
                 <template x-if="!showDescription">
                   <button type="button" @click="showDescription = true" class="{{ $addLink }}">
-                    @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-[18px] w-[18px]']) Add job description
+                    @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-[18px] w-[18px]']) Add job description (Optional)
                   </button>
                 </template>
                 <template x-if="showDescription">
                   <div>
                     @include('site.ui.textarea', ['label' => 'Job description', 'model' => 'f.about', 'rows' => 5, 'max' => 4000, 'placeholder' => 'Briefly describe the role and the team…'])
-                    <button type="button" class="-mt-md min-h-[32px] text-caption text-ink-secondary hover:text-ink" @click="showDescription = false; f.about = ''">Remove description</button>
                   </div>
                 </template>
               </div>
 
-              <div class="grid gap-lg sm:grid-cols-[160px_1fr]">
+              <div class="grid gap-xl">
                 <div data-field="openings" @input="recheck('openings')">
                   @include('site.ui.input', ['label' => 'Number of openings', 'model' => 'f.openings', 'placeholder' => 'e.g. 5', 'required' => true, 'attrs' => 'inputmode=numeric maxlength=4 @input="digits(\'openings\', 4)"', 'error' => 'errors.openings'])
                 </div>
@@ -111,7 +112,7 @@
                 </div>
               </div>
 
-              <div class="grid gap-xl md:grid-cols-2">
+              <div class="grid gap-xl">
                 <div data-field="shift" @click="$nextTick(() => recheck('shift'))">
                   @include('site.ui.chips', ['label' => 'Job shift', 'model' => 'f.shift', 'iconKind' => 'shift', 'items' => "opt('shifts')", 'labels' => "Object.fromEntries(opt('shifts').map((s) => [s, shiftLabel(s)]))", 'required' => true, 'error' => 'errors.shift'])
                 </div>
@@ -138,7 +139,7 @@
                     <span>This device could only find the location roughly (<span x-text="locRoughLabel"></span>), so the address may be a nearby area. Check it, or use <b>Pick on map</b> to pin the exact spot.</span>
                   </p>
                 </template>
-                <div class="grid gap-lg sm:grid-cols-2">
+                <div class="grid gap-lg">
                   <div data-field="state">
                     <label class="block">
                       <span class="wa-label">State @include('site.ui.mark', ['required' => true])</span>
@@ -155,11 +156,11 @@
                   </div>
                   <div data-field="city" @change="recheck('city')">
                     <label class="block">
-                      <span class="wa-label">City / district @include('site.ui.mark', ['required' => true])</span>
+                      <span class="wa-label">City @include('site.ui.mark', ['required' => true])</span>
                       <div class="relative">
                         <span class="pointer-events-none absolute left-md top-1/2 z-[1] -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'mapPin', 'class' => 'h-[18px] w-[18px]'])</span>
                         <select x-model="f.city" :disabled="!f.state" class="wa-input cursor-pointer appearance-none pl-[44px] pr-10 disabled:cursor-not-allowed disabled:opacity-60">
-                          <option value="" x-text="f.state ? 'Select the city' : 'Pick a state first'"></option>
+                          <option value="" x-text="f.state ? 'Search city / town' : 'Select the state first'"></option>
                           <template x-for="c in cities" :key="c"><option :value="c" x-text="c" :selected="c === f.city"></option></template>
                         </select>
                         <span class="pointer-events-none absolute right-md top-1/2 -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'chevronDown', 'class' => 'h-5 w-5'])</span>
@@ -169,7 +170,7 @@
                   </div>
                 </div>
                 <div class="mt-lg">
-                  @include('site.ui.input', ['label' => 'Address', 'model' => 'f.locality', 'placeholder' => 'House / flat no., street, area — e.g. 21-987, Jeedimetla', 'attrs' => 'maxlength=120'])
+                  @include('site.ui.input', ['label' => 'Address', 'model' => 'f.locality', 'placeholder' => 'House / flat no., street, area', 'attrs' => 'maxlength=120'])
                 </div>
                 <p x-show="f.city" class="mt-sm flex items-center gap-sm text-caption text-ink-secondary">
                   <span x-html="ICONS.info" class="text-primary [&>svg]:h-4 [&>svg]:w-4"></span>
@@ -194,64 +195,49 @@
               <div data-field="experience" @click="$nextTick(() => recheck('experience'))">
                 @include('site.ui.chips', ['label' => 'Experience', 'model' => 'f.experience', 'items' => 'experienceOptions', 'required' => true, 'error' => 'errors.experience'])
               </div>
-              @include('site.ui.chips', ['label' => 'Preferred gender', 'model' => 'f.preferred_gender', 'iconKind' => 'gender', 'items' => "opt('gender_preferences')", 'labels' => "({ Any: 'Any gender' })", 'required' => true])
+              @include('site.ui.chips', ['label' => 'Preferred gender', 'model' => 'f.preferred_gender', 'iconKind' => 'gender', 'items' => "opt('gender_preferences')", 'labels' => "({ Any: 'Any gender' })"])
 
-              <div>
-                <template x-if="!showMoreReqs">
-                  <button type="button" @click="showMoreReqs = true" class="{{ $addLink }}">
-                    @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-[18px] w-[18px]']) Add skills & qualifications
-                  </button>
-                </template>
-                <template x-if="showMoreReqs">
-                  <div class="space-y-xl">
-                    @include('site.ui.multi-add', ['label' => 'Skills required', 'model' => 'f.skills', 'items' => "opt('professional_skills')", 'placeholder' => 'Add a skill'])
-                    @include('site.ui.multi-add', ['label' => 'Specific qualifications', 'model' => 'f.qualifications', 'items' => "opt('qualifications')", 'placeholder' => 'e.g. B.Sc Nursing, DMLT'])
-                  </div>
-                </template>
-              </div>
-            </div>
-          </section>
+              @include('site.ui.multi-add', ['label' => 'Skills required', 'model' => 'f.skills', 'items' => "opt('professional_skills')", 'placeholder' => '+ Add skills'])
+              @include('site.ui.multi-add', ['label' => 'Specific qualifications', 'model' => 'f.qualifications', 'items' => "opt('qualifications')", 'placeholder' => 'e.g. B.Sc Nursing, DMLT'])
 
-          {{-- ── 2b · contact preferences (part of the requirements step) ── --}}
-          <section x-show="wiz === 1" class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">@include('admin.partials.icon', ['name' => 'phone', 'class' => 'h-[14px] w-[14px]'])</span><h2 class="min-w-0 text-h3 text-ink">Contact Preferences</h2></div>
+              {{-- Manage candidates through — inside this step, as in the app (PJ:619-695). --}}
             <div class="space-y-lg" data-field="contact_mode">
-              <div>
-                <span class="wa-label">Manage candidates through @include('site.ui.mark', ['required' => true])</span>
-                <div class="flex flex-wrap gap-xs">
-                  <template x-for="[id, label] in Object.entries(contactModes)" :key="id">
-                    <button type="button" @click="f.contact_mode = id; errors.contact_mode = ''" :class="f.contact_mode === id && 'wa-chip-on'" class="wa-chip">
-                      <span x-html="id === 'calls' ? ICONS.phone : (id === 'calls_whatsapp' ? ICONS.whatsapp : ICONS.clipboard)" class="{{ $chipIcon }}" :class="id === 'calls_whatsapp' ? '!text-[#25D366]' : (f.contact_mode === id && '!text-primary')"></span>
-                      <span x-text="label"></span>
-                    </button>
-                  </template>
-                </div>
-                <p x-show="errors.contact_mode" x-text="errors.contact_mode" class="wa-error"></p>
-              </div>
-              <template x-if="!needsPhone">
-                <p class="text-caption text-ink-secondary">Candidates apply on Inthes — your number stays private.</p>
-              </template>
-              <template x-if="needsPhone">
-                <div class="grid gap-lg sm:grid-cols-2">
-                  <div data-field="contact_phone" @input="recheck('contact_phone')">
-                    @include('site.ui.input', ['label' => 'Number candidates should call', 'model' => 'f.contact_phone', 'placeholder' => '10-digit mobile number', 'required' => true, 'prefix' => '+91', 'attrs' => 'inputmode=numeric maxlength=10 @input="digits(\'contact_phone\', 10)"', 'error' => 'errors.contact_phone'])
+                <div>
+                  <span class="wa-label">Manage candidates through @include('site.ui.mark', ['required' => true])</span>
+                  <div class="flex flex-wrap gap-xs">
+                    <template x-for="[id, label] in Object.entries(contactModes)" :key="id">
+                      <button type="button" @click="f.contact_mode = id; errors.contact_mode = ''" :class="f.contact_mode === id && 'wa-chip-on'" class="wa-chip">
+                        <span x-html="id === 'calls' ? ICONS.phone : (id === 'calls_whatsapp' ? ICONS.whatsapp : ICONS.clipboard)" class="{{ $chipIcon }}" :class="id === 'calls_whatsapp' ? '!text-[#25D366]' : (f.contact_mode === id && '!text-primary')"></span>
+                        <span x-text="label"></span>
+                      </button>
+                    </template>
                   </div>
-                  <template x-if="f.contact_mode === 'calls_whatsapp'">
-                    <div class="space-y-sm">
-                      <span class="wa-label">WhatsApp</span>
-                      <label class="inline-flex h-[50px] cursor-pointer items-center gap-sm text-bodysm text-ink">
-                        <input type="checkbox" x-model="f.same_whatsapp" class="h-4 w-4 accent-[#EB0401]">
-                        Same number on WhatsApp
-                      </label>
-                      <template x-if="!f.same_whatsapp">
-                        <div data-field="whatsapp_phone" @input="recheck('whatsapp_phone')">
-                          @include('site.ui.input', ['label' => 'WhatsApp number', 'model' => 'f.whatsapp_phone', 'placeholder' => '10-digit mobile number', 'required' => true, 'prefix' => '+91', 'attrs' => 'inputmode=numeric maxlength=10 @input="digits(\'whatsapp_phone\', 10)"', 'error' => 'errors.whatsapp_phone'])
-                        </div>
-                      </template>
-                    </div>
-                  </template>
+                  <p x-show="errors.contact_mode" x-text="errors.contact_mode" class="wa-error"></p>
                 </div>
-              </template>
+                <template x-if="!needsPhone">
+                  <p class="text-caption text-ink-secondary">Candidates apply in the app — your number stays private.</p>
+                </template>
+                <template x-if="needsPhone">
+                  <div class="grid gap-lg">
+                    <div data-field="contact_phone" @input="recheck('contact_phone')">
+                      @include('site.ui.input', ['label' => 'Number candidates should call', 'model' => 'f.contact_phone', 'placeholder' => '10-digit mobile number', 'required' => true, 'icon' => 'phone', 'attrs' => 'inputmode=numeric maxlength=10 @input="digits(\'contact_phone\', 10)"', 'error' => 'errors.contact_phone'])
+                    </div>
+                    <template x-if="f.contact_mode === 'calls_whatsapp'">
+                      <div class="space-y-sm">
+                          <label class="inline-flex h-[50px] cursor-pointer items-center gap-sm text-bodysm text-ink">
+                          <input type="checkbox" x-model="f.same_whatsapp" class="h-4 w-4 accent-[#EB0401]">
+                          Same number on WhatsApp
+                        </label>
+                        <template x-if="!f.same_whatsapp">
+                          <div data-field="whatsapp_phone" @input="recheck('whatsapp_phone')">
+                            @include('site.ui.input', ['label' => 'WhatsApp number', 'model' => 'f.whatsapp_phone', 'placeholder' => '10-digit mobile number', 'required' => true, 'icon' => 'whatsapp', 'attrs' => 'inputmode=numeric maxlength=10 @input="digits(\'whatsapp_phone\', 10)"', 'error' => 'errors.whatsapp_phone'])
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
             </div>
           </section>
 
@@ -271,58 +257,25 @@
                     </button>
                   </template>
                   <button type="button" @click="pickOrg('new')" :class="orgChoice === 'new' && 'wa-chip-on'" class="wa-chip">
-                    <span x-html="ICONS.plus" class="[&>svg]:h-[14px] [&>svg]:w-[14px]"></span> Add a new company
+                    <span x-html="ICONS.plus" class="[&>svg]:h-[14px] [&>svg]:w-[14px]"></span> New company
                   </button>
                 </div>
               </div>
             </template>
 
-            {{-- A saved company: a summary, and the full form on request. --}}
-            <template x-if="pickedOrg && !coEditing">
-              <div class="space-y-lg">
-                <div class="flex items-start gap-md rounded-field border-hair border-hairline p-md">
-                  <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-logo bg-primary-light text-h5 font-semibold text-primary-dark">
-                    <template x-if="coLogoSrc()"><img :src="coLogoSrc()" alt="" class="h-full w-full object-cover"></template>
-                    <template x-if="!coLogoSrc()"><span x-text="initials(co.name)"></span></template>
-                  </span>
-                  <div class="min-w-0 flex-1">
-                    <p class="flex items-center gap-xs text-h5 text-ink"><span class="truncate" x-text="co.name"></span></p>
-                    <p class="truncate text-caption text-ink-secondary" x-text="[co.industry, co.size && co.size + ' company', co.email].filter(Boolean).join(' · ') || 'Details not filled in'"></p>
-                    <span class="wa-pill mt-xs" :class="Emp.orgStatePill(pickedOrg)" x-text="Emp.orgStateLabel(pickedOrg)"></span>
-                  </div>
-                  <button type="button" class="wa-btn-quiet shrink-0 !px-sm" @click="coEditing = true">
-                    @include('admin.partials.icon', ['name' => 'pencil', 'class' => 'h-4 w-4']) Edit details
-                  </button>
-                </div>
-              </div>
-            </template>
-
-            <template x-if="!pickedOrg || coEditing">
-              <div>
-                <template x-if="pickedOrg">
-                  <div class="mb-lg flex items-center justify-between gap-md rounded-field bg-surface-muted px-md py-sm">
-                    <p class="text-caption text-ink-secondary">Changes here update this company everywhere it's used.</p>
-                    <button type="button" class="shrink-0 text-caption font-semibold text-ink-secondary hover:text-ink" @click="pickOrg(orgChoice)">Discard changes</button>
-                  </div>
-                </template>
-                @include('site.employer.partials.company-form')
-              </div>
-            </template>
+            {{-- The picked company's details, always editable (PJ:751-765). --}}
+            @include('site.employer.partials.company-form')
           </section>
 
-          {{-- footer: Back · Continue (the app's bottom bar) --}}
+          {{-- footer: the app's bottom bar — Continue alone on step 1, then Back + Continue --}}
           <div class="sticky bottom-0 z-20 -mx-page border-t border-hairline bg-canvas-alt/95 px-page py-md backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
             <div class="flex items-center gap-sm">
-              <button type="button" x-show="wiz > 0" @click="wizBack()" :disabled="busy" aria-label="Back" class="wa-btn-quiet h-[54px] w-[54px] shrink-0 border-hair border-hairline !px-0">
-                <span x-html="ICONS.arrowLeft" class="[&>svg]:h-5 [&>svg]:w-5"></span>
-              </button>
-              <a x-show="wiz === 0" :href="job ? jobUrl(job) : '/employer/jobs'" class="wa-btn-quiet hidden h-[54px] sm:inline-flex">Cancel</a>
-              <button type="submit" class="wa-btn ml-auto flex-1 sm:min-w-[240px] sm:flex-none" :disabled="busy" data-post-continue>
+              <button type="button" x-show="wiz > 0" @click="wizBack()" :disabled="busy" class="wa-btn-ghost h-[54px] flex-1">Back</button>
+              <button type="submit" class="wa-btn h-[54px] flex-[2]" :disabled="busy" data-post-continue>
                 <span x-show="busy" x-html="ICONS.loader" class="animate-spin [&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
                 <span x-text="busy ? busyText : wizLabel"></span>
               </button>
             </div>
-            <p x-show="mode !== 'edit' && wiz === 2" class="mt-sm text-center text-caption text-ink-muted sm:text-right">Next: choose a plan. Your post goes live after a quick review.</p>
           </div>
         </form>
 

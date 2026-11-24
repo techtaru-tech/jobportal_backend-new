@@ -631,6 +631,149 @@
     if (r) r(file)
   }
 
+  // ── intro video recorder ────────────────────────────────────────────
+  /**
+   * "Record intro video". Resolves with an MP4 File, or null when cancelled.
+   *
+   * Records in the page with the camera and microphone (preview, Start,
+   * a 60-second count, Retake, Use video) — `<input capture>` opened the
+   * file picker on a computer and in many phone browsers instead of the
+   * camera. MP4 only, because that is what the server and the app's player
+   * take; a browser that cannot record MP4 (Firefox) falls back to the
+   * picker, which asks for the camera where it can.
+   */
+  const REC_TYPES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4']
+  function recType() {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return ''
+    return REC_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) || ''
+  }
+
+  function recordVideo({ facing = 'user', maxSeconds = 60 } = {}) {
+    const canStream = window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+    if (!canStream || !recType()) return pickVideoWithCamera(facing)
+    const r = $ui().rec
+    return new Promise((resolve) => {
+      Object.assign(r, { open: true, error: '', clip: '', starting: true, recording: false, elapsed: 0, max: maxSeconds, facing })
+      $ui()._recResolve = resolve
+      startRecPreview(facing)
+    })
+  }
+
+  function pickVideoWithCamera(facing) {
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'video/*'
+      input.setAttribute('capture', facing)
+      input.style.display = 'none'
+      document.body.appendChild(input)
+      const done = (file) => { input.remove(); resolve(file) }
+      input.addEventListener('change', () => done((input.files && input.files[0]) || null), { once: true })
+      input.addEventListener('cancel', () => done(null), { once: true })
+      input.click()
+    })
+  }
+
+  let recStream = null
+  let recorder = null
+  let recChunks = []
+  let recBlob = null
+  let recTimer = null
+  const recVideo = () => document.getElementById('inthes-rec-video')
+
+  async function startRecPreview(facing) {
+    const r = $ui().rec
+    try {
+      recStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true,
+      })
+      if (!r.open) { stopRecStream(); return }
+      const v = recVideo()
+      v.srcObject = recStream
+      v.muted = true
+      await v.play()
+    } catch (e) {
+      r.error = e && e.name === 'NotAllowedError'
+        ? 'Camera or microphone access was blocked. Allow both for this site in your browser, or choose a video instead.'
+        : e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')
+          ? 'No camera or microphone was found on this device. Choose a video instead.'
+          : 'The camera could not be started. Choose a video instead.'
+    } finally {
+      r.starting = false
+    }
+  }
+
+  function startRecording() {
+    const r = $ui().rec
+    if (!recStream || r.recording) return
+    recChunks = []
+    recorder = new MediaRecorder(recStream, { mimeType: recType(), videoBitsPerSecond: 2500000 })
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data) }
+    recorder.onstop = () => {
+      recBlob = new Blob(recChunks, { type: 'video/mp4' })
+      r.clip = URL.createObjectURL(recBlob)
+      r.recording = false
+    }
+    recorder.start(1000)
+    r.recording = true
+    r.elapsed = 0
+    clearInterval(recTimer)
+    recTimer = setInterval(() => {
+      r.elapsed += 1
+      // The cap is the server's: stop on time rather than fail on upload.
+      if (r.elapsed >= r.max) stopRecording()
+    }, 1000)
+  }
+
+  function stopRecording() {
+    clearInterval(recTimer)
+    if (recorder && recorder.state !== 'inactive') recorder.stop()
+  }
+
+  function retakeRecording() {
+    const r = $ui().rec
+    if (r.clip) URL.revokeObjectURL(r.clip)
+    r.clip = ''
+    r.elapsed = 0
+    recBlob = null
+  }
+
+  function stopRecStream() {
+    clearInterval(recTimer)
+    if (recorder && recorder.state !== 'inactive') { recorder.onstop = null; recorder.stop() }
+    recorder = null
+    if (recStream) recStream.getTracks().forEach((t) => t.stop())
+    recStream = null
+    const v = recVideo()
+    if (v) v.srcObject = null
+  }
+
+  /** Closes the recorder; `use` hands the recording back as an MP4 File. */
+  function closeRecorder(use) {
+    const u = $ui()
+    const file = use && recBlob ? new File([recBlob], 'intro-video.mp4', { type: 'video/mp4' }) : null
+    stopRecStream()
+    retakeRecording()
+    Object.assign(u.rec, { open: false, error: '', recording: false })
+    const res = u._recResolve
+    u._recResolve = null
+    if (res) res(file)
+  }
+
+  /** From the recorder when the camera could not start: the picker instead. */
+  async function recorderFallback() {
+    const u = $ui()
+    const facing = u.rec.facing || 'user'
+    const res = u._recResolve
+    u._recResolve = null
+    stopRecStream()
+    retakeRecording()
+    Object.assign(u.rec, { open: false, error: '' })
+    const file = await pickVideoWithCamera(facing)
+    if (res) res(file)
+  }
+
   // ── payments ────────────────────────────────────────────────────────
   /**
    * The payment-method sheet. Resolves with `upi` | `card` | `netbanking`, or
@@ -944,7 +1087,8 @@
       return false
     },
     toast, confirm, pay, confirmOrder,
-    takePhoto, captureCamera, retakeCamera, closeCamera, cameraFallback, pickOnMap, searchMap, closeMap, chipIcon,
+    takePhoto, captureCamera, retakeCamera, closeCamera, cameraFallback,
+    recordVideo, startRecording, stopRecording, retakeRecording, closeRecorder, recorderFallback, pickOnMap, searchMap, closeMap, chipIcon,
     opt, citiesOf, copy, share, toggleIn, comboList, comboCanAdd,
     reverseGeocode, currentPosition, joinAddressParts, localityOf, findIn,
     fmtNumber, rupees, timeAgo, fmtDate, initials, clone,
@@ -981,6 +1125,7 @@
       pay: { open: false, amount: '', methods: [], method: '' },
       camera: { open: false, starting: false, error: '', shot: '', facing: 'user' },
       map: { open: false, loading: false, error: '', picked: null, searching: false, q: '' },
+      rec: { open: false, starting: false, error: '', clip: '', recording: false, elapsed: 0, max: 60, facing: 'user' },
       _cameraResolve: null,
       roleSwitch: { open: false, role: 'recruiter', next: '', at: 0 },
       _confirmResolve: null,

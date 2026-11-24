@@ -98,6 +98,62 @@
     </div>
   </div>
 
+  {{-- Recorder — "Record intro video" (Inthes.recordVideo): the camera and
+       microphone in the page, a 60-second count, then watch it back. --}}
+  <div x-show="$store.ui.rec.open" x-cloak x-transition.opacity
+       class="fixed inset-0 z-[98] flex items-end justify-center bg-ink/60 sm:items-center sm:px-page"
+       @keydown.escape.window="$store.ui.rec.open && Inthes.closeRecorder(false)">
+    <div role="dialog" aria-modal="true" aria-labelledby="rec-title"
+         class="w-full max-w-[560px] rounded-t-sheet bg-surface p-lg shadow-raised sm:rounded-dialog animate-pop-in">
+      <div class="mb-md flex items-center justify-between">
+        <h3 id="rec-title" class="text-h4 text-ink">Record intro video</h3>
+        <button type="button" @click="Inthes.closeRecorder(false)" aria-label="Close" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-secondary hover:bg-surface-muted">
+          <span x-html="ICONS.x" class="[&>svg]:h-5 [&>svg]:w-5"></span>
+        </button>
+      </div>
+      <div class="relative aspect-video overflow-hidden rounded-card bg-ink">
+        <video id="inthes-rec-video" x-show="!$store.ui.rec.clip && !$store.ui.rec.error" autoplay playsinline muted
+               class="h-full w-full -scale-x-100 object-cover"></video>
+        <template x-if="$store.ui.rec.clip">
+          <video :src="$store.ui.rec.clip" controls playsinline class="h-full w-full bg-ink object-contain" data-rec-playback></video>
+        </template>
+        <div x-show="$store.ui.rec.recording" class="absolute left-md top-md flex items-center gap-xs rounded-full bg-ink/70 px-sm py-[3px] text-caption font-semibold text-white">
+          <span class="h-2 w-2 animate-pulse rounded-full bg-primary"></span>
+          <span x-text="'0:' + String($store.ui.rec.elapsed).padStart(2, '0') + ' / 1:00'"></span>
+        </div>
+        <div x-show="$store.ui.rec.starting" class="absolute inset-0 flex flex-col items-center justify-center gap-sm text-white">
+          <span x-html="ICONS.loader" class="animate-spin [&>svg]:h-6 [&>svg]:w-6"></span>
+          <p class="text-caption">Allow camera and microphone access when your browser asks</p>
+        </div>
+        <div x-show="$store.ui.rec.error" class="absolute inset-0 flex flex-col items-center justify-center gap-sm px-xl text-center text-white">
+          <span x-html="ICONS.video" class="opacity-70 [&>svg]:h-8 [&>svg]:w-8"></span>
+          <p class="text-bodysm" x-text="$store.ui.rec.error"></p>
+        </div>
+      </div>
+      <p x-show="!$store.ui.rec.clip && !$store.ui.rec.error" class="mt-sm text-center text-caption text-ink-muted">Look at the camera, good light, 60 seconds at most — it stops on its own.</p>
+      <div class="mt-lg flex justify-end gap-sm">
+        <template x-if="!$store.ui.rec.clip">
+          <div class="flex gap-sm">
+            <button type="button" @click="Inthes.closeRecorder(false)" class="wa-btn-quiet">Cancel</button>
+            <button type="button" x-show="$store.ui.rec.error" @click="Inthes.recorderFallback()" class="wa-btn-sm">Choose a video</button>
+            <button type="button" x-show="!$store.ui.rec.error && !$store.ui.rec.recording" @click="Inthes.startRecording()" :disabled="$store.ui.rec.starting" class="wa-btn-sm disabled:opacity-60" data-rec-start>
+              <span class="h-3 w-3 rounded-full bg-white"></span> Start recording
+            </button>
+            <button type="button" x-show="$store.ui.rec.recording" @click="Inthes.stopRecording()" class="wa-btn-sm" data-rec-stop>
+              <span class="h-3 w-3 rounded-[2px] bg-white"></span> Stop
+            </button>
+          </div>
+        </template>
+        <template x-if="$store.ui.rec.clip">
+          <div class="flex gap-sm">
+            <button type="button" @click="Inthes.retakeRecording()" class="wa-btn-quiet">Retake</button>
+            <button type="button" @click="Inthes.closeRecorder(true)" class="wa-btn-sm" data-rec-use>Use this video</button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
   {{-- Camera — "Take photo" on a computer or a phone (Inthes.takePhoto).
        The live preview is mirrored like a mirror; the photo saved is not. --}}
   <div x-show="$store.ui.camera.open" x-cloak x-transition.opacity

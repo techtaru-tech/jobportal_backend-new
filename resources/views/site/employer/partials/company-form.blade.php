@@ -7,12 +7,12 @@
      submit can scroll to the first problem.
      @include('site.employer.partials.company-form', ['compact' => false]) --}}
 <div class="space-y-lg">
-  <div class="grid gap-lg sm:grid-cols-2">
+  <div class="grid gap-lg">
     <div data-field="co.name">@include('site.ui.input', ['label' => 'Company name', 'model' => 'co.name', 'placeholder' => 'Enter your company name', 'required' => true, 'attrs' => 'maxlength=150', 'error' => 'coErrors.name'])</div>
     <div data-field="co.email">@include('site.ui.input', ['label' => 'Company email', 'model' => 'co.email', 'type' => 'email', 'placeholder' => 'Enter your company email', 'required' => true, 'attrs' => 'autocomplete=email', 'error' => 'coErrors.email'])</div>
   </div>
 
-  <div class="grid gap-lg sm:grid-cols-2">
+  <div class="grid gap-lg">
     {{-- An open list: pick one, or add your own (≤ 40 characters). --}}
     <div data-field="co.industry">@include('site.ui.combo', ['label' => 'Industry', 'model' => 'co.industry', 'items' => "opt('organisation_industries')", 'placeholder' => 'Select or add your industry', 'attrs' => 'maxlength=40', 'error' => 'coErrors.industry'])</div>
     <div data-field="co.size">
@@ -34,7 +34,7 @@
 
   @include('site.ui.textarea', ['label' => 'About the company', 'model' => 'co.about', 'rows' => 3, 'max' => 400, 'placeholder' => 'What you do, and why candidates should join…'])
 
-  <div class="grid gap-lg sm:grid-cols-2">
+  <div class="grid gap-lg">
     @include('site.ui.input', ['label' => 'Address', 'model' => 'co.address', 'placeholder' => 'Building, area, city, state', 'attrs' => 'maxlength=255'])
     <div data-field="co.website">@include('site.ui.input', ['label' => 'Website', 'model' => 'co.website', 'placeholder' => 'www.yourcompany.com', 'attrs' => 'inputmode=url', 'error' => 'coErrors.website'])</div>
   </div>

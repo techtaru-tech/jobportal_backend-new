@@ -21,7 +21,7 @@
 
   @include('site.ui.chips', ['label' => 'Gender', 'model' => 'pf.gender', 'iconKind' => 'personGender', 'items' => "opt('genders')"])
 
-  <div class="grid gap-lg sm:grid-cols-2">
+  <div class="grid gap-lg">
     <label class="block">
       <span class="wa-label">Date of birth @include('site.ui.mark', ['required' => false])</span>
       <div class="relative">
@@ -75,7 +75,7 @@
     </p>
   </div>
 
-  <div class="grid gap-lg sm:grid-cols-2">
+  <div class="grid gap-lg">
     <label class="block">
       <span class="wa-label">Current state @include('site.ui.mark', ['required' => false])</span>
       <div class="relative">

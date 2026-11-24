@@ -28,7 +28,6 @@
           @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-4 w-4']) Edit job post
         </a>
         <h1 class="text-h1 text-ink">Choose Plan</h1>
-        <div class="max-w-[760px]">@include('site.employer.partials.post-steps', ['current' => '3', 'static' => true])</div>
         <div class="mt-sm flex flex-wrap gap-x-lg gap-y-xs">
           @foreach (['Start getting applications', 'Instant access to candidates', 'Personalised support'] as $perk)
             <span class="inline-flex items-center gap-[5px] text-bodysm text-ink-secondary">
@@ -60,7 +59,6 @@
 
           <section class="wa-card">
             <h2 class="text-h4 text-ink">How many job postings do you need?</h2>
-            <p class="mt-xs text-caption text-ink-secondary">This job uses one. The rest stay on your account for your next posts.</p>
             <div class="mt-md flex rounded-[12px] bg-surface-muted p-[4px]">
               <template x-for="q in quantities" :key="q">
                 <button type="button" @click="quantity = q"
@@ -157,7 +155,7 @@
               </div>
               <button type="button" class="wa-btn mt-lg w-full" :disabled="totalPaise == null || paying" @click="pay()">
                 <span x-show="paying" x-html="ICONS.loader" class="animate-spin [&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
-                <span x-text="paying ? 'Processing…' : (totalPaise == null ? 'Proceed to pay' : 'Pay ' + rupees(totalPaise))"></span>
+                <span x-text="paying ? 'Processing…' : (totalPaise == null ? 'Proceed to pay' : 'Proceed to pay ' + rupees(totalPaise) + ' →')"></span>
               </button>
               <p class="mt-sm flex items-center justify-center gap-xs text-caption text-ink-secondary">
                 @include('admin.partials.icon', ['name' => 'lock', 'class' => 'h-[13px] w-[13px]']) Pay securely with UPI, card or net banking.

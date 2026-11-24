@@ -510,7 +510,7 @@ document.addEventListener('alpine:init', () => {
     get previewSalary() { return Emp.salary(this.f.salary_min, this.f.salary_max) },
     get previewCompany() { return this.co.name.trim() || 'Your company' },
     get submitLabel() {
-      if (this.mode === 'edit') return this.job?.posting_status === 'active' ? 'Save & send for approval' : 'Save changes'
+      if (this.mode === 'edit') return 'Save changes'
       return 'Save & continue'
     },
     get wizLabel() { return this.wiz < 2 ? 'Continue' : this.submitLabel },

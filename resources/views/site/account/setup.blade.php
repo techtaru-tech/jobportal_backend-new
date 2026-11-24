@@ -41,15 +41,10 @@
       <p class="mt-sm text-caption text-ink-muted" x-text="'Step ' + (step + 1) + ' of ' + STEPS.length + ' · ' + answeredCount + ' answered'"></p>
     </div>
 
-    {{-- ── Step title ─────────────────────────────────────────────────── --}}
-    <div x-show="!done" class="mt-lg flex items-start gap-md">
-      <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-card bg-primary-light text-primary">
-        <span x-html="ICONS[STEPS[step].icon]" class="[&>svg]:h-6 [&>svg]:w-6"></span>
-      </span>
-      <div class="min-w-0">
-        <h1 class="text-h1 text-ink" x-text="STEPS[step].title"></h1>
-        <p class="mt-xs text-bodysm text-ink-secondary" x-text="STEPS[step].subtitle"></p>
-      </div>
+    {{-- ── Step title (OnboardingView: title + subtitle) ─────────────── --}}
+    <div x-show="!done" class="mt-lg">
+      <h1 class="text-h1 text-ink" x-text="STEPS[step].title"></h1>
+      <p class="mt-xs text-bodysm text-ink-secondary" x-text="STEPS[step].subtitle"></p>
     </div>
 
     {{-- 1 · About you --}}
@@ -59,13 +54,11 @@
           <p class="flex items-center gap-xs text-bodysm font-bold text-primary-dark">
             <span x-html="ICONS.sparkles" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span> Describe yourself in one line
           </p>
-          <p class="mt-[2px] text-caption text-ink-secondary">e.g. Staff nurse with 4 years ICU experience in Jaipur — we'll fill in what we recognise across the steps.</p>
-          <div class="mt-sm flex flex-col gap-sm sm:flex-row">
-            <input type="text" x-model="quick" @keydown.enter.prevent="quickFill()" placeholder="Type here…" class="wa-input bg-surface">
-            <button type="button" @click="quickFill()" class="wa-btn-ghost shrink-0">
-              <span x-html="ICONS.sparkles" class="[&>svg]:h-4 [&>svg]:w-4"></span> Fill my profile
-            </button>
-          </div>
+          <p class="mt-[2px] text-caption text-ink-secondary">e.g. Staff nurse, 4 years ICU experience in Jaipur</p>
+          <input type="text" x-model="quick" @keydown.enter.prevent="quickFill()" placeholder="Type here…" class="wa-input mt-sm bg-surface">
+          <button type="button" @click="quickFill()" class="wa-btn-ghost mt-sm w-full">
+            <span x-html="ICONS.sparkles" class="[&>svg]:h-4 [&>svg]:w-4"></span> Fill my profile
+          </button>
         </div>
         <div class="wa-card !p-lg sm:!p-xl">@include('site.profile.personal')</div>
       </div>
@@ -85,59 +78,44 @@
               <button type="button" @click="profEduRemove(e, false)" :disabled="profBusy" aria-label="Remove" class="inline-flex h-9 w-9 items-center justify-center rounded-field text-primary hover:bg-surface"><span x-html="ICONS.trash" class="[&>svg]:h-4 [&>svg]:w-4"></span></button>
             </div>
           </template>
-          <p class="mb-md text-caption text-ink-muted">Saved. Click one to edit it, or add another below.</p>
+          <p class="mb-md text-caption text-ink-muted">Tap a saved degree to edit it.</p>
         </div>
         <div :class="profEducations.length && 'mt-lg'">@include('site.profile.education-form')</div>
-        <button type="button" x-show="profEduStarted" @click="addDegree()" :disabled="profBusy" class="wa-btn-ghost-sm mt-lg w-full sm:w-auto"
-                x-text="pf.edu.id ? 'Save this degree' : 'Save & add another degree'"></button>
+        <button type="button" @click="addDegree()" :disabled="profBusy" class="wa-btn-ghost mt-lg w-full"
+                x-text="pf.edu.id ? 'Save this degree' : '+ Add another degree'"></button>
       </div>
     </template>
 
-    {{-- 3 · Your experience --}}
+    {{-- 3 · Your experience — Total experience, saved roles, the role form,
+         "+ Add another experience", then team management (the app's order). --}}
     <template x-if="!done && STEPS[step].key === 'experience'">
-      <div class="wa-card mt-lg !p-lg sm:!p-xl">
-        <div class="grid gap-sm sm:grid-cols-2">
-          <template x-for="m in [['experienced', 'I have work experience', 'Add your latest role', 'briefcase'], ['fresher', 'I\'m a fresher', 'No work experience yet', 'graduation']]" :key="m[0]">
-            <button type="button" @click="setMode(m[0])" :class="expMode === m[0] ? 'border-primary bg-primary-light' : 'border-hairline hover:bg-surface-muted'"
-                    class="flex items-center gap-md rounded-card border-chip p-md text-left">
-              <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full" :class="expMode === m[0] ? 'bg-primary text-white' : 'bg-surface-muted text-ink-secondary'">
-                <span x-html="ICONS[m[3]]" class="[&>svg]:h-5 [&>svg]:w-5"></span>
-              </span>
-              <span><span class="block text-bodysm font-semibold text-ink" x-text="m[1]"></span><span class="block text-caption text-ink-secondary" x-text="m[2]"></span></span>
-            </button>
-          </template>
-        </div>
+      <div class="wa-card mt-lg space-y-lg !p-lg sm:!p-xl">
+        @include('site.ui.chips', ['label' => 'Total experience', 'model' => 'pf.experience', 'items' => "opt('experience_bands')"])
 
-        <template x-if="expMode === 'experienced'">
-          <div class="mt-xl space-y-lg">
-            <template x-if="!profExperiences.length">
-              @include('site.ui.chips', ['label' => 'Total experience', 'model' => 'pf.experience', 'items' => 'experiencedBands'])
-            </template>
-            <template x-if="profExperiences.length">
-              <div>
-                <p class="text-bodysm text-ink"><span class="text-ink-secondary">Total experience:</span> <b class="font-semibold" x-text="me?.experience || profTotalExperience"></b> <span class="text-caption text-ink-muted">(from your roles)</span></p>
-                <div class="mt-sm space-y-sm">
-                  <template x-for="x in profExperiences" :key="x.id">
-                    <div class="flex items-center gap-md rounded-field bg-primary-light py-sm pl-md pr-xs" :class="pf.exp.id === x.id && 'ring-1 ring-primary'">
-                      <span x-html="ICONS.briefcase" class="text-primary-dark [&>svg]:h-5 [&>svg]:w-5"></span>
-                      <button type="button" @click="profExpEdit(x)" class="min-w-0 flex-1 text-left">
-                        <span class="block text-bodysm font-bold text-ink" x-text="x.designation"></span>
-                        <span class="block text-caption text-ink-secondary" x-text="[x.organization, profPeriod(x), profDuration(x)].filter(Boolean).join(' · ')"></span>
-                      </button>
-                      <button type="button" @click="profExpRemove(x, false)" :disabled="profBusy" aria-label="Remove" class="inline-flex h-9 w-9 items-center justify-center rounded-field text-primary hover:bg-surface"><span x-html="ICONS.trash" class="[&>svg]:h-4 [&>svg]:w-4"></span></button>
-                    </div>
-                  </template>
+        <template x-if="profExperiences.length">
+          <div>
+            <div class="space-y-sm">
+              <template x-for="x in profExperiences" :key="x.id">
+                <div class="flex items-center gap-md rounded-field bg-primary-light py-sm pl-md pr-xs" :class="pf.exp.id === x.id && 'ring-1 ring-primary'">
+                  <span x-html="ICONS.checkCircle" class="text-primary-dark [&>svg]:h-5 [&>svg]:w-5"></span>
+                  <button type="button" @click="profExpEdit(x)" class="min-w-0 flex-1 text-left">
+                    <span class="block text-bodysm font-bold text-ink" x-text="x.designation"></span>
+                    <span class="block text-caption text-ink-secondary" x-text="[x.organization, profPeriod(x), profDuration(x)].filter(Boolean).join(' · ')"></span>
+                  </button>
+                  <button type="button" @click="profExpRemove(x, false)" :disabled="profBusy" aria-label="Remove" class="inline-flex h-9 w-9 items-center justify-center rounded-field text-primary hover:bg-surface"><span x-html="ICONS.trash" class="[&>svg]:h-4 [&>svg]:w-4"></span></button>
                 </div>
-              </div>
-            </template>
-            <div class="rounded-card border-hair border-hairline bg-canvas p-lg">
-              <p class="mb-lg text-h5 text-ink"><span x-text="pf.exp.id ? 'Edit this role' : (profExperiences.length ? 'Add another role' : 'Your latest role')"></span><span x-show="!pf.exp.id" class="text-[12px] font-normal text-ink-muted"> (Optional)</span></p>
-              @include('site.profile.experience-form')
-              <button type="button" x-show="profExpStarted" @click="addRole()" :disabled="profBusy" class="wa-btn-ghost-sm mt-lg w-full sm:w-auto"
-                      x-text="pf.exp.id ? 'Save this role' : 'Save & add another role'"></button>
+              </template>
             </div>
+            <p class="mt-sm text-caption text-ink-muted">Tap a saved role to edit it.</p>
           </div>
         </template>
+
+        @include('site.profile.experience-form')
+
+        <button type="button" @click="addRole()" :disabled="profBusy" class="wa-btn-ghost w-full"
+                x-text="pf.exp.id ? 'Save this role' : '+ Add another experience'"></button>
+
+        <div class="pt-sm">@include('site.profile.team')</div>
       </div>
     </template>
 
@@ -209,8 +187,8 @@
         <button type="button" x-show="step > 0" @click="prev()" :disabled="busy" aria-label="Back" class="wa-btn-quiet h-[54px] w-[54px] border-hair border-hairline !px-0">
           <span x-html="ICONS.arrowLeft" class="[&>svg]:h-5 [&>svg]:w-5"></span>
         </button>
-        <button type="button" @click="skip()" :disabled="busy" class="wa-btn-quiet h-[54px]" x-text="step === STEPS.length - 1 ? 'Skip & finish' : 'Skip'"></button>
-        <button type="button" @click="next()" :disabled="busy" class="wa-btn ml-auto flex-1 sm:min-w-[220px] sm:flex-none" data-setup-next-step>
+        <button type="button" x-show="!answered(STEPS[step].key)" @click="skip()" :disabled="busy" class="wa-btn-quiet h-[54px]" x-text="step === STEPS.length - 1 ? 'Skip & finish' : 'Skip'"></button>
+        <button type="button" @click="next()" :disabled="busy" class="wa-btn flex-[2]" data-setup-next-step>
           <span x-show="busy" x-html="ICONS.loader" class="animate-spin [&>svg]:h-5 [&>svg]:w-5"></span>
           <span x-text="step === STEPS.length - 1 ? 'Finish' : 'Save & continue'"></span>
         </button>

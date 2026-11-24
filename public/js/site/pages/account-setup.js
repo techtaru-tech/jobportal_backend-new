@@ -35,8 +35,6 @@ document.addEventListener('alpine:init', () => {
     ready: false,
     busy: false,
     quick: '',
-    /** '' (not answered) | 'experienced' | 'fresher' */
-    expMode: '',
     finishing: false,
     /** Where to carry on afterwards — a same-site path only. */
     nextUrl: (() => {
@@ -59,15 +57,30 @@ document.addEventListener('alpine:init', () => {
       this.profFill()
       // With no saved degree the form starts from the flat qualification.
       if (!(this.me?.educations || []).length) this.pf.edu.qualification = this.me?.qualification || ''
-      const fresher = this.profFresherBand
-      if ((this.me?.experiences || []).length || (this.me?.experience && this.me.experience !== fresher)) this.expMode = 'experienced'
-      else if (this.me?.experience && this.me.experience === fresher) this.expMode = 'fresher'
       this.ready = true
     },
 
-    get experiencedBands() { return Inthes.opt('experience_bands').filter((b) => b !== this.profFresherBand) },
-    /** Whether the saved profile already answers [key] (OnboardingController.hasAnswer). */
+    /**
+     * Whether [key] has an answer — on screen or saved (OnboardingController.hasAnswer
+     * reads the draft). Drives the bar, the count, and Skip (hidden once answered).
+     */
     answered(key) {
+      const f = this.pf
+      const set = (v) => v !== null && v !== undefined && v !== ''
+      const draft = {
+        personal: !!trim(f.name),
+        education: this.profEduStarted,
+        experience: !!f.experience || this.profExpStarted,
+        languages: f.languages.length > 0,
+        preferences: f.location.length > 0 || f.roles.length > 0 || f.job_types.length > 0 || f.shifts.length > 0 || (f.org_types || []).length > 0 || !!f.salary,
+        availability: [f.currently_employed, f.immediate_joiner, f.willing_to_relocate, f.has_vehicle, f.has_driving_licence, f.notice_period].some(set),
+        skills: f.skills.length > 0 || f.hobbies.length > 0,
+        about: !!trim(f.about),
+        video: !!this.profVideoDraft,
+      }[key]
+      return !!draft || this._savedAnswer(key)
+    },
+    _savedAnswer(key) {
       const m = this.me || {}
       const set = (v) => v !== null && v !== undefined && v !== ''
       switch (key) {
@@ -103,7 +116,7 @@ document.addEventListener('alpine:init', () => {
         return this._profPhoneProblem()
       }
       if (key === 'education' && this.profEduStarted) return this._profEduProblem()
-      if (key === 'experience' && this.expMode === 'experienced' && this.profExpStarted) return this._profExpProblem()
+      if (key === 'experience' && this.profExpStarted) return this._profExpProblem()
       return null
     },
 
@@ -130,17 +143,12 @@ document.addEventListener('alpine:init', () => {
           }
           break
         case 'experience':
-          if (this.expMode === 'fresher') {
-            if (me.experience !== this.profFresherBand) await patch({ experience: this.profFresherBand })
-          } else if (this.expMode === 'experienced') {
-            if (f.experience && f.experience !== me.experience && f.experience !== this.profFresherBand) await patch({ experience: f.experience })
-            if (this.profExpStarted && !this._profExpProblem()) {
-              await this._profExpWrite()
-              this.pf.exp = K.emptyExp()
-              await Inthes.loadMe()
-              // The band follows the roles entered, as on the profile page.
-              await this._profSyncBand()
-            }
+          // The band as picked (any band, fresher included), then a role if one
+          // was filled in — the app's ExperienceStep.
+          if (f.experience && f.experience !== me.experience) await patch({ experience: f.experience })
+          if (this.profExpStarted && !this._profExpProblem()) {
+            await this._profExpWrite()
+            this.pf.exp = K.emptyExp()
           }
           break
         case 'languages':
@@ -196,9 +204,7 @@ document.addEventListener('alpine:init', () => {
           this.step += 1
           window.scrollTo({ top: 0, behavior: 'smooth' })
         } else {
-          this.done = true
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-          this._renderResume()
+          await this._finish()
         }
       } catch (e) {
         // Stay on the step so the answer is not lost.
@@ -211,10 +217,18 @@ document.addEventListener('alpine:init', () => {
       if (this.step > 0) { this.step -= 1; window.scrollTo({ top: 0, behavior: 'smooth' }) }
     },
     goTo(i) { if (i < this.step && !this.busy) this.step = i },
-    skip() {
+    async skip() {
+      if (this.busy) return
       if (this.step < STEPS.length - 1) { this.step += 1; window.scrollTo({ top: 0, behavior: 'smooth' }); return }
-      this.done = true
-      this._renderResume()
+      this.busy = true
+      await this._finish()
+    },
+
+    /** Writes the resume (silently) and moves on, as the app's finish does. */
+    async _finish() {
+      await this._renderResume()
+      try { sessionStorage.setItem('inthes.flash', 'Profile saved') } catch (e) { /* private mode */ }
+      location.href = this.nextUrl || '/jobs?sort=relevant'
     },
 
     /**
@@ -247,7 +261,7 @@ document.addEventListener('alpine:init', () => {
 
     // ── step 2 helpers ──────────────────────────────────────────────────
     async addDegree() {
-      if (!this.profEduStarted) return
+      if (!this.profEduStarted) { Inthes.toast('Fill in a degree first', true); return }
       const problem = this._profEduProblem()
       if (problem) { Inthes.toast(problem, true); return }
       await this._profRun(async () => {
@@ -258,22 +272,15 @@ document.addEventListener('alpine:init', () => {
       })
     },
     async addRole() {
-      if (!this.profExpStarted) return
+      if (!this.profExpStarted) { Inthes.toast('Fill in a role first', true); return }
       const problem = this._profExpProblem()
       if (problem) { Inthes.toast(problem, true); return }
       await this._profRun(async () => {
         await this._profExpWrite()
         await Inthes.loadMe()
-        await this._profSyncBand()
         this.pf.exp = K.emptyExp()
-        this.pf.experience = this.me?.experience || ''
         Inthes.toast('Experience added')
       })
-    },
-    setMode(m) {
-      this.expMode = m
-      if (m === 'fresher') this.pf.experience = this.profFresherBand
-      else if (this.pf.experience === this.profFresherBand) this.pf.experience = ''
     },
 
     // ── "Describe yourself in one line" ─────────────────────────────────
@@ -308,8 +315,6 @@ document.addEventListener('alpine:init', () => {
         if (mentions(skill) && !f.skills.includes(skill)) { f.skills.push(skill); filled++ }
       }
       if (!trim(f.about)) { f.about = line.slice(0, K.ABOUT_MAX); filled++ }
-      if (!this.expMode && f.experience) this.expMode = f.experience === this.profFresherBand ? 'fresher' : 'experienced'
-      else if (!this.expMode && trim(f.exp.designation)) this.expMode = 'experienced'
       Inthes.toast(filled === 0
         ? 'Nothing to fill from that line — try naming your role, years and city'
         : `Filled ${filled} detail${filled === 1 ? '' : 's'} — check each step`, filled === 0)

@@ -51,7 +51,7 @@ document.addEventListener('alpine:init', () => {
       if (this.saving) return
       this.errors = {}
       if (this.welcome && !this.form.contact_person_name.trim()) {
-        this.errors.contact_person_name = 'Enter the name candidates should ask for'
+        this.errors.contact_person_name = 'Enter your name — candidates will see who is hiring'
         return
       }
       this.saving = true
@@ -64,7 +64,7 @@ document.addEventListener('alpine:init', () => {
         const d = res.data || {}
         this.form = { contact_person_name: d.contact_person_name || '', contact_email: d.contact_email || '', contact_phone: d.contact_phone || '' }
         this.saved = Inthes.clone(this.form)
-        Inthes.toast('Contact details saved')
+        Inthes.toast(this.welcome ? 'Employer account ready' : 'Contact details saved')
         if (this.welcome) { this.finishWelcome(); return }
       } catch (e) {
         for (const [k, v] of Object.entries(e.errors || {})) this.errors[k] = Array.isArray(v) ? v[0] : v

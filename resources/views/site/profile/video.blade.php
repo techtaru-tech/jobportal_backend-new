@@ -41,10 +41,9 @@
                x-on:error="profVideoBroken = true" class="aspect-video w-full rounded-field bg-ink"></video>
         <p x-show="profVideoBroken" class="mt-xs text-caption text-warning">Your video is saved, but it could not be previewed here.</p>
         <div class="mt-md flex items-center gap-sm">
-          <label class="wa-btn-ghost-sm flex-1 cursor-pointer" :class="profVideoBusy && 'pointer-events-none opacity-60'">
+          <button type="button" @click="profRecordVideo()" :disabled="profVideoBusy" class="wa-btn-ghost-sm flex-1 disabled:opacity-60" data-record-video>
             <span x-html="ICONS.video" class="[&>svg]:h-4 [&>svg]:w-4"></span> Re-record
-            <input type="file" accept="video/*" capture="user" class="sr-only" @change="profPickVideo($event.target)">
-          </label>
+          </button>
           <button type="button" @click="profRemoveVideo()" :disabled="profVideoBusy" aria-label="Remove intro video"
                   class="inline-flex h-10 w-10 items-center justify-center rounded-field text-danger hover:bg-danger-bg disabled:opacity-60">
             <span x-html="ICONS.trash" class="[&>svg]:h-5 [&>svg]:w-5"></span>
@@ -65,10 +64,9 @@
           <p class="mt-xs text-bodysm text-ink" x-text="profIntroScript"></p>
         </div>
         <div class="mt-md grid gap-sm sm:grid-cols-2">
-          <label class="wa-btn-sm cursor-pointer">
+          <button type="button" @click="profRecordVideo()" :disabled="profVideoBusy" class="wa-btn-sm disabled:opacity-60" data-record-video>
             <span x-html="ICONS.video" class="[&>svg]:h-4 [&>svg]:w-4"></span> Record intro video
-            <input type="file" accept="video/*" capture="user" class="sr-only" @change="profPickVideo($event.target)">
-          </label>
+          </button>
           <label class="wa-btn-ghost-sm cursor-pointer">
             Choose from gallery
             <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" class="sr-only" @change="profPickVideo($event.target)">

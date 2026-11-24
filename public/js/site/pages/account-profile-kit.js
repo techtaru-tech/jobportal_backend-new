@@ -821,10 +821,19 @@
 
       // ── intro video — picked, measured, reviewed, then sent ─────────────
       get profIntroScript() { return introScript(this.me || {}) },
+      /** "Record intro video" — the camera, in the page (Inthes.recordVideo). */
+      async profRecordVideo() {
+        if (this.profVideoBusy) return
+        const file = await window.Inthes.recordVideo({ facing: 'user', maxSeconds: 60 })
+        if (file) await this._profVideoChosen(file)
+      },
       async profPickVideo(input) {
         const file = input.files && input.files[0]
         input.value = ''
         if (!file) return
+        await this._profVideoChosen(file)
+      },
+      async _profVideoChosen(file) {
         if (!/\.(mp4|mov)$/i.test(file.name) && !/^video\/(mp4|quicktime)$/i.test(file.type)) { toast('Upload an MP4 or MOV video.', true); return }
         if (file.size > 50 * 1024 * 1024) { toast('Your intro video must be smaller than 50 MB.', true); return }
         const url = URL.createObjectURL(file)
