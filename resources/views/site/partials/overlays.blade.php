@@ -57,6 +57,47 @@
     </div>
   </div>
 
+  {{-- Map — "Choose on map" (Inthes.pickOnMap), the app's location picker.
+       Tap the map or drag the pin; search moves it to a named place. --}}
+  <div x-show="$store.ui.map.open" x-cloak x-transition.opacity
+       class="fixed inset-0 z-[98] flex items-stretch justify-center bg-ink/60 sm:items-center sm:px-page"
+       @keydown.escape.window="$store.ui.map.open && Inthes.closeMap(false)">
+    <div role="dialog" aria-modal="true" aria-labelledby="map-title"
+         class="flex w-full max-w-[720px] flex-col bg-surface shadow-raised sm:max-h-[90vh] sm:rounded-dialog animate-pop-in">
+      <div class="flex items-center justify-between px-lg pb-sm pt-lg">
+        <div>
+          <h3 id="map-title" class="text-h4 text-ink">Choose on map</h3>
+          <p class="text-caption text-ink-muted">Tap the map or drag the pin to the exact spot.</p>
+        </div>
+        <button type="button" @click="Inthes.closeMap(false)" aria-label="Close" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-secondary hover:bg-surface-muted">
+          <span x-html="ICONS.x" class="[&>svg]:h-5 [&>svg]:w-5"></span>
+        </button>
+      </div>
+      <form @submit.prevent="Inthes.searchMap($store.ui.map.q)" class="flex gap-sm px-lg pb-md">
+        <div class="relative flex-1">
+          <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted"><span x-html="ICONS.search" class="[&>svg]:h-[18px] [&>svg]:w-[18px]"></span></span>
+          <input type="search" x-model="$store.ui.map.q" placeholder="Search an area, e.g. Suraram, Hyderabad" class="wa-input h-[46px] pl-[44px]">
+        </div>
+        <button type="submit" :disabled="$store.ui.map.searching" class="wa-btn-ghost-sm h-[46px]">
+          <span x-show="$store.ui.map.searching" x-html="ICONS.loader" class="animate-spin [&>svg]:h-4 [&>svg]:w-4"></span> Search
+        </button>
+      </form>
+      <div class="relative min-h-[60vh] flex-1 bg-surface-muted sm:h-[440px] sm:min-h-0 sm:flex-none">
+        <div id="inthes-map" class="absolute inset-0 z-0"></div>
+        <div x-show="$store.ui.map.loading" class="absolute inset-0 z-[500] flex items-center justify-center bg-surface/70">
+          <span x-html="ICONS.loader" class="animate-spin text-primary [&>svg]:h-6 [&>svg]:w-6"></span>
+        </div>
+        <p x-show="$store.ui.map.error" x-text="$store.ui.map.error" class="absolute inset-x-lg top-lg z-[500] rounded-field bg-danger-bg px-md py-sm text-bodysm text-danger"></p>
+      </div>
+      <div class="flex justify-end gap-sm px-lg py-md">
+        <button type="button" @click="Inthes.closeMap(false)" class="wa-btn-quiet">Cancel</button>
+        <button type="button" @click="Inthes.closeMap(true)" :disabled="!$store.ui.map.picked" class="wa-btn-sm disabled:opacity-60" data-map-use>
+          <span x-html="ICONS.mapPin" class="[&>svg]:h-4 [&>svg]:w-4"></span> Use this location
+        </button>
+      </div>
+    </div>
+  </div>
+
   {{-- Camera — "Take photo" on a computer or a phone (Inthes.takePhoto).
        The live preview is mirrored like a mirror; the photo saved is not. --}}
   <div x-show="$store.ui.camera.open" x-cloak x-transition.opacity

@@ -49,6 +49,10 @@ document.addEventListener('alpine:init', () => {
     busy: false,
     busyText: '',
     locating: false,
+    /** Metres the browser said its position could be out by (null: none / picked on the map). */
+    locAccuracy: null,
+    /** The app's 4-step wizard: 0 Job Details, 1 Candidate Requirements, 2 Company Details (3 is Choose Plan — the checkout page). */
+    wiz: 0,
     submitted: null,
     credit: null,
 
@@ -187,7 +191,34 @@ document.addEventListener('alpine:init', () => {
         Inthes.toast(err && err.code === 1 ? 'Location permission denied' : 'Could not fetch current location', true)
         return
       }
-      const { latitude, longitude } = pos.coords
+      const { latitude, longitude, accuracy } = pos.coords
+      await this._placeAt(latitude, longitude)
+      this.locAccuracy = Number.isFinite(accuracy) ? accuracy : null
+      this.locating = false
+      if (this.locRough) Inthes.toast('Location found roughly — check it, or use Choose on map', true)
+    },
+
+    /** "Choose on map" — the app's location picker; the fix for a computer's rough position. */
+    async chooseOnMap() {
+      if (this.locating) return
+      const f = this.f
+      const start = f.latitude != null && f.longitude != null ? { lat: f.latitude, lng: f.longitude } : null
+      const picked = await Inthes.pickOnMap(start, [f.locality, f.city, f.state].filter(Boolean).join(', '))
+      if (!picked) return
+      this.locating = true
+      await this._placeAt(picked.lat, picked.lng)
+      this.locAccuracy = null
+      this.locating = false
+    },
+
+    get locRough() { return this.locAccuracy != null && this.locAccuracy > 300 },
+    get locRoughLabel() {
+      const m = this.locAccuracy || 0
+      return m >= 1000 ? `within about ${Math.round(m / 100) / 10} km` : `within about ${Math.round(m / 10) * 10} m`
+    },
+
+    /** Pins the office at [latitude, longitude] and fills state, city, address and pincode from it. */
+    async _placeAt(latitude, longitude) {
       const f = this.f
       f.latitude = Math.round(latitude * 1e6) / 1e6
       f.longitude = Math.round(longitude * 1e6) / 1e6
@@ -213,11 +244,52 @@ document.addEventListener('alpine:init', () => {
         const street = Inthes.localityOf(place.address, place.city, place.state)
         const cleaned = Inthes.localityOf(street, city, state).slice(0, 120).replace(/,\s*$/, '')
         if (cleaned) f.locality = cleaned
-        if (/^\d{6}$/.test(String(place.pincode || '').trim())) f.pincode = String(place.pincode).trim()
+        f.pincode = /^\d{6}$/.test(String(place.pincode || '').trim()) ? String(place.pincode).trim() : ''
       }
-      this.locating = false
       if (!city) Inthes.toast('Pick your city from the list', true)
       else if (!place) Inthes.toast("Couldn't read the address here — type it in", true)
+    },
+
+    // ── the wizard (PostJobController steps) ───────────────────────────
+    WIZ_STEPS: ['Job Details', 'Candidate Requirements', 'Company Details', 'Choose Plan'],
+    WIZ_FIELDS: [
+      ['title', 'role', 'openings', 'salary', 'shift', 'type', 'state', 'city', 'charges_fee'],
+      ['min_education', 'experience', 'contact_mode', 'contact_phone', 'whatsapp_phone'],
+    ],
+
+    /** "Continue": checks only this step's fields (validateStep), then moves on. */
+    wizNext() {
+      if (this.busy) return
+      if (this.wiz >= 2) { this.submit(); return }
+      const all = this.jobErrors()
+      const mine = Object.fromEntries(Object.entries(all).filter(([k]) => this.WIZ_FIELDS[this.wiz].includes(k)))
+      if (Object.keys(mine).length) {
+        this.errors = Object.assign({}, this.errors, mine)
+        this._focusFirstError()
+        Inthes.toast('Please fix the highlighted fields', true)
+        return
+      }
+      this.wiz += 1
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    },
+    wizBack() {
+      if (this.wiz > 0 && !this.busy) { this.wiz -= 1; window.scrollTo({ top: 0, behavior: 'smooth' }) }
+    },
+    wizGo(i) { if (i < this.wiz && !this.busy) this.wiz = i },
+
+    _focusFirstError() {
+      this.$nextTick(() => {
+        const first = [...document.querySelectorAll('[data-field]')].find((el) => {
+          if (!el.offsetParent) return false
+          const k = el.dataset.field
+          return k.startsWith('co.') ? this.coErrors[k.slice(3)] : this.errors[k]
+        })
+        if (first) {
+          first.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          const input = first.querySelector('input:not([type=file]),select,textarea')
+          if (input) setTimeout(() => input.focus({ preventScroll: true }), 350)
+        }
+      })
     },
 
     // ── validation ─────────────────────────────────────────────────────
@@ -284,6 +356,10 @@ document.addEventListener('alpine:init', () => {
       const coOk = this.coValidate()
       if (!coOk) this.coEditing = true
       if (Object.keys(this.errors).length === 0 && coOk) return true
+      // Back to the step that holds the first problem, as the wizard would.
+      const keys = Object.keys(this.errors)
+      const at = this.WIZ_FIELDS.findIndex((fields) => keys.some((k) => fields.includes(k)))
+      this.wiz = at === -1 ? 2 : at
       this.$nextTick(() => {
         const first = [...document.querySelectorAll('[data-field]')].find((el) => {
           const k = el.dataset.field
@@ -437,5 +513,6 @@ document.addEventListener('alpine:init', () => {
       if (this.mode === 'edit') return this.job?.posting_status === 'active' ? 'Save & send for approval' : 'Save changes'
       return 'Save & continue'
     },
+    get wizLabel() { return this.wiz < 2 ? 'Continue' : this.submitLabel },
   }))
 })

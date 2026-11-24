@@ -25,44 +25,44 @@
 
   <template x-if="!loading && !loadError && !submitted">
     <div>
-      {{-- header --}}
-      <div class="mb-xl flex flex-wrap items-start gap-md">
-        <div class="min-w-0 flex-1">
-          <a href="{{ url('/employer/jobs') }}" class="mb-xs inline-flex min-h-[32px] items-center gap-[2px] text-caption text-ink-secondary hover:text-ink">
-            @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-4 w-4']) Jobs
-          </a>
-          <h1 class="text-h1 text-ink" x-text="mode === 'edit' ? 'Edit job' : (mode === 'draft' ? 'Finish your job post' : 'Post a job')"></h1>
-          <p class="mt-xs text-bodysm text-ink-secondary" x-text="mode === 'edit' ? (job.title + ' · ' + job.code) : 'Fill in the details below — it takes about 3 minutes.'"></p>
+      {{-- header: the app's "POST A JOB · Hire the right people, fast" and its 4-step bar --}}
+      <div class="mx-auto mb-lg max-w-[760px]">
+        <div class="flex items-start gap-md">
+          <div class="min-w-0 flex-1">
+            <p class="text-kicker uppercase tracking-[1.2px] text-ink-secondary" x-text="mode === 'edit' ? 'Edit job' : 'Post a job'"></p>
+            <h1 class="mt-xs text-h1 text-ink" x-text="mode === 'edit' ? (job.title + ' · ' + job.code) : (mode === 'draft' ? 'Finish your job post' : 'Hire the right people, fast')"></h1>
+          </div>
+          <template x-if="job">
+            <span class="wa-pill mt-xs" :class="statusPill(job.posting_status)" x-text="statusLabel(job.posting_status)"></span>
+          </template>
         </div>
-        <template x-if="job">
-          <span class="wa-pill mt-lg" :class="statusPill(job.posting_status)" x-text="statusLabel(job.posting_status)"></span>
-        </template>
+        @include('site.employer.partials.post-steps', ['current' => 'wiz'])
       </div>
 
       <template x-if="mode === 'edit' && job.posting_status === 'active'">
-        <div class="mb-lg flex items-start gap-sm rounded-field border-hair border-warning/25 bg-warning-bg px-lg py-md text-bodysm text-warning">
+        <div class="mx-auto mb-lg flex max-w-[760px] items-start gap-sm rounded-field border-hair border-warning/25 bg-warning-bg px-lg py-md text-bodysm text-warning">
           <span class="mt-[1px] shrink-0">@include('admin.partials.icon', ['name' => 'info', 'class' => 'h-[18px] w-[18px]'])</span>
           This job is live. Saving changes sends it back for approval, and it is paused for candidates until an admin reviews it.
         </div>
       </template>
       <template x-if="mode === 'edit' && job.posting_status === 'rejected' && job.rejection_reason">
-        <div class="mb-lg flex items-start gap-sm rounded-field border-hair border-danger/25 bg-danger-bg px-lg py-md text-bodysm text-danger">
+        <div class="mx-auto mb-lg flex max-w-[760px] items-start gap-sm rounded-field border-hair border-danger/25 bg-danger-bg px-lg py-md text-bodysm text-danger">
           <span class="mt-[1px] shrink-0">@include('admin.partials.icon', ['name' => 'xCircle', 'class' => 'h-[18px] w-[18px]'])</span>
           <span x-text="'Not approved: ' + job.rejection_reason + ' — fix it below and save to resubmit.'"></span>
         </div>
       </template>
       <template x-if="mode === 'draft'">
-        <div class="mb-lg flex items-start gap-sm rounded-field border-hair border-primary-line bg-primary-light px-lg py-md text-bodysm text-primary-dark">
+        <div class="mx-auto mb-lg flex max-w-[760px] items-start gap-sm rounded-field border-hair border-primary-line bg-primary-light px-lg py-md text-bodysm text-primary-dark">
           <span class="mt-[1px] shrink-0">@include('admin.partials.icon', ['name' => 'wallet', 'class' => 'h-[18px] w-[18px]'])</span>
           <span>This post is saved. Review it, then <a :href="noticeHref(job, 'plan')" class="font-semibold underline">choose a plan</a> to make it live.</span>
         </div>
       </template>
 
-      <div class="grid gap-xl lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_330px]">
-        <form class="min-w-0 space-y-lg" @submit.prevent="submit()" novalidate>
+      <div class="mx-auto max-w-[760px]">
+        <form class="min-w-0 space-y-lg" @submit.prevent="wizNext()" novalidate>
 
           {{-- ── 1 · job details ─────────────────────────────────────── --}}
-          <section class="{{ $card }}">
+          <section x-show="wiz === 0" class="{{ $card }}">
             <div class="{{ $sectionHead }}"><span class="{{ $num }}">1</span><h2 class="min-w-0 text-h3 text-ink">Job Details</h2></div>
             <div class="space-y-xl">
               <div class="grid gap-lg sm:grid-cols-2">
@@ -121,13 +121,22 @@
               </div>
 
               <div>
-                <div class="mb-sm flex flex-wrap items-center justify-between gap-sm">
-                  <span class="wa-label !mb-0">Office location</span>
-                  <button type="button" @click="useLocation()" :disabled="locating" class="{{ $addLink }} disabled:opacity-60">
-                    <span x-html="locating ? ICONS.loader : ICONS.navigation" :class="locating && 'animate-spin'" class="[&>svg]:h-[16px] [&>svg]:w-[16px]"></span>
+                <span class="wa-label">Office location</span>
+                <div class="mb-md grid grid-cols-2 gap-sm">
+                  <button type="button" @click="chooseOnMap()" :disabled="locating" class="wa-btn-ghost-sm">
+                    <span x-html="ICONS.mapPin" class="[&>svg]:h-4 [&>svg]:w-4"></span> Choose on map
+                  </button>
+                  <button type="button" @click="useLocation()" :disabled="locating" class="wa-btn-ghost-sm">
+                    <span x-html="locating ? ICONS.loader : ICONS.navigation" :class="locating && 'animate-spin'" class="[&>svg]:h-4 [&>svg]:w-4"></span>
                     Use current location
                   </button>
                 </div>
+                <template x-if="f.latitude != null && locRough">
+                  <p class="mb-md flex items-start gap-xs rounded-field bg-warning-bg px-md py-sm text-caption text-warning" data-rough-location>
+                    <span x-html="ICONS.alert" class="mt-[1px] shrink-0 [&>svg]:h-4 [&>svg]:w-4"></span>
+                    <span>This device could only find the location roughly (<span x-text="locRoughLabel"></span>), so the address may be a nearby area. Check it, or use <b>Choose on map</b> to pin the exact spot.</span>
+                  </p>
+                </template>
                 <div class="grid gap-lg sm:grid-cols-2">
                   <div data-field="state">
                     <label class="block">
@@ -173,7 +182,7 @@
           </section>
 
           {{-- ── 2 · candidate requirements ──────────────────────────── --}}
-          <section class="{{ $card }}">
+          <section x-show="wiz === 1" class="{{ $card }}">
             <div class="{{ $sectionHead }}"><span class="{{ $num }}">2</span><h2 class="min-w-0 text-h3 text-ink">Candidate Requirements</h2></div>
             <div class="space-y-xl">
               <div data-field="min_education" @click="$nextTick(() => recheck('min_education'))">
@@ -200,9 +209,9 @@
             </div>
           </section>
 
-          {{-- ── 3 · contact preferences ─────────────────────────────── --}}
-          <section class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">3</span><h2 class="min-w-0 text-h3 text-ink">Contact Preferences</h2></div>
+          {{-- ── 2b · contact preferences (part of the requirements step) ── --}}
+          <section x-show="wiz === 1" class="{{ $card }}">
+            <div class="{{ $sectionHead }}"><span class="{{ $num }}">@include('admin.partials.icon', ['name' => 'phone', 'class' => 'h-[14px] w-[14px]'])</span><h2 class="min-w-0 text-h3 text-ink">Contact Preferences</h2></div>
             <div class="space-y-lg" data-field="contact_mode">
               <div>
                 <span class="wa-label">Manage candidates through @include('site.ui.mark', ['required' => true])</span>
@@ -243,9 +252,9 @@
             </div>
           </section>
 
-          {{-- ── 4 · company ──────────────────────────────────────────── --}}
-          <section class="{{ $card }}">
-            <div class="{{ $sectionHead }}"><span class="{{ $num }}">4</span><h2 class="min-w-0 text-h3 text-ink">Company Details</h2></div>
+          {{-- ── 3 · company ──────────────────────────────────────────── --}}
+          <section x-show="wiz === 2" class="{{ $card }}">
+            <div class="{{ $sectionHead }}"><span class="{{ $num }}">3</span><h2 class="min-w-0 text-h3 text-ink">Company Details</h2></div>
 
             <template x-if="orgs.length">
               <div class="mb-lg">
@@ -298,76 +307,22 @@
             </template>
           </section>
 
-          {{-- submit --}}
+          {{-- footer: Back · Continue (the app's bottom bar) --}}
           <div class="sticky bottom-0 z-20 -mx-page border-t border-hairline bg-canvas-alt/95 px-page py-md backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
-            <div class="flex flex-col-reverse gap-sm sm:flex-row sm:items-center sm:justify-end">
-              <a :href="job ? jobUrl(job) : '/employer/jobs'" class="wa-btn-quiet hidden h-[50px] sm:inline-flex">Cancel</a>
-              <button type="submit" class="wa-btn sm:min-w-[240px]" :disabled="busy">
+            <div class="flex items-center gap-sm">
+              <button type="button" x-show="wiz > 0" @click="wizBack()" :disabled="busy" aria-label="Back" class="wa-btn-quiet h-[54px] w-[54px] shrink-0 border-hair border-hairline !px-0">
+                <span x-html="ICONS.arrowLeft" class="[&>svg]:h-5 [&>svg]:w-5"></span>
+              </button>
+              <a x-show="wiz === 0" :href="job ? jobUrl(job) : '/employer/jobs'" class="wa-btn-quiet hidden h-[54px] sm:inline-flex">Cancel</a>
+              <button type="submit" class="wa-btn ml-auto flex-1 sm:min-w-[240px] sm:flex-none" :disabled="busy" data-post-continue>
                 <span x-show="busy" x-html="ICONS.loader" class="animate-spin [&>svg]:h-[18px] [&>svg]:w-[18px]"></span>
-                <span x-text="busy ? busyText : submitLabel"></span>
+                <span x-text="busy ? busyText : wizLabel"></span>
               </button>
             </div>
-            <p x-show="mode !== 'edit'" class="mt-sm hidden text-caption text-ink-muted sm:block sm:text-right">Next: choose a plan. Your post goes live after a quick review.</p>
+            <p x-show="mode !== 'edit' && wiz === 2" class="mt-sm text-center text-caption text-ink-muted sm:text-right">Next: choose a plan. Your post goes live after a quick review.</p>
           </div>
         </form>
 
-        {{-- live preview + checklist --}}
-        <aside class="hidden lg:block">
-          <div class="sticky top-[92px] space-y-lg">
-            <div>
-              <p class="wa-section-title mb-sm">Preview</p>
-              <article class="rounded-card border-hair border-hairline bg-surface p-lg shadow-card">
-                <div class="flex items-start gap-md">
-                  <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-logo bg-primary-light text-h5 font-semibold text-primary-dark">
-                    <template x-if="coLogoSrc()"><img :src="coLogoSrc()" alt="" class="h-full w-full object-cover"></template>
-                    <template x-if="!coLogoSrc()"><span x-text="initials(previewCompany)"></span></template>
-                  </span>
-                  <div class="min-w-0 flex-1">
-                    <h3 class="truncate text-h4" :class="f.title.trim() ? 'text-ink' : 'text-ink-muted'" x-text="f.title.trim() || 'Job title'"></h3>
-                    <p class="mt-[2px] flex items-center gap-xs truncate text-bodysm text-ink-secondary">
-                      <span class="truncate" x-text="previewCompany"></span>
-                      <span x-show="pickedOrg?.verified" class="shrink-0 text-primary">@include('admin.partials.icon', ['name' => 'badgeCheck', 'class' => 'h-[14px] w-[14px]'])</span>
-                    </p>
-                  </div>
-                </div>
-                <div class="mt-md flex flex-wrap gap-xs">
-                  <span class="rounded-field bg-surface-muted px-md py-[5px] text-tag text-ink-secondary" x-text="f.city || 'City'"></span>
-                  <span x-show="f.type" class="rounded-field bg-surface-muted px-md py-[5px] text-tag text-ink-secondary" x-text="f.type"></span>
-                  <span x-show="f.shift" class="rounded-field bg-surface-muted px-md py-[5px] text-tag text-ink-secondary" x-text="f.shift"></span>
-                  <span x-show="previewSalary" class="rounded-field bg-primary-light px-md py-[5px] text-tag font-semibold text-primary-dark" x-text="previewSalary"></span>
-                </div>
-                <p x-show="f.experience" class="mt-md text-bodysm text-ink-secondary" x-text="'Experience: ' + f.experience"></p>
-                <div class="mt-md space-y-[3px] border-t border-hairline-divider pt-md text-caption text-ink-secondary">
-                  <p x-show="f.min_education" x-text="'Education: ' + f.min_education + ' or above'"></p>
-                  <p x-text="(parseInt(f.openings, 10) || 1) + ((parseInt(f.openings, 10) || 1) === 1 ? ' opening' : ' openings') + (f.preferred_gender && f.preferred_gender !== 'Any' ? ' · ' + f.preferred_gender + ' candidates' : '')"></p>
-                  <p x-show="f.charges_fee === false" class="text-success">No fee charged to candidates</p>
-                  <p x-show="f.charges_fee === true" class="text-warning">Candidates are charged a fee</p>
-                </div>
-                <div class="mt-md flex items-center justify-between">
-                  <span class="text-caption text-ink-muted">Just now</span>
-                  <span class="inline-flex h-9 items-center rounded-button border-btn border-primary px-lg text-btnghost font-semibold text-primary">Apply</span>
-                </div>
-              </article>
-            </div>
-
-            <div class="rounded-card border-hair border-hairline bg-surface p-lg">
-              <div class="flex items-center justify-between">
-                <p class="text-h5 text-ink">Required details</p>
-                <span class="text-caption font-semibold" :class="doneCount === checklist.length ? 'text-success' : 'text-ink-secondary'" x-text="doneCount + '/' + checklist.length"></span>
-              </div>
-              <span class="mt-sm block h-[5px] overflow-hidden rounded-full bg-hairline"><span class="block h-full rounded-full bg-success transition-[width] duration-component" :style="'width:' + (doneCount / checklist.length * 100) + '%'"></span></span>
-              <ul class="mt-md space-y-[6px]">
-                <template x-for="c in checklist" :key="c.label">
-                  <li class="flex items-center gap-sm text-bodysm" :class="c.ok ? 'text-ink' : 'text-ink-secondary'">
-                    <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full [&>svg]:h-3 [&>svg]:w-3"
-                          :class="c.ok ? 'bg-success text-ink-onPrimary' : 'border-[1.5px] border-hairline-strong'" x-html="c.ok ? ICONS.check : ''"></span>
-                    <span x-text="c.label"></span>
-                  </li>
-                </template>
-              </ul>
-            </div>
-          </div>
-        </aside>
       </div>
     </div>
   </template>

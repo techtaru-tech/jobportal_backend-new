@@ -31,18 +31,18 @@
 
   <template x-if="!loading && !loadError">
     <form class="wa-card mt-xl space-y-lg" @submit.prevent="save()" novalidate>
-      @include('site.ui.input', ['label' => 'Contact person', 'model' => 'form.contact_person_name', 'placeholder' => 'Who candidates should ask for', 'attrs' => 'autocomplete=name maxlength=120', 'error' => 'errors.contact_person_name'])
+      @include('site.ui.input', ['label' => 'Contact person', 'model' => 'form.contact_person_name', 'placeholder' => 'Who candidates should ask for', 'icon' => 'user', 'attrs' => 'autocomplete=name maxlength=120', 'error' => 'errors.contact_person_name'])
       <div class="grid gap-lg sm:grid-cols-2">
-        @include('site.ui.input', ['label' => 'Contact email', 'model' => 'form.contact_email', 'type' => 'email', 'placeholder' => 'hr@yourcompany.com', 'attrs' => 'autocomplete=email', 'error' => 'errors.contact_email'])
-        @include('site.ui.input', ['label' => 'Contact phone', 'model' => 'form.contact_phone', 'type' => 'tel', 'placeholder' => '98765 43210', 'attrs' => 'autocomplete=tel inputmode=tel', 'error' => 'errors.contact_phone'])
+        @include('site.ui.input', ['label' => 'Contact email', 'model' => 'form.contact_email', 'type' => 'email', 'placeholder' => 'hr@yourcompany.com', 'icon' => 'mail', 'attrs' => 'autocomplete=email', 'error' => 'errors.contact_email'])
+        @include('site.ui.input', ['label' => 'Contact phone', 'model' => 'form.contact_phone', 'type' => 'tel', 'placeholder' => '98765 43210', 'icon' => 'phone', 'attrs' => 'autocomplete=tel inputmode=tel', 'error' => 'errors.contact_phone'])
       </div>
       <p class="text-caption text-ink-muted">The phone number is also filled in as the call number when you post a job.</p>
       <div class="flex items-center justify-end gap-sm border-t border-hairline-divider pt-lg">
         <button type="button" class="wa-btn-quiet" x-show="dirty && !welcome" @click="form = Inthes.clone(saved); errors = {}">Discard</button>
         <button type="button" class="wa-btn-quiet" x-show="welcome" @click="finishWelcome()">Skip for now</button>
-        <button type="submit" class="wa-btn-sm min-w-[120px]" :disabled="saving || (!dirty && !welcome)" data-settings-save>
+        <button type="submit" :class="welcome ? 'wa-btn flex-1 sm:flex-none sm:min-w-[240px]' : 'wa-btn-sm min-w-[120px]'" :disabled="saving || (!dirty && !welcome)" data-settings-save>
           <span x-show="saving" x-html="ICONS.loader" class="animate-spin [&>svg]:h-4 [&>svg]:w-4"></span>
-          <span x-text="welcome ? 'Save & continue' : 'Save'">Save</span>
+          <span x-text="welcome ? 'Continue to post a job' : 'Save'">Save</span>
         </button>
       </div>
     </form>

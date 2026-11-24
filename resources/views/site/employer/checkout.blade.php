@@ -28,6 +28,7 @@
           @include('admin.partials.icon', ['name' => 'chevronLeft', 'class' => 'h-4 w-4']) Edit job post
         </a>
         <h1 class="text-h1 text-ink">Choose Plan</h1>
+        <div class="max-w-[760px]">@include('site.employer.partials.post-steps', ['current' => '3', 'static' => true])</div>
         <div class="mt-sm flex flex-wrap gap-x-lg gap-y-xs">
           @foreach (['Start getting applications', 'Instant access to candidates', 'Personalised support'] as $perk)
             <span class="inline-flex items-center gap-[5px] text-bodysm text-ink-secondary">

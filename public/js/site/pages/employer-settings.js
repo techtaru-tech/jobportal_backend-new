@@ -41,9 +41,10 @@ document.addEventListener('alpine:init', () => {
     get dirty() { return JSON.stringify(this.form) !== JSON.stringify(this.saved) },
 
     /** Onboarding done (or skipped): the dashboard, where the first job is posted from. */
+    /** As in the app, the new employer goes straight on to post their first job. */
     finishWelcome() {
       try { sessionStorage.setItem('emp.flash', 'Your employer account is ready — post your first job') } catch (e) { /* private mode */ }
-      location.href = '/employer'
+      location.href = '/employer/jobs/new'
     },
 
     async save() {

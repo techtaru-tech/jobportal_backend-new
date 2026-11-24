@@ -265,6 +265,8 @@
       profVideoDraft: null,
       profVideoBroken: false,
       profLocating: false,
+      /** Metres the browser said its last position could be out by (null: none / from the map). */
+      profLocAccuracy: null,
       _profTeamTimer: null,
       /** Setup collects the team answer into the About text; the profile saves it at once. */
       profTeamDeferred: false,
@@ -409,6 +411,7 @@
         this.pf.home_latitude = null
         this.pf.home_longitude = null
         this.pf.home_pincode = ''
+        this.profLocAccuracy = null
       },
       /** "Use current location" — the coordinates sort the job feed by distance. */
       profUseLocation() {
@@ -417,32 +420,60 @@
         this.profLocating = true
         navigator.geolocation.getCurrentPosition(
           async (pos) => {
-            const { latitude, longitude } = pos.coords
-            this.pf.home_latitude = Math.round(latitude * 1e6) / 1e6
-            this.pf.home_longitude = Math.round(longitude * 1e6) / 1e6
-            // The address the user sees is filled in whole — house/flat no.,
-            // street, area, city, state — not left stale (LocationCapture.addressOf).
-            const place = await window.Inthes.reverseGeocode(latitude, longitude)
-            if (place && place.address) {
-              this.pf.address = place.address.slice(0, 255)
-              const states = Object.keys(Alpine.store('opts').data?.state_cities || {})
-              const state = window.Inthes.findIn(states, place.state, place.address)
-              if (state) {
-                this.pf.home_state = state
-                const city = window.Inthes.findIn(window.Inthes.citiesOf(state), place.city, place.district, place.address)
-                this.pf.home_city = city || (window.Inthes.citiesOf(state).includes(this.pf.home_city) ? this.pf.home_city : '')
-              }
-              if (/^[0-9]{6}$/.test(String(place.pincode || '').trim())) this.pf.home_pincode = String(place.pincode).trim()
-            }
+            const { latitude, longitude, accuracy } = pos.coords
+            await this._profPinAt(latitude, longitude)
+            this.profLocAccuracy = Number.isFinite(accuracy) ? accuracy : null
             this.profLocating = false
-            toast('Location pinned')
+            toast(this.profLocRough ? 'Location pinned roughly — check it on the map' : 'Location pinned', this.profLocRough)
           },
           (err) => {
             this.profLocating = false
             toast(err.code === 1 ? 'Location permission denied' : 'Could not fetch current location', true)
           },
-          { enableHighAccuracy: true, timeout: 15000 },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
         )
+      },
+      /**
+       * "Choose on map" — the app's location picker. The fix for a computer,
+       * whose position comes from Wi-Fi / the network rather than GPS.
+       */
+      async profChooseOnMap() {
+        if (this.profLocating) return
+        const start = this.profHasPin ? { lat: this.pf.home_latitude, lng: this.pf.home_longitude } : null
+        const picked = await window.Inthes.pickOnMap(start, [this.pf.home_city, this.pf.home_state].filter(Boolean).join(', '))
+        if (!picked) return
+        this.profLocating = true
+        await this._profPinAt(picked.lat, picked.lng)
+        this.profLocAccuracy = null
+        this.profLocating = false
+        toast('Location pinned')
+      },
+      /** More than ~300 m out: worth saying so (a phone's GPS is ~5–30 m). */
+      get profLocRough() { return this.profLocAccuracy != null && this.profLocAccuracy > 300 },
+      get profLocRoughLabel() {
+        const m = this.profLocAccuracy || 0
+        return m >= 1000 ? `within about ${Math.round(m / 100) / 10} km` : `within about ${Math.round(m / 10) * 10} m`
+      },
+      /**
+       * Pins [lat, lng] and fills in the whole address the user sees —
+       * house/flat no., street, area, city, state, pincode — rather than
+       * leaving it stale (LocationCapture.addressOf).
+       */
+      async _profPinAt(latitude, longitude) {
+        this.pf.home_latitude = Math.round(latitude * 1e6) / 1e6
+        this.pf.home_longitude = Math.round(longitude * 1e6) / 1e6
+        const place = await window.Inthes.reverseGeocode(latitude, longitude)
+        if (place && place.address) {
+          this.pf.address = place.address.slice(0, 255)
+          const states = Object.keys(Alpine.store('opts').data?.state_cities || {})
+          const state = window.Inthes.findIn(states, place.state, place.address)
+          if (state) {
+            this.pf.home_state = state
+            const city = window.Inthes.findIn(window.Inthes.citiesOf(state), place.city, place.district, place.address)
+            this.pf.home_city = city || (window.Inthes.citiesOf(state).includes(this.pf.home_city) ? this.pf.home_city : '')
+          }
+          this.pf.home_pincode = /^[0-9]{6}$/.test(String(place.pincode || '').trim()) ? String(place.pincode).trim() : ''
+        }
       },
       _profPhoneProblem() {
         const bad = (v) => trim(v) !== '' && !/^\d{10}$/.test(trim(v))

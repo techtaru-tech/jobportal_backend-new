@@ -334,11 +334,14 @@
     }
     if (pendingSignIn) pendingSignIn.resolve(false)
     const role = opts.role || (onEmployerArea() ? 'recruiter' : 'candidate')
+    // The app's Welcome screen (Need a Job / Post a Job) comes first, unless
+    // the action already decided which side this is.
+    const canWelcome = !opts.lock && !opts.switching && !reason
     return new Promise((resolve) => {
       pendingSignIn = { resolve }
       Object.assign(a.modal, {
-        open: true, stage: 'phone', otp: '', error: '', reason, busy: false,
-        role, lockRole: !!opts.lock, next: opts.next || '', switching: !!opts.switching,
+        open: true, stage: canWelcome ? 'welcome' : 'phone', otp: '', error: '', reason, busy: false,
+        role, lockRole: !!opts.lock, next: opts.next || '', switching: !!opts.switching, canWelcome,
       })
       if (opts.phone) a.modal.phone = opts.phone
     })
@@ -350,6 +353,21 @@
     if (m.lockRole || m.busy || m.stage !== 'phone') return
     m.role = role
     m.error = ''
+  }
+
+  /** Welcome's "Need a Job" / "Post a Job" — on to the mobile number for that side. */
+  function startAs(role) {
+    const m = $auth().modal
+    m.role = role
+    m.error = ''
+    m.stage = 'phone'
+  }
+
+  function backToWelcome() {
+    const m = $auth().modal
+    if (!m.canWelcome || m.busy) return
+    m.error = ''
+    m.stage = 'welcome'
   }
 
   function closeSignIn() {
@@ -426,9 +444,11 @@
       else if (next) dest = next
       else if (onAccountArea()) dest = '/employer'
     } else {
-      // A first-time job seeker who came over from an employer account sets
-      // up their profile first, then carries on (e.g. the job they wanted).
-      if (isNew && m.switching) dest = '/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')
+      // A first-time job seeker creates their profile first, as in the app
+      // (Create profile), then carries on — e.g. the job they wanted.
+      // Signing in mid-action (Apply, Save) stays put instead: Quick Apply
+      // asks for just what that job needs, like the app's gated profile.
+      if (isNew && (m.switching || !m.reason)) dest = '/account/setup' + (next ? '?next=' + encodeURIComponent(next) : '')
       else if (next) dest = next
       else if (onEmployerArea()) dest = '/account'
     }
@@ -736,6 +756,105 @@
     } catch (e) { return null }
   }
 
+  // ── map picker ("Choose on map" — the app's location_picker) ─────────
+  // Leaflet + OpenStreetMap tiles, loaded the first time the map opens, so
+  // no page pays for it until someone needs it. No API key involved.
+  const LEAFLET = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/'
+  let leafletLoading = null
+  function loadLeaflet() {
+    if (window.L) return Promise.resolve(window.L)
+    if (leafletLoading) return leafletLoading
+    leafletLoading = new Promise((resolve, reject) => {
+      const css = document.createElement('link')
+      css.rel = 'stylesheet'
+      css.href = LEAFLET + 'leaflet.min.css'
+      document.head.appendChild(css)
+      const js = document.createElement('script')
+      js.src = LEAFLET + 'leaflet.min.js'
+      js.onload = () => resolve(window.L)
+      js.onerror = () => { leafletLoading = null; reject(new Error('The map could not be loaded. Check your connection.')) }
+      document.head.appendChild(js)
+    })
+    return leafletLoading
+  }
+
+  let mapInstance = null
+  let mapMarker = null
+
+  /**
+   * Opens the map. Resolves with { lat, lng } when "Use this location" is
+   * pressed, or null when closed. Starts at [start], else the place named by
+   * [near] ("Hyderabad, Telangana"), else the device's position, else India.
+   */
+  async function pickOnMap(start = null, near = '') {
+    const ui = $ui()
+    Object.assign(ui.map, { open: true, loading: true, error: '', picked: null })
+    let L
+    try { L = await loadLeaflet() } catch (e) { ui.map.loading = false; ui.map.error = e.message; return new Promise((r) => { ui._mapResolve = r }) }
+    await new Promise((r) => setTimeout(r, 30))
+    const el = document.getElementById('inthes-map')
+    if (!mapInstance) {
+      mapInstance = L.map(el, { zoomControl: true, attributionControl: true }).setView([22.5, 79], 5)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(mapInstance)
+      mapMarker = L.marker([22.5, 79], { draggable: true }).addTo(mapInstance)
+      const set = (ll) => { mapMarker.setLatLng(ll); ui.map.picked = { lat: ll.lat, lng: ll.lng } }
+      mapInstance.on('click', (e) => set(e.latlng))
+      mapMarker.on('dragend', () => set(mapMarker.getLatLng()))
+    }
+    mapInstance.invalidateSize()
+    const go = (lat, lng, zoom) => {
+      mapInstance.setView([lat, lng], zoom)
+      mapMarker.setLatLng([lat, lng])
+      ui.map.picked = { lat, lng }
+    }
+    if (start && Number.isFinite(Number(start.lat))) {
+      go(Number(start.lat), Number(start.lng), 17)
+    } else {
+      let placed = false
+      if (near) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=in&q=${encodeURIComponent(near)}`)
+          const hit = res.ok ? (await res.json())[0] : null
+          if (hit) { go(Number(hit.lat), Number(hit.lon), 13); placed = true }
+        } catch (e) { /* fall through */ }
+      }
+      if (!placed) {
+        try { const pos = await currentPosition(); go(pos.coords.latitude, pos.coords.longitude, 15) } catch (e) { ui.map.picked = null }
+      }
+    }
+    ui.map.loading = false
+    return new Promise((resolve) => { ui._mapResolve = resolve })
+  }
+
+  /** Searches a place on the open map ("Suraram, Hyderabad") and moves the pin there. */
+  async function searchMap(q) {
+    const ui = $ui()
+    if (!mapInstance || !String(q || '').trim()) return
+    ui.map.searching = true
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=in&q=${encodeURIComponent(q)}`)
+      const hit = res.ok ? (await res.json())[0] : null
+      if (hit) {
+        const lat = Number(hit.lat), lng = Number(hit.lon)
+        mapInstance.setView([lat, lng], 16)
+        mapMarker.setLatLng([lat, lng])
+        ui.map.picked = { lat, lng }
+      } else toast('No place found by that name', true)
+    } catch (e) { toast('Search failed. Try again.', true) }
+    ui.map.searching = false
+  }
+
+  function closeMap(use) {
+    const ui = $ui()
+    const value = use && ui.map.picked ? { ...ui.map.picked } : null
+    ui.map.open = false
+    const r = ui._mapResolve
+    ui._mapResolve = null
+    if (r) r(value)
+  }
+
   /** The browser's position, as a promise. Rejects with the GeolocationPositionError. */
   function currentPosition() {
     return new Promise((resolve, reject) => {
@@ -768,7 +887,7 @@
 
   window.Inthes = {
     api, upload, qs, loadMe, whenReady,
-    signIn, closeSignIn, sendOtp, verifyOtp, signOut, confirmSignOut, pickRole,
+    signIn, closeSignIn, sendOtp, verifyOtp, signOut, confirmSignOut, pickRole, startAs, backToWelcome,
     requireRole, openSwitch, cancelSwitch, continueSwitch, inferRole, ROLE_LABEL,
     /**
      * A link into the other kind of account's area:
@@ -783,7 +902,7 @@
       return false
     },
     toast, confirm, pay, confirmOrder,
-    takePhoto, captureCamera, retakeCamera, closeCamera, cameraFallback,
+    takePhoto, captureCamera, retakeCamera, closeCamera, cameraFallback, pickOnMap, searchMap, closeMap,
     opt, citiesOf, copy, share, toggleIn, comboList, comboCanAdd,
     reverseGeocode, currentPosition, joinAddressParts, localityOf, findIn,
     fmtNumber, rupees, timeAgo, fmtDate, initials, clone,
@@ -799,7 +918,7 @@
       me: null,
       ready: false,
       employer: null, // an employer account's contact card (GET /recruiter/profile)
-      modal: { open: false, stage: 'phone', phone: '', otp: '', role: 'candidate', lockRole: false, next: '', switching: false, verificationId: '', busy: false, error: '', resendIn: 0, reason: '', _timer: null },
+      modal: { open: false, stage: 'welcome', canWelcome: true, phone: '', otp: '', role: 'candidate', lockRole: false, next: '', switching: false, verificationId: '', busy: false, error: '', resendIn: 0, reason: '', _timer: null },
       get signedIn() { return !!this.token },
       /** 'candidate' | 'recruiter' | '' (signed out, or not known yet). */
       get role() { return this.token ? (this.user?.role || '') : '' },
@@ -819,6 +938,7 @@
       confirm: { open: false, title: '', message: '', ok: 'OK', cancel: 'Cancel', danger: false },
       pay: { open: false, amount: '', methods: [], method: '' },
       camera: { open: false, starting: false, error: '', shot: '', facing: 'user' },
+      map: { open: false, loading: false, error: '', picked: null, searching: false, q: '' },
       _cameraResolve: null,
       roleSwitch: { open: false, role: 'recruiter', next: '', at: 0 },
       _confirmResolve: null,
