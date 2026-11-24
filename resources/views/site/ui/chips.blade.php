@@ -2,7 +2,8 @@
      Single: @include('site.ui.chips', ['label' => 'Gender', 'model' => 'form.gender', 'items' => "opt('genders')"])
      Multi:  @include('site.ui.chips', ['label' => 'Shifts', 'model' => 'form.shifts', 'items' => "opt('shifts')", 'multi' => true, 'max' => 3])
      'labels' => JS expression for an object mapping value => display label.
-     'required' => true keeps a single choice from being toggled off. --}}
+     'required' => true keeps a single choice from being toggled off.
+     'iconKind' => 'shift' gives every chip the app's icon for it (Inthes.chipIcon). --}}
 @php
   $multi = !empty($multi);
   $lab = $labels ?? null;
@@ -25,7 +26,11 @@
               @endif
               :class="{{ $onExpr }} && 'wa-chip-on'"
               class="wa-chip">
-        <span x-show="{{ $onExpr }}" x-html="ICONS.check" class="text-primary [&>svg]:h-[13px] [&>svg]:w-[13px]"></span>
+        @if (!empty($iconKind))
+          <span x-html="ICONS[Inthes.chipIcon('{{ $iconKind }}', item)]" :class="{{ $onExpr }} ? 'text-primary' : 'text-ink-muted'" class="[&>svg]:h-4 [&>svg]:w-4"></span>
+        @else
+          <span x-show="{{ $onExpr }}" x-html="ICONS.check" class="text-primary [&>svg]:h-[13px] [&>svg]:w-[13px]"></span>
+        @endif
         <span x-text="{{ $lab ? "({$lab})[item] || item" : 'item' }}"></span>
       </button>
     </template>

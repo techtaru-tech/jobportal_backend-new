@@ -2,6 +2,11 @@
      @include('site.ui.input', ['label' => 'Name', 'model' => 'form.name', 'type' => 'text', 'placeholder' => '', 'required' => true,
               'prefix' => '+91', 'attrs' => 'maxlength=10 inputmode=numeric', 'hint' => '', 'error' => 'errors.name'])
      `type => 'number'` binds with x-model.number. 'icon' => 'user' puts that icon inside the field. --}}
+@php
+  // The app's FieldIcons: every field carries an icon picked from its label.
+  // 'icon' => false leaves it out; a '+91'-style prefix stands in for it.
+  $icon = ($icon ?? null) === false || isset($prefix) ? null : (($icon ?? null) ?: \App\Support\FieldIcons::forText($label));
+@endphp
 <label class="block">
   <span class="wa-label">{{ $label }}@include('site.ui.mark', ['required' => $required ?? false, 'optional' => $optional ?? true])</span>
   <div class="flex items-center gap-sm">

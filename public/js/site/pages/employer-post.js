@@ -195,7 +195,7 @@ document.addEventListener('alpine:init', () => {
       await this._placeAt(latitude, longitude)
       this.locAccuracy = Number.isFinite(accuracy) ? accuracy : null
       this.locating = false
-      if (this.locRough) Inthes.toast('Location found roughly — check it, or use Choose on map', true)
+      if (this.locRough) Inthes.toast('Location found roughly — check it, or use Pick on map', true)
     },
 
     /** "Choose on map" — the app's location picker; the fix for a computer's rough position. */

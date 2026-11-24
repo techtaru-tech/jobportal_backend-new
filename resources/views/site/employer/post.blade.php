@@ -113,28 +113,29 @@
 
               <div class="grid gap-xl md:grid-cols-2">
                 <div data-field="shift" @click="$nextTick(() => recheck('shift'))">
-                  @include('site.ui.chips', ['label' => 'Job shift', 'model' => 'f.shift', 'items' => "opt('shifts')", 'labels' => "Object.fromEntries(opt('shifts').map((s) => [s, shiftLabel(s)]))", 'required' => true, 'error' => 'errors.shift'])
+                  @include('site.ui.chips', ['label' => 'Job shift', 'model' => 'f.shift', 'iconKind' => 'shift', 'items' => "opt('shifts')", 'labels' => "Object.fromEntries(opt('shifts').map((s) => [s, shiftLabel(s)]))", 'required' => true, 'error' => 'errors.shift'])
                 </div>
                 <div data-field="type" @click="$nextTick(() => recheck('type'))">
-                  @include('site.ui.chips', ['label' => 'Job type', 'model' => 'f.type', 'items' => "opt('job_types')", 'required' => true, 'error' => 'errors.type'])
+                  @include('site.ui.chips', ['label' => 'Job type', 'model' => 'f.type', 'iconKind' => 'jobType', 'items' => "opt('job_types')", 'required' => true, 'error' => 'errors.type'])
                 </div>
               </div>
 
               <div>
-                <span class="wa-label">Office location</span>
-                <div class="mb-md grid grid-cols-2 gap-sm">
-                  <button type="button" @click="chooseOnMap()" :disabled="locating" class="wa-btn-ghost-sm">
-                    <span x-html="ICONS.mapPin" class="[&>svg]:h-4 [&>svg]:w-4"></span> Choose on map
-                  </button>
-                  <button type="button" @click="useLocation()" :disabled="locating" class="wa-btn-ghost-sm">
-                    <span x-html="locating ? ICONS.loader : ICONS.navigation" :class="locating && 'animate-spin'" class="[&>svg]:h-4 [&>svg]:w-4"></span>
+                <span class="wa-label">Office location @include('site.ui.mark', ['required' => true])</span>
+                {{-- The app's two links: current position, or a spot picked on the map. --}}
+                <div class="mb-md flex flex-wrap items-center gap-x-xl gap-y-sm">
+                  <button type="button" @click="useLocation()" :disabled="locating" class="inline-flex min-h-[36px] items-center gap-sm text-btn font-semibold text-primary hover:underline disabled:opacity-60">
+                    <span x-html="locating ? ICONS.loader : ICONS.locate" :class="locating && 'animate-spin'" class="[&>svg]:h-5 [&>svg]:w-5"></span>
                     Use current location
+                  </button>
+                  <button type="button" @click="chooseOnMap()" :disabled="locating" class="inline-flex min-h-[36px] items-center gap-sm text-btn font-semibold text-primary hover:underline disabled:opacity-60">
+                    <span x-html="ICONS.map" class="[&>svg]:h-5 [&>svg]:w-5"></span> Pick on map
                   </button>
                 </div>
                 <template x-if="f.latitude != null && locRough">
                   <p class="mb-md flex items-start gap-xs rounded-field bg-warning-bg px-md py-sm text-caption text-warning" data-rough-location>
                     <span x-html="ICONS.alert" class="mt-[1px] shrink-0 [&>svg]:h-4 [&>svg]:w-4"></span>
-                    <span>This device could only find the location roughly (<span x-text="locRoughLabel"></span>), so the address may be a nearby area. Check it, or use <b>Choose on map</b> to pin the exact spot.</span>
+                    <span>This device could only find the location roughly (<span x-text="locRoughLabel"></span>), so the address may be a nearby area. Check it, or use <b>Pick on map</b> to pin the exact spot.</span>
                   </p>
                 </template>
                 <div class="grid gap-lg sm:grid-cols-2">
@@ -142,7 +143,8 @@
                     <label class="block">
                       <span class="wa-label">State @include('site.ui.mark', ['required' => true])</span>
                       <div class="relative">
-                        <select :value="f.state" @change="pickState($event.target.value)" class="wa-input cursor-pointer appearance-none pr-10">
+                        <span class="pointer-events-none absolute left-md top-1/2 z-[1] -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'map', 'class' => 'h-[18px] w-[18px]'])</span>
+                        <select :value="f.state" @change="pickState($event.target.value)" class="wa-input cursor-pointer appearance-none pl-[44px] pr-10">
                           <option value="">Select the state</option>
                           <template x-for="s in opt('states')" :key="s"><option :value="s" x-text="s" :selected="s === f.state"></option></template>
                         </select>
@@ -155,7 +157,8 @@
                     <label class="block">
                       <span class="wa-label">City / district @include('site.ui.mark', ['required' => true])</span>
                       <div class="relative">
-                        <select x-model="f.city" :disabled="!f.state" class="wa-input cursor-pointer appearance-none pr-10 disabled:cursor-not-allowed disabled:opacity-60">
+                        <span class="pointer-events-none absolute left-md top-1/2 z-[1] -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'mapPin', 'class' => 'h-[18px] w-[18px]'])</span>
+                        <select x-model="f.city" :disabled="!f.state" class="wa-input cursor-pointer appearance-none pl-[44px] pr-10 disabled:cursor-not-allowed disabled:opacity-60">
                           <option value="" x-text="f.state ? 'Select the city' : 'Pick a state first'"></option>
                           <template x-for="c in cities" :key="c"><option :value="c" x-text="c" :selected="c === f.city"></option></template>
                         </select>
@@ -186,12 +189,12 @@
             <div class="{{ $sectionHead }}"><span class="{{ $num }}">2</span><h2 class="min-w-0 text-h3 text-ink">Candidate Requirements</h2></div>
             <div class="space-y-xl">
               <div data-field="min_education" @click="$nextTick(() => recheck('min_education'))">
-                @include('site.ui.chips', ['label' => 'Minimum education', 'model' => 'f.min_education', 'items' => "opt('education_levels')", 'required' => true, 'error' => 'errors.min_education'])
+                @include('site.ui.chips', ['label' => 'Minimum education', 'model' => 'f.min_education', 'iconKind' => 'education', 'items' => "opt('education_levels')", 'required' => true, 'error' => 'errors.min_education'])
               </div>
               <div data-field="experience" @click="$nextTick(() => recheck('experience'))">
                 @include('site.ui.chips', ['label' => 'Experience', 'model' => 'f.experience', 'items' => 'experienceOptions', 'required' => true, 'error' => 'errors.experience'])
               </div>
-              @include('site.ui.chips', ['label' => 'Preferred gender', 'model' => 'f.preferred_gender', 'items' => "opt('gender_preferences')", 'labels' => "({ Any: 'Any gender' })", 'required' => true])
+              @include('site.ui.chips', ['label' => 'Preferred gender', 'model' => 'f.preferred_gender', 'iconKind' => 'gender', 'items' => "opt('gender_preferences')", 'labels' => "({ Any: 'Any gender' })", 'required' => true])
 
               <div>
                 <template x-if="!showMoreReqs">

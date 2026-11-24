@@ -1,10 +1,12 @@
 {{-- A labelled native select over an Alpine list of strings.
      @include('site.ui.select', ['label' => 'City', 'model' => 'form.city', 'items' => "opt('cities')", 'placeholder' => 'Select city', 'required' => true, 'error' => 'errors.city', 'disabled' => '!form.state']) --}}
+@php $icon = ($icon ?? null) === false ? null : (($icon ?? null) ?: \App\Support\FieldIcons::forPicker($label)); @endphp
 <label class="block">
   <span class="wa-label">{{ $label }}@include('site.ui.mark', ['required' => $required ?? false, 'optional' => $optional ?? true])</span>
   <div class="relative">
+    @if ($icon)<span aria-hidden="true" class="pointer-events-none absolute left-md top-1/2 z-[1] -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => $icon, 'class' => 'h-[18px] w-[18px]'])</span>@endif
     <select x-model="{{ $model }}" @isset($disabled) :disabled="{{ $disabled }}" @endisset
-            class="wa-input cursor-pointer appearance-none pr-10 disabled:cursor-not-allowed disabled:opacity-60">
+            class="wa-input cursor-pointer appearance-none pr-10 {{ $icon ? 'pl-[44px]' : '' }} disabled:cursor-not-allowed disabled:opacity-60">
       <option value="">{{ $placeholder ?? 'Select' }}</option>
       <template x-for="item in ({{ $items }})" :key="item">
         <option :value="item" x-text="item" :selected="item === {{ $model }}"></option>

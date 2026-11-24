@@ -5,7 +5,10 @@
      row reads `Add "…"`.
      @include('site.ui.combo', ['label' => 'Designation', 'model' => 'form.designation', 'items' => "opt('designations')", 'placeholder' => 'e.g. Staff Nurse', 'required' => true, 'error' => 'errors.designation', 'attrs' => 'maxlength=40'])
      'optional' => false drops the "(Optional)" marker (see site.ui.mark). --}}
-@php $listExpr = "Inthes.comboList(({$items}), {$model}, typing)"; @endphp
+@php
+  $listExpr = "Inthes.comboList(({$items}), {$model}, typing)";
+  $icon = ($icon ?? null) === false ? null : (($icon ?? null) ?: \App\Support\FieldIcons::forPicker($label));
+@endphp
 <div class="relative"
      x-data="{ open: false, typing: false, hi: -1 }"
      @click.outside="open = false; typing = false"
@@ -13,6 +16,7 @@
   <label class="block">
     <span class="wa-label">{{ $label }}@include('site.ui.mark', ['required' => $required ?? false, 'optional' => $optional ?? true])</span>
     <span class="relative block">
+      @if ($icon)<span aria-hidden="true" class="pointer-events-none absolute left-md top-1/2 z-[1] -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => $icon, 'class' => 'h-[18px] w-[18px]'])</span>@endif
       <input type="text" x-model="{{ $model }}" placeholder="{{ $placeholder ?? 'Type or pick' }}" autocomplete="off" {!! $attrs ?? '' !!}
              role="combobox" aria-autocomplete="list" :aria-expanded="open"
              @focus="open = true; typing = false; hi = -1"
@@ -22,7 +26,7 @@
              @keydown.arrow-up.prevent="hi = Math.max(hi - 1, -1)"
              @keydown.enter="if (open) { $event.preventDefault(); const l = {{ $listExpr }}; {{ $model }} = hi >= 0 && hi < l.length ? l[hi] : String({{ $model }} || '').trim(); open = false; typing = false; $dispatch('input') }"
              @keydown.tab="open = false; typing = false"
-             class="wa-input pr-10">
+             class="wa-input pr-10 {{ $icon ? 'pl-[44px]' : '' }}">
       <button type="button" tabindex="-1" aria-label="Show options"
               @click.prevent="open = !open; typing = false; if (open) $el.parentElement.querySelector('input').focus()"
               class="absolute right-xs top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center text-ink-muted">

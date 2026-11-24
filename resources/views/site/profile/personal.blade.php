@@ -19,13 +19,13 @@
 
   @include('site.ui.input', ['label' => 'Email', 'model' => 'pf.email', 'type' => 'email', 'placeholder' => 'you@example.com', 'icon' => 'mail', 'attrs' => 'maxlength=190 autocomplete=email'])
 
-  @include('site.ui.chips', ['label' => 'Gender', 'model' => 'pf.gender', 'items' => "opt('genders')"])
+  @include('site.ui.chips', ['label' => 'Gender', 'model' => 'pf.gender', 'iconKind' => 'personGender', 'items' => "opt('genders')"])
 
   <div class="grid gap-lg sm:grid-cols-2">
     <label class="block">
       <span class="wa-label">Date of birth @include('site.ui.mark', ['required' => false])</span>
       <div class="relative">
-        <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'calendar', 'class' => 'h-[18px] w-[18px]'])</span>
+        <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'cake', 'class' => 'h-[18px] w-[18px]'])</span>
         <input type="date" x-model="pf.dob" :min="profDobMin" :max="profDobMax" class="wa-input pl-[44px]">
       </div>
     </label>
@@ -49,10 +49,10 @@
     {{-- The app's two buttons: pick the spot on a map, or take the device's position. --}}
     <div class="mt-sm grid grid-cols-2 gap-sm">
       <button type="button" @click="profChooseOnMap()" :disabled="profLocating" class="wa-btn-ghost-sm">
-        <span x-html="ICONS.mapPin" class="[&>svg]:h-4 [&>svg]:w-4"></span> Choose on map
+        <span x-html="ICONS.map" class="[&>svg]:h-4 [&>svg]:w-4"></span> Choose on map
       </button>
       <button type="button" @click="profUseLocation()" :disabled="profLocating" class="wa-btn-ghost-sm">
-        <span x-html="profLocating ? ICONS.loader : ICONS.navigation" :class="profLocating && 'animate-spin'" class="[&>svg]:h-4 [&>svg]:w-4"></span>
+        <span x-html="profLocating ? ICONS.loader : ICONS.locate" :class="profLocating && 'animate-spin'" class="[&>svg]:h-4 [&>svg]:w-4"></span>
         Use current location
       </button>
     </div>
@@ -79,7 +79,7 @@
     <label class="block">
       <span class="wa-label">Current state @include('site.ui.mark', ['required' => false])</span>
       <div class="relative">
-        <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'globe', 'class' => 'h-[18px] w-[18px]'])</span>
+        <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'map', 'class' => 'h-[18px] w-[18px]'])</span>
         <select x-model="pf.home_state" @change="profPickState()" class="wa-input cursor-pointer appearance-none pl-[44px] pr-10">
           <option value="">Select your state</option>
           <template x-for="s in opt('states')" :key="s"><option :value="s" x-text="s" :selected="s === pf.home_state"></option></template>
@@ -101,7 +101,7 @@
   </div>
 
   @if (empty($essentials))
-  @include('site.ui.chips', ['label' => 'Marital status', 'model' => 'pf.marital_status', 'items' => "opt('marital_statuses')"])
+  @include('site.ui.chips', ['label' => 'Marital status', 'model' => 'pf.marital_status', 'iconKind' => 'marital', 'items' => "opt('marital_statuses')"])
 
   <div class="grid gap-lg sm:grid-cols-2">
     @include('site.ui.input', ['label' => "Father's name", 'model' => 'pf.father_name', 'placeholder' => "Father's full name", 'attrs' => 'maxlength=120'])

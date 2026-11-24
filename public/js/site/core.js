@@ -756,6 +756,48 @@
     } catch (e) { return null }
   }
 
+  // ── chip icons (post_job_view / personal_fields / company_form_fields) ──
+  /**
+   * The icon the app shows on a chip, by what the chip is for — the same
+   * rules as the app's _shiftIcon, _jobTypeIcon, _educationIcon, _genderIcon,
+   * _maritalIcon, _sizeIcon and workplaceIcon. Names key into ICONS.
+   */
+  function chipIcon(kind, value) {
+    const v = String(value || '').toLowerCase()
+    switch (kind) {
+      case 'shift':
+        if (v.includes('day')) return 'sun'
+        if (v.includes('night')) return 'moon'
+        if (v.includes('rotat')) return 'rotate'
+        return 'clock'
+      case 'jobType':
+        if (v.includes('part')) return 'timer'
+        if (v.includes('contract')) return 'fileText'
+        if (v.includes('intern')) return 'graduation'
+        if (v.includes('home') || v.includes('remote')) return 'houseWork'
+        return 'briefcase'
+      case 'education':
+        if (v.includes('post')) return 'award'
+        if (v.includes('graduate')) return 'graduation'
+        if (v.includes('diploma') || v.includes('iti')) return 'wrench'
+        return 'bookOpen'
+      case 'gender':          // a job's preferred gender: "Any" is a group
+        return v === 'male' ? 'mars' : v === 'female' ? 'venus' : 'usersRound'
+      case 'personGender':    // a person's own gender
+        return v === 'male' ? 'mars' : v === 'female' ? 'venus' : 'user'
+      case 'marital':
+        return v === 'married' ? 'heart' : v === 'other' ? 'moreVertical' : 'user'
+      case 'size':
+        return v.startsWith('small') ? 'user' : v.startsWith('mid') ? 'users' : 'usersRound'
+      case 'workplace':
+        if (v.includes('college') || v.includes('school') || v.includes('institute')) return 'graduation'
+        return 'building'
+      case 'experience':
+        return 'history'
+    }
+    return null
+  }
+
   // ── map picker ("Choose on map" — the app's location_picker) ─────────
   // Leaflet + OpenStreetMap tiles, loaded the first time the map opens, so
   // no page pays for it until someone needs it. No API key involved.
@@ -902,7 +944,7 @@
       return false
     },
     toast, confirm, pay, confirmOrder,
-    takePhoto, captureCamera, retakeCamera, closeCamera, cameraFallback, pickOnMap, searchMap, closeMap,
+    takePhoto, captureCamera, retakeCamera, closeCamera, cameraFallback, pickOnMap, searchMap, closeMap, chipIcon,
     opt, citiesOf, copy, share, toggleIn, comboList, comboCanAdd,
     reverseGeocode, currentPosition, joinAddressParts, localityOf, findIn,
     fmtNumber, rupees, timeAgo, fmtDate, initials, clone,

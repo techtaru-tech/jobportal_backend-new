@@ -22,6 +22,7 @@
           <button type="button" @click="co.size = s; coErrors.size = ''"
                   :class="co.size === s ? 'border-primary bg-primary-light text-primary-dark' : 'border-hairline bg-surface-muted text-ink hover:bg-hairline/60'"
                   class="rounded-field border-chip px-xs py-[7px] text-center transition-colors">
+            <span class="mx-auto mb-[2px] block w-fit [&>svg]:h-[18px] [&>svg]:w-[18px]" :class="co.size === s ? 'text-primary' : 'text-ink-muted'" x-html="ICONS[Inthes.chipIcon('size', s)]"></span>
             <span class="block text-bodysm font-semibold" x-text="s"></span>
             <span class="block text-[10.5px] leading-tight text-ink-secondary" x-text="SIZE_HINTS[s] || ''"></span>
           </button>

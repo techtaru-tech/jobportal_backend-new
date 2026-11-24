@@ -98,7 +98,7 @@
             @include('site.ui.input', ['label' => 'Full name', 'model' => '$store.qa.form.name', 'required' => true, 'placeholder' => 'As on your certificates', 'attrs' => 'maxlength=120 autocomplete=name', 'error' => '$store.qa.errors.name'])
           </template>
           <template x-if="$store.qa.has('gender')">
-            @include('site.ui.chips', ['label' => 'Gender', 'model' => '$store.qa.form.gender', 'items' => "opt('genders')", 'required' => true, 'error' => '$store.qa.errors.gender'])
+            @include('site.ui.chips', ['label' => 'Gender', 'model' => '$store.qa.form.gender', 'iconKind' => 'personGender', 'items' => "opt('genders')", 'required' => true, 'error' => '$store.qa.errors.gender'])
           </template>
           <template x-if="$store.qa.has('dob')">
             <label class="block">
