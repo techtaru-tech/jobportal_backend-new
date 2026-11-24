@@ -43,7 +43,7 @@
         <div class="mt-md flex items-center gap-sm">
           <label class="wa-btn-ghost-sm flex-1 cursor-pointer" :class="profVideoBusy && 'pointer-events-none opacity-60'">
             <span x-html="ICONS.video" class="[&>svg]:h-4 [&>svg]:w-4"></span> Re-record
-            <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" capture="user" class="sr-only" @change="profPickVideo($event.target)">
+            <input type="file" accept="video/*" capture="user" class="sr-only" @change="profPickVideo($event.target)">
           </label>
           <button type="button" @click="profRemoveVideo()" :disabled="profVideoBusy" aria-label="Remove intro video"
                   class="inline-flex h-10 w-10 items-center justify-center rounded-field text-danger hover:bg-danger-bg disabled:opacity-60">
@@ -67,7 +67,7 @@
         <div class="mt-md grid gap-sm sm:grid-cols-2">
           <label class="wa-btn-sm cursor-pointer">
             <span x-html="ICONS.video" class="[&>svg]:h-4 [&>svg]:w-4"></span> Record intro video
-            <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" capture="user" class="sr-only" @change="profPickVideo($event.target)">
+            <input type="file" accept="video/*" capture="user" class="sr-only" @change="profPickVideo($event.target)">
           </label>
           <label class="wa-btn-ghost-sm cursor-pointer">
             Choose from gallery

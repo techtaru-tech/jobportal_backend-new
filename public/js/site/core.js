@@ -481,36 +481,65 @@
   /**
    * "Take photo". Resolves with a JPEG File, or null when cancelled.
    *
-   * `<input capture>` opens the camera only on a phone — a desktop browser
-   * ignores it and shows the file picker, so "Take photo" just picked a
-   * file. On a computer this opens the webcam in a dialog instead (preview,
-   * Capture, Retake, Use photo). A phone keeps its own camera app; so does a
-   * browser with no camera API (or a page not on https), where the picker
-   * is all there is.
+   * Opens the camera inside the page (preview, Capture, Retake, Use photo)
+   * on every device whose browser has the camera API — phones included.
+   * Leaving a phone to `<input capture>` was not enough: Chrome on Android
+   * ignores `capture` unless `accept` is the generic `image/*`, and in-app
+   * browsers (WhatsApp, Instagram) ignore it altogether, so "Take photo"
+   * opened the gallery / file picker instead of the camera.
+   *
+   * Only a browser with no camera API (or a page not on https) falls back to
+   * the picker, which then asks for the camera where it can.
    */
   function takePhoto({ facing = 'user' } = {}) {
-    const phone = window.matchMedia && window.matchMedia('(pointer: coarse)').matches
-    if (phone || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return pickWithCamera(facing)
+    const canStream = window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+    if (!canStream) return pickWithCamera(facing)
 
     const c = $ui().camera
     return new Promise((resolve) => {
-      Object.assign(c, { open: true, error: '', shot: '', starting: true })
+      Object.assign(c, { open: true, error: '', shot: '', starting: true, facing })
       $ui()._cameraResolve = resolve
       startCamera(facing)
     })
   }
 
-  /** The browser's own picker, asking for the camera where it can. */
+  /**
+   * The browser's own picker, asking for the camera where it can. `image/*`
+   * (not `image/jpeg,image/png`) because that is what makes Chrome on
+   * Android honour `capture` and open the camera rather than the gallery.
+   * Attached to the page while open: Safari ignores a click on a detached
+   * input.
+   */
   function pickWithCamera(facing) {
     return new Promise((resolve) => {
       const input = document.createElement('input')
       input.type = 'file'
-      input.accept = 'image/jpeg,image/png'
+      input.accept = 'image/*'
       input.setAttribute('capture', facing)
-      input.addEventListener('change', () => resolve((input.files && input.files[0]) || null), { once: true })
-      input.addEventListener('cancel', () => resolve(null), { once: true })
+      input.style.display = 'none'
+      document.body.appendChild(input)
+      const done = (file) => { input.remove(); resolve(file) }
+      input.addEventListener('change', () => done((input.files && input.files[0]) || null), { once: true })
+      input.addEventListener('cancel', () => done(null), { once: true })
       input.click()
     })
+  }
+
+  /**
+   * From the camera dialog when the camera could not start (blocked, none
+   * found): closes it and opens the picker instead, resolving the same
+   * takePhoto() promise with whatever is picked.
+   */
+  async function cameraFallback() {
+    const u = $ui()
+    const facing = u.camera.facing || 'user'
+    const r = u._cameraResolve
+    u._cameraResolve = null
+    stopCamera()
+    retakeCamera()
+    Object.assign(u.camera, { open: false, error: '' })
+    const file = await pickWithCamera(facing)
+    if (r) r(file)
   }
 
   let cameraStream = null
@@ -754,7 +783,7 @@
       return false
     },
     toast, confirm, pay, confirmOrder,
-    takePhoto, captureCamera, retakeCamera, closeCamera,
+    takePhoto, captureCamera, retakeCamera, closeCamera, cameraFallback,
     opt, citiesOf, copy, share, toggleIn, comboList, comboCanAdd,
     reverseGeocode, currentPosition, joinAddressParts, localityOf, findIn,
     fmtNumber, rupees, timeAgo, fmtDate, initials, clone,
@@ -789,7 +818,7 @@
       toastError: false,
       confirm: { open: false, title: '', message: '', ok: 'OK', cancel: 'Cancel', danger: false },
       pay: { open: false, amount: '', methods: [], method: '' },
-      camera: { open: false, starting: false, error: '', shot: '' },
+      camera: { open: false, starting: false, error: '', shot: '', facing: 'user' },
       _cameraResolve: null,
       roleSwitch: { open: false, role: 'recruiter', next: '', at: 0 },
       _confirmResolve: null,

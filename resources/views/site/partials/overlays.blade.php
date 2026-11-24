@@ -57,8 +57,8 @@
     </div>
   </div>
 
-  {{-- Camera — "Take photo" on a computer (Inthes.takePhoto). The live
-       preview is mirrored like a mirror; the photo saved is not. --}}
+  {{-- Camera — "Take photo" on a computer or a phone (Inthes.takePhoto).
+       The live preview is mirrored like a mirror; the photo saved is not. --}}
   <div x-show="$store.ui.camera.open" x-cloak x-transition.opacity
        class="fixed inset-0 z-[98] flex items-end justify-center bg-ink/60 sm:items-center sm:px-page"
        @keydown.escape.window="$store.ui.camera.open && Inthes.closeCamera(false)">
@@ -90,7 +90,10 @@
         <template x-if="!$store.ui.camera.shot">
           <div class="flex gap-sm">
             <button type="button" @click="Inthes.closeCamera(false)" class="wa-btn-quiet">Cancel</button>
-            <button type="button" @click="Inthes.captureCamera()" :disabled="$store.ui.camera.starting || !!$store.ui.camera.error" class="wa-btn-sm disabled:opacity-60">
+            <button type="button" x-show="$store.ui.camera.error" @click="Inthes.cameraFallback()" class="wa-btn-sm">
+              <span x-html="ICONS.image" class="[&>svg]:h-4 [&>svg]:w-4"></span> Choose a photo
+            </button>
+            <button type="button" x-show="!$store.ui.camera.error" @click="Inthes.captureCamera()" :disabled="$store.ui.camera.starting || !!$store.ui.camera.error" class="wa-btn-sm disabled:opacity-60">
               <span x-html="ICONS.camera" class="[&>svg]:h-4 [&>svg]:w-4"></span> Capture
             </button>
           </div>
