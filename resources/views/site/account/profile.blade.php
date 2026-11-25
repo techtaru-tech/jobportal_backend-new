@@ -65,7 +65,7 @@
                   </button>
                 </template>
               </div>
-              <input id="profile-photo-input" type="file" accept="image/jpeg,image/png" class="sr-only" @change="profPickPhoto($event.target)" aria-label="Upload a profile photo (JPG or PNG, up to 3 MB)">
+              <input id="profile-photo-input" type="file" accept="image/*" class="sr-only" @change="profPickPhoto($event.target)" aria-label="Upload a profile photo">
             </div>
             <div class="min-w-0 flex-1 sm:pb-[2px]">
               <h1 class="truncate text-h2 text-ink" x-text="me?.name || 'Your name'"></h1>
@@ -103,21 +103,23 @@
           </div>
         </div>
 
-        {{-- A near-empty profile gets the short guided route too. --}}
-        <template x-if="profStrength < 40">
+        {{-- Below 90% the guided route is offered too — the app's Home nudge
+             (HomeController.profileNudgeBelow), opening the same steps
+             pre-filled with what is already there. --}}
+        <template x-if="profStrength < 90">
           <a href="{{ url('/account/setup') }}" class="group mx-lg mb-lg flex items-center gap-md rounded-field bg-primary px-lg py-md text-ink-onPrimary shadow-button hover:bg-primary-dark sm:mx-xl">
             <span x-html="ICONS.sparkles" class="shrink-0 [&>svg]:h-5 [&>svg]:w-5"></span>
-            <span class="min-w-0 flex-1"><span class="block text-bodysm font-semibold">Complete your profile in 3 quick steps</span><span class="block text-caption text-white/80">About you, education &amp; experience, what you're looking for</span></span>
+            <span class="min-w-0 flex-1"><span class="block text-bodysm font-semibold">Complete your profile in quick steps</span><span class="block text-caption text-white/80" x-text="'Profile ' + profStrength + '% complete — pick up where you left off'"></span></span>
             <span x-html="ICONS.arrowRight" class="nudge shrink-0 [&>svg]:h-5 [&>svg]:w-5"></span>
           </a>
         </template>
 
         {{-- What to do next — each jumps to the card that fixes it. --}}
         <template x-if="boosts.length">
-          <div class="border-t border-hairline-divider px-lg py-lg sm:px-xl" x-data="{ all: false }">
+          <div class="border-t border-hairline-divider px-lg py-lg sm:px-xl">
             <p class="wa-section-title mb-sm">Complete these to go further</p>
             <div class="grid gap-xs sm:grid-cols-2">
-              <template x-for="b in (all ? boosts : boosts.slice(0, 4))" :key="b.label">
+              <template x-for="b in boosts" :key="b.label">
                 <button type="button" @click="boostGo(b)"
                         class="group flex items-center gap-sm rounded-field border-hair border-dashed border-hairline-strong px-md py-sm text-left transition-colors hover:border-primary hover:bg-primary-light/40">
                   <span class="h-[14px] w-[14px] shrink-0 rounded-full border-[1.5px] border-ink-muted"></span>
@@ -127,8 +129,6 @@
                 </button>
               </template>
             </div>
-            <button type="button" x-show="boosts.length > 4" @click="all = !all" class="mt-sm text-caption font-semibold text-primary hover:underline"
-                    x-text="all ? 'Show fewer' : 'Show all ' + boosts.length"></button>
           </div>
         </template>
 
@@ -138,7 +138,7 @@
           <div class="min-w-0 flex-1">
             <p class="text-h5 text-ink">Resume</p>
             <p class="truncate text-caption text-ink-secondary"
-               x-text="me?.resume ? 'Built from this profile and kept up to date with it' : (profMissingForResume.length ? 'Add ' + profMissingForResume.map((m) => m.replace(/^your /, '').replace(/ \(.*\)$/, '')).join(', ') + ' and it writes itself' : 'Ready to create from your profile')"></p>
+               x-text="me?.resume ? 'Built from this profile and kept up to date with it' : (profMissingForResume.length ? 'Add ' + profMissingForResume.map((m) => m.replace(/^your /, '').replace(/ \(.*\)$/, '')).join(', ') + ' and it writes itself' : 'It is written for you as soon as your profile has enough on it.')"></p>
           </div>
           <div class="flex w-full flex-wrap gap-sm sm:w-auto">
             <template x-if="me?.resume">
@@ -146,11 +146,6 @@
                 <a href="{{ url('/account/resume') }}" class="wa-btn-ghost-sm flex-1 sm:flex-none"><span x-html="ICONS.eye" class="[&>svg]:h-4 [&>svg]:w-4"></span> View</a>
                 <a :href="me.resume_url" :download="me.resume" target="_blank" rel="noopener" class="wa-btn-sm flex-1 sm:flex-none"><span x-html="ICONS.download" class="[&>svg]:h-4 [&>svg]:w-4"></span> Download</a>
               </div>
-            </template>
-            <template x-if="!me?.resume && !profMissingForResume.length">
-              <button type="button" @click="profGenerateResume()" :disabled="profResumeBusy" class="wa-btn-sm flex-1 sm:flex-none">
-                <span x-html="profResumeBusy ? ICONS.loader : ICONS.sparkles" :class="profResumeBusy && 'animate-spin'" class="[&>svg]:h-4 [&>svg]:w-4"></span> Generate resume
-              </button>
             </template>
             <template x-if="!me?.resume && profMissingForResume.length">
               <a href="{{ url('/account/resume') }}" class="wa-btn-ghost-sm flex-1 sm:flex-none">What's needed</a>

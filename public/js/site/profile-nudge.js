@@ -39,7 +39,7 @@
         '<span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary [&>svg]:h-5 [&>svg]:w-5">' + ((window.ICONS && window.ICONS.sparkles) || '') + '</span>' +
         '<div class="min-w-0 flex-1">' +
           '<p class="text-h5 text-ink">Complete your profile</p>' +
-          '<p class="mt-[2px] text-caption text-ink-secondary">Get better job matches — it takes about two minutes.</p>' +
+          '<p class="mt-[2px] text-caption text-ink-secondary">Get better job matches — it only takes a few quick steps.</p>' +
           '<div class="mt-md flex items-center gap-sm">' +
             '<a href="/account/setup" data-go class="inline-flex h-9 items-center justify-center rounded-button bg-primary px-lg text-btnghost font-semibold text-ink-onPrimary shadow-button hover:bg-primary-dark">Complete profile</a>' +
             '<button type="button" data-close class="inline-flex h-9 items-center justify-center rounded-button px-md text-btnghost font-semibold text-ink-secondary hover:bg-surface-muted">Later</button>' +

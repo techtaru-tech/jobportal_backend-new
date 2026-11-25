@@ -339,7 +339,7 @@
         <div data-reveal>
             @include('site.partials.section-heading', [
                 'kicker' => 'How it works',
-                'title' => 'Three steps, no paperwork',
+                'title' => 'Quick steps, no paperwork',
             ])
         </div>
 
