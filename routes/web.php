@@ -27,6 +27,8 @@ Route::controller(Site\SiteController::class)->group(function () {
     Route::get('/jobs', 'jobs')->name('site.jobs');
     Route::get('/get-app', 'getApp')->name('site.get-app');
     Route::get('/faq', 'faq')->name('site.faq');
+    // How to delete an account — the URL Google Play and the App Store ask for.
+    Route::get('/delete-account', 'deleteAccount')->name('site.delete-account');
 
     // Below the fixed paths, so `/jobs` and `/faq` are never swallowed by them.
     Route::get('/jobs/{code}', 'job')->name('site.job');
@@ -108,6 +110,19 @@ Route::prefix('employer')->name('employer.')->group(function () {
 // Old names and paths, kept working.
 Route::get('/post-job', fn () => redirect()->route('employer.post'))->name('site.post-job');
 Route::get('/app', fn () => redirect()->route('account.profile'));
+
+/*
+|--------------------------------------------------------------------------
+| Public images
+|--------------------------------------------------------------------------
+|
+| Profile photos and company logos, served by the app rather than through the
+| public/storage symlink, which the live web server refuses (403). See
+| MediaController.
+*/
+Route::get('/media/{path}', [\App\Http\Controllers\MediaController::class, 'show'])
+    ->where('path', '.*')
+    ->name('media');
 
 /*
 |--------------------------------------------------------------------------

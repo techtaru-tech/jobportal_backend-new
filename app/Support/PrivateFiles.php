@@ -41,10 +41,14 @@ class PrivateFiles
         }
     }
 
-    /** Public assets — photos and organisation logos — stay on the public disk. */
+    /**
+     * Public assets — photos and organisation logos — stay on the public disk
+     * and are linked through /media/… (MediaController), not /storage/…: the
+     * live web server answers 403 for everything under /storage.
+     */
     public static function publicUrl(?string $path): ?string
     {
-        return blank($path) ? null : Storage::disk('public')->url($path);
+        return blank($path) ? null : url('/media/'.ltrim($path, '/'));
     }
 
     public static function deletePublic(?string $path): void

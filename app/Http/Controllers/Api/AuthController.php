@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Services\AccountDeletion;
 use App\Services\OtpService;
 use App\Support\ApiResponse;
 use App\Support\PublicId;
@@ -117,5 +118,24 @@ class AuthController extends ApiController
         $request->user()->currentAccessToken()->delete();
 
         return ApiResponse::message('Signed out.');
+    }
+
+    /**
+     * DELETE /auth/account — deletes the signed-in account and everything it
+     * owns (see AccountDeletion). The body must carry `confirm: "DELETE"` so a
+     * stray request cannot wipe an account.
+     */
+    public function destroy(Request $request, AccountDeletion $deletion): JsonResponse
+    {
+        $request->validate([
+            'confirm' => ['required', 'in:DELETE'],
+        ], [
+            'confirm.required' => 'Type DELETE to confirm.',
+            'confirm.in' => 'Type DELETE to confirm.',
+        ]);
+
+        $deletion->delete($request->user());
+
+        return ApiResponse::message('Your account and its data have been deleted.');
     }
 }

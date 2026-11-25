@@ -43,6 +43,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('refresh', [AuthController::class, 'refresh']);
             Route::post('logout', [AuthController::class, 'logout']);
+            Route::delete('account', [AuthController::class, 'destroy']);
         });
     });
 

@@ -234,4 +234,10 @@ class SiteController extends Controller
             'candidates' => User::count(),
         ];
     }
+
+    /** GET /delete-account — how to delete an account, and the button to do it. */
+    public function deleteAccount(): \Illuminate\Contracts\View\View
+    {
+        return view('site.pages.delete-account');
+    }
 }
