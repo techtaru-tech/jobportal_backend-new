@@ -83,6 +83,14 @@ class SubscriptionService
     {
         $isFree = (bool) ($plan['is_free'] ?? false);
 
+        // Renewing early adds the new period to the end of the running one
+        // rather than throwing away the days already paid for.
+        $current = $this->subscriptionFor($user, $audience);
+        $from = ! $isFree && $current !== null && $current->expires_at?->isFuture()
+            && ! (Subscription::planById($audience, (string) $current->plan_id)['is_free'] ?? true)
+            ? $current->expires_at->copy()
+            : now();
+
         return Subscription::updateOrCreate(
             ['user_id' => $user->id, 'audience' => $audience->value],
             [
@@ -92,7 +100,7 @@ class SubscriptionService
                 // period and then read as free again.
                 'expires_at' => $isFree
                     ? null
-                    : now()->addDays((int) config('plans.paid_period_days', 30)),
+                    : $from->addDays(PlanSettings::paidDays($audience)),
             ],
         );
     }

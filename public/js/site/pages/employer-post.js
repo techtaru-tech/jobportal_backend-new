@@ -470,8 +470,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     /**
-     * Moves on to paying — unless postings from an earlier pack are left, in
-     * which case the post goes straight to review on one (PostJobController._toPlanStep).
+     * Moves on to paying — unless the free job post or a running plan covers
+     * it, in which case the post goes straight to review (PostJobController._toPlanStep).
      */
     async toPlan(job) {
       this.busyText = 'Checking your plan…'
@@ -488,8 +488,7 @@ document.addEventListener('alpine:init', () => {
           this.credit = credit
           // A reload now lands on the job itself, not back in its editor.
           history.replaceState(null, '', `/employer/jobs/${encodeURIComponent(job.id)}`)
-          const left = credit.remaining - 1
-          Inthes.toast(left > 0 ? `Posted on your existing plan — ${left} posting${left === 1 ? '' : 's'} left` : 'Posted on your existing plan')
+          Inthes.toast(credit.tier === 'free' ? 'Posted with your free job post' : 'Posted on your plan')
           window.scrollTo({ top: 0 })
           this.busy = false
           return

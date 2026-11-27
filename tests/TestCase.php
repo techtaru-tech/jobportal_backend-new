@@ -69,4 +69,25 @@ abstract class TestCase extends BaseTestCase
     {
         $this->app['auth']->forgetGuards();
     }
+
+    /** Admin → Plans & pricing, set for one test. */
+    protected function setPlan(string $name, int|string|bool $value): void
+    {
+        \App\Models\AppSetting::put(
+            \App\Services\PlanSettings::key($name),
+            is_bool($value) ? ($value ? '1' : '0') : (string) $value,
+        );
+    }
+
+    /** For tests about something other than the apply limit. */
+    protected function withUnlimitedFreeApplications(): void
+    {
+        $this->setPlan('seeker_free_applications', 100000);
+    }
+
+    /** The employer plan, running: unlimited job posts. */
+    protected function onEmployerPlan(User $recruiter): \App\Models\JobCredit
+    {
+        return app(\App\Services\JobPlanCatalog::class)->grantMonthly($recruiter, null);
+    }
 }

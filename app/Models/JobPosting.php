@@ -98,8 +98,18 @@ class JobPosting extends Model
         return $this->belongsTo(JobCredit::class, 'job_credit_id');
     }
 
-    /** Paid for with a job-plan credit (bought now, or left over from a pack). */
+    /**
+     * Paid for: posted on the employer plan (or an old pack). The free job
+     * post is a credit too, but not a paid one — it goes through review like
+     * any unpaid posting.
+     */
     public function isPaid(): bool
+    {
+        return $this->job_credit_id !== null && $this->plan_tier !== JobPlanCatalog::FREE;
+    }
+
+    /** Sent with a free post or a plan — the posting has its slot. */
+    public function hasPlanSlot(): bool
     {
         return $this->job_credit_id !== null;
     }
@@ -181,9 +191,10 @@ class JobPosting extends Model
         return match ($stage) {
             'payment_pending' => $query->where('posting_status', JobPostingStatus::Draft->value),
             'paid_document_missing' => $query->where('posting_status', $inReview)
-                ->whereNotNull('job_credit_id')->where($documentMissing),
+                ->whereNotNull('job_credit_id')->where('plan_tier', '!=', JobPlanCatalog::FREE)->where($documentMissing),
             'posted_document_missing' => $query->where(fn (Builder $q) => $q
-                ->where(fn (Builder $p) => $p->where('posting_status', $inReview)->whereNull('job_credit_id'))
+                ->where(fn (Builder $p) => $p->where('posting_status', $inReview)->where(fn (Builder $c) => $c
+                    ->whereNull('job_credit_id')->orWhere('plan_tier', JobPlanCatalog::FREE)))
                 ->orWhere(fn (Builder $p) => $p->whereIn('posting_status', $out)
                     ->where(fn (Builder $d) => $d->whereNull('document_due_at')->orWhere('document_due_at', '<=', now()))))
                 ->where($documentMissing),
@@ -411,11 +422,12 @@ class JobPosting extends Model
             // was submitted — otherwise a posting that sat in the queue for a
             // week would reach candidates already a week stale.
             'posted_at' => now(),
-            // A paid posting's lifetime comes from its plan, counted from going
-            // live — nobody sets it by hand. An expiry already set (an admin
-            // override, or a re-approval after an edit) is left alone.
+            // A posting sent on a plan or the free post stays live for the
+            // admin-set number of days, counted from going live — nobody sets
+            // it by hand. An expiry already set (an admin override, or a
+            // re-approval after an edit) is left alone.
             'expires_at' => $this->expires_at
-                ?? ($this->isPaid() ? now()->addDays(JobPlanCatalog::liveDays($this->plan_tier)) : null),
+                ?? ($this->hasPlanSlot() ? now()->addDays(JobPlanCatalog::liveDays($this->plan_tier)) : null),
         ])->save();
     }
 

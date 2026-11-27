@@ -59,7 +59,7 @@
           @include('admin.pages.applications')
           @include('admin.pages.organisations')
           @include('admin.pages.subscriptions')
-          @include('admin.pages.job-plans')
+          @include('admin.pages.pricing')
           @include('admin.pages.payments')
           @include('admin.pages.option-lists')
           @include('admin.pages.job-filters')

@@ -524,7 +524,7 @@ class DashboardController extends ApiController
         // `paid_period_days` — so the plan lists are read per audience rather
         // than by iterating the whole file.
         $freePlanIds = collect(NotificationAudience::cases())
-            ->flatMap(fn (NotificationAudience $audience) => collect(config('plans.'.$audience->value, []))
+            ->flatMap(fn (NotificationAudience $audience) => collect(\App\Services\PlanSettings::catalogue($audience))
                 ->filter(fn (array $plan) => (bool) ($plan['is_free'] ?? false))
                 ->pluck('id'))
             ->all();

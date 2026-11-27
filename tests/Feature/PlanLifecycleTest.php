@@ -19,6 +19,7 @@ class PlanLifecycleTest extends TestCase
 
     private function postAndPay(Organisation $org): JobPosting
     {
+        $this->setPlan('recruiter_free_jobs', 0);
         $job = $this->postJson("{$this->api}/recruiter/jobs", [
             'save_as_draft' => true,
             'role' => 'Lab Technician', 'title' => 'Lab Technician', 'organisation_id' => "org_{$org->id}",
@@ -29,7 +30,7 @@ class PlanLifecycleTest extends TestCase
         ])->assertCreated()->json('data');
 
         $order = $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/orders", [
-            'tier' => 'silver', 'reach' => 'district', 'quantity' => 1, 'method' => 'upi',
+            'tier' => 'monthly', 'reach' => 'district', 'quantity' => 1, 'method' => 'upi',
         ])->assertOk()->json('data.order');
         $this->postJson("{$this->api}/payments/orders/{$order['id']}/confirm", [])->assertOk();
 
@@ -38,7 +39,7 @@ class PlanLifecycleTest extends TestCase
 
     public function test_a_paid_ad_expires_when_its_plan_says_counted_from_going_live(): void
     {
-        config(['job_plans.tiers.silver.live_days' => 45]);
+        $this->setPlan('job_live_days', 45);
         $recruiter = $this->actingAsRecruiter();
         $org = Organisation::factory()->for($recruiter, 'recruiter')->verified()->create();
 
@@ -50,14 +51,14 @@ class PlanLifecycleTest extends TestCase
 
     public function test_the_plan_card_states_the_same_number_of_days(): void
     {
-        config(['job_plans.tiers.silver.live_days' => 45]);
+        $this->setPlan('job_live_days', 45);
         $this->actingAsRecruiter();
 
-        $silver = collect($this->getJson("{$this->api}/recruiter/job-plans")->assertOk()->json('data.tiers'))
-            ->firstWhere('id', 'silver');
+        $plan = collect($this->getJson("{$this->api}/recruiter/job-plans")->assertOk()->json('data.tiers'))
+            ->firstWhere('id', 'monthly');
 
-        $this->assertSame(45, $silver['live_days']);
-        $this->assertContains('Job live for 45 days', $silver['features']);
+        $this->assertSame(45, $plan['live_days']);
+        $this->assertContains('Each job stays live for 45 days', $plan['features']);
     }
 
     public function test_after_paying_without_a_document_the_employer_sees_under_review(): void

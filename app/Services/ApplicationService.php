@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ApplicationStatus;
+use App\Enums\NotificationAudience;
 use App\Enums\ProfileField;
 use App\Http\Resources\CandidateProfileResource;
 use App\Models\Application;
@@ -22,7 +23,37 @@ use Illuminate\Validation\ValidationException;
  */
 class ApplicationService
 {
-    public function __construct(private readonly Notifier $notifier) {}
+    public function __construct(
+        private readonly Notifier $notifier,
+        private readonly SubscriptionService $subscriptions,
+    ) {}
+
+    /**
+     * Free applications left on this account, or null when its plan allows
+     * unlimited ones (the paid plan). Counted over every application ever
+     * made — the free ones are for the life of the account.
+     */
+    public function applicationsLeft(User $candidate): ?int
+    {
+        $limit = $this->subscriptions->limitFor($candidate, NotificationAudience::JobSeeker, 'applications');
+
+        if ($limit === null) {
+            return null;
+        }
+
+        return max(0, $limit - $candidate->applications()->count());
+    }
+
+    /** Said wherever an application needs the paid plan. */
+    public function planRequiredMessage(): string
+    {
+        $paid = collect(PlanSettings::seekerPlans())->firstWhere('is_free', false);
+        $free = PlanSettings::int('seeker_free_applications');
+        $used = $free === 1 ? "You've used your free job application." : ($free === 0 ? '' : "You've used your {$free} free job applications.");
+
+        return trim($used.' Get the '.$paid['name'].' plan ('.$paid['price_label'].' incl. GST) '
+            .'for unlimited job applications for '.$paid['days'].' days.');
+    }
 
     /**
      * The full requirement set for this job: §3.2's personal-info baseline —
@@ -86,6 +117,12 @@ class ApplicationService
         if ($this->ownsPosting($candidate, $job)) {
             throw ValidationException::withMessages([
                 'job_id' => ["You can't apply to a job you posted yourself."],
+            ])->status(422);
+        }
+
+        if ($this->applicationsLeft($candidate) === 0) {
+            throw ValidationException::withMessages([
+                'plan' => [$this->planRequiredMessage()],
             ])->status(422);
         }
 

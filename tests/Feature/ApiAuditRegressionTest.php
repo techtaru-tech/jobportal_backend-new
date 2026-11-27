@@ -227,6 +227,7 @@ class ApiAuditRegressionTest extends TestCase
 
     public function test_threads_with_traffic_sort_above_silent_ones(): void
     {
+        $this->withUnlimitedFreeApplications();
         [, $jobA] = $this->recruiterWithJob();
         [, $jobB] = $this->recruiterWithJob();
 

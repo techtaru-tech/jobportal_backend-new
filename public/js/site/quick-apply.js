@@ -250,6 +250,9 @@
       error: '',
       busy: false,
       app: null,
+      // The free applications are used up: the plan, offered in place.
+      plan: null,
+      planMessage: '',
 
       get dobMax() { return isoYearsAgo(16) },
       get dobMin() { return isoYearsAgo(80) },
@@ -272,6 +275,7 @@
           return
         }
         this.req = req
+        if (req.plan_required) { await this.offerPlan(req.plan_message); return }
         const me = $auth().me || (await Inthes.loadMe()) || {}
         const { fields, needsResume } = fieldsFor(req, me)
         this.fields = fields
@@ -333,6 +337,44 @@
         }
       },
 
+      /** Shows the job seeker plan (from GET /subscription) with what the server said. */
+      async offerPlan(message) {
+        this.planMessage = message || 'Get a plan to keep applying.'
+        try {
+          const sub = (await Inthes.api('/subscription')).data
+          this.plan = (sub?.plans?.jobSeeker || []).find((p) => !p.is_free) || null
+        } catch (e) { this.plan = null }
+        this.error = ''
+        this.stage = 'plan'
+      },
+
+      /** Buys the plan (Razorpay), then carries on with this application. */
+      async buyPlan() {
+        const plan = this.plan
+        if (this.busy || !plan) return
+        const method = await Inthes.pay(plan.price_label || Inthes.rupees(plan.price_paise))
+        if (!method) return
+        this.busy = true
+        this.error = ''
+        try {
+          const res = await Inthes.api('/payments/orders', { method: 'POST', body: { audience: 'jobSeeker', plan_id: plan.id, method } })
+          const order = res.data?.order || res.data
+          if (!order?.id) throw new Error('Could not start the payment. Please try again.')
+          await Inthes.confirmOrder(order.id, res.data?.checkout)
+          Inthes.toast(plan.name + ' plan activated')
+          this.busy = false
+          this.stage = 'loading'
+          await this.check()
+          // They were applying: send it, unless the profile still needs something.
+          if (this.stage === 'confirm') await this.submit()
+        } catch (e) {
+          this.busy = false
+          // Pending: processing, not failed. Cancelled: closed, nothing charged.
+          this.error = e.message || "That payment didn't go through. Please try again."
+          if (e.pending) Inthes.toast(e.message)
+        }
+      },
+
       async submit() {
         if (this.busy) return
         this.busy = true
@@ -348,6 +390,7 @@
         } catch (e) {
           this.busy = false
           // A 422 here is the server finding the profile short after all.
+          if (e.status === 422 && e.errors?.plan) { await this.offerPlan(e.message); return }
           if (e.status === 422 && e.errors?.profile) {
             try { await Inthes.loadMe(); await this.check(); this.error = e.message } catch (x) { this.stage = 'error'; this.error = e.message }
             return

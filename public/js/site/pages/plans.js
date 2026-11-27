@@ -5,9 +5,7 @@
  * both sides' plans and the active one; a paid plan is bought with the
  * two-step payment flow (POST /payments/orders → confirm), Free is a direct
  * switch (POST /subscription accepts free plans only). The employer page also
- * shows the job-posting plan prices and the credits left from earlier
- * purchases (GET /recruiter/job-plans) — read-only; they are bought while
- * posting a job.
+ * shows the free job posts left and the plan running (GET /recruiter/job-plans).
  */
 ;(function () {
   const enc = encodeURIComponent
@@ -54,14 +52,18 @@
       get currentPlan() { return this.plans.find((p) => p.id === this.active?.plan_id) || this.plans.find((p) => p.is_free) || null },
       isCurrent(plan) { return plan.id === (this.active?.plan_id || this.plans.find((p) => p.is_free)?.id) },
 
+      /** Free while a paid plan runs: it comes back on its own when the plan ends. */
+      isLocked(plan) { return plan.is_free && !!this.currentPlan && !this.currentPlan.is_free },
+
       buttonLabel(plan) {
         if (this.isCurrent(plan)) return 'Current plan'
+        if (this.isLocked(plan)) return 'After your plan ends'
         if (plan.is_free) return 'Switch to Free'
         return 'Upgrade to ' + plan.name
       },
 
       async choose(plan) {
-        if (this.isCurrent(plan) || this.busy) return
+        if (this.isCurrent(plan) || this.isLocked(plan) || this.busy) return
         if (!(await Inthes.requireRole(this.audience === 'recruiter' ? 'recruiter' : 'candidate', { reason: 'to change your plan' }))) return
         const audience = this.audience
         if (plan.is_free) {
@@ -113,28 +115,19 @@
         return ({ upi: 'UPI', card: 'Card', netbanking: 'Net banking' })[m] || m || '—'
       },
 
-      // ── job-posting plans (employer) ─────────────────────────────────
-      get tiers() { return this.jobPlans?.tiers || [] },
-      get reaches() { return this.jobPlans?.reaches || [] },
-      get credits() { return (this.jobPlans?.credits || []).filter((c) => c.remaining > 0) },
-      get creditsTotal() { return this.credits.reduce((n, c) => n + c.remaining, 0) },
-
-      price(tier, reach, qty = 1) {
-        return this.jobPlans?.prices?.[tier]?.[reach]?.[String(qty)] || null
+      // ── job posts (employer) ─────────────────────────────────────────
+      get jobPostsIntro() {
+        const p = this.jobPlans?.plan
+        if (!p) return ''
+        const free = this.jobPlans.free_jobs || 0
+        return (free ? `Your first ${free === 1 ? 'job post is' : free + ' job posts are'} free. ` : '')
+          + `The ${p.name} plan (${p.price_label} incl. GST) gives unlimited job posts for ${p.days} days.`
       },
-
-      /** The best per-job price at the largest bundle, when buying more is cheaper. */
-      bulkPrice(tier, reach) {
-        const q = this.jobPlans?.quantities || [1]
-        const last = q[q.length - 1]
-        const one = this.price(tier, reach, 1)
-        const many = this.price(tier, reach, last)
-        if (!one || !many || many.price_paise >= one.price_paise) return ''
-        return `${many.price_label}/job for ${last}+`
+      get freePostsLine() {
+        const left = this.jobPlans?.free_jobs_left || 0
+        if (left) return left === 1 ? '1 free job post left' : `${left} free job posts left`
+        return (this.jobPlans?.free_jobs || 0) ? 'Free job post used' : 'No free job posts'
       },
-
-      tierName(id) { return this.tiers.find((t) => t.id === id)?.name || id },
-      reachName(id) { return this.reaches.find((r) => r.id === id)?.name || id },
 
       postUrl: '/employer/jobs/new',
       jobUrl: (id) => '/employer/jobs/' + enc(id),

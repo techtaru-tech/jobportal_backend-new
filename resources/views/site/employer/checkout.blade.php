@@ -44,80 +44,43 @@
             <span>Your post has been saved! Add a plan to make it live and connect with the right candidates. After payment you'll be asked for your business document — the job goes live once it is verified.</span>
           </div>
 
-          {{-- postings left from an earlier pack --}}
+          {{-- the free job post, or a plan already running --}}
           <template x-for="credit in credits" :key="credit.id">
             <div class="flex flex-wrap items-center gap-md rounded-card border-hair border-success/30 bg-success-bg p-lg">
               <span class="shrink-0 text-success">@include('admin.partials.icon', ['name' => 'award', 'class' => 'h-6 w-6'])</span>
               <div class="min-w-0 flex-1">
-                <p class="text-h5 text-ink" x-text="'You have ' + credit.remaining + ' posting' + (credit.remaining === 1 ? '' : 's') + ' left'"></p>
-                <p class="text-caption text-ink-secondary" x-text="credit.label + ' — post this job on it at no extra cost.'"></p>
+                <p class="text-h5 text-ink" x-text="creditTitle(credit)"></p>
+                <p class="text-caption text-ink-secondary" x-text="creditNote(credit)"></p>
               </div>
               <button type="button" class="inline-flex h-10 items-center rounded-button bg-success px-lg text-btnghost font-semibold text-ink-onPrimary hover:bg-success/90 disabled:opacity-60"
-                      :disabled="paying" @click="useCredit(credit)">Use 1</button>
+                      :disabled="paying" @click="useCredit(credit)" x-text="credit.tier === 'free' ? 'Post free' : 'Post now'"></button>
             </div>
           </template>
 
-          <section class="wa-card">
-            <h2 class="text-h4 text-ink">How many job postings do you need?</h2>
-            <div class="mt-md flex rounded-[12px] bg-surface-muted p-[4px]">
-              <template x-for="q in quantities" :key="q">
-                <button type="button" @click="quantity = q"
-                        :class="quantityOn(q) ? 'bg-surface text-ink shadow-card' : 'text-ink-secondary hover:text-ink'"
-                        class="flex-1 rounded-[9px] py-[10px] text-caption font-semibold transition-colors sm:text-bodysm" x-text="quantityLabel(q)"></button>
-              </template>
-            </div>
-            <template x-if="quantity >= largestBucket">
-              <div class="mt-md flex items-center justify-center gap-md">
-                <button type="button" @click="changeQuantity(-1)" :disabled="quantity <= largestBucket" aria-label="Fewer" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary-light text-h3 text-primary-dark disabled:opacity-40">−</button>
-                <span class="min-w-[120px] text-center text-h4 tabular-nums text-ink" x-text="quantity + ' postings'"></span>
-                <button type="button" @click="changeQuantity(1)" :disabled="quantity >= maxQuantity" aria-label="More" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary-light text-primary-dark disabled:opacity-40">
-                  @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-5 w-5'])
-                </button>
+          {{-- the plan --}}
+          <template x-if="plan && planTier">
+            <section class="relative rounded-card border-hair border-primary bg-surface p-lg shadow-card ring-1 ring-primary">
+              <span class="absolute -top-[10px] left-lg rounded-full bg-primary px-md py-[2px] text-[10px] font-bold tracking-[0.6px] text-ink-onPrimary">UNLIMITED JOB POSTS</span>
+              <div class="flex flex-wrap items-end justify-between gap-md">
+                <div>
+                  <p class="text-h4 text-ink" x-text="plan.name + ' plan'"></p>
+                  <p class="mt-xs text-bodysm text-ink-secondary" x-text="'Post as many jobs as you need for ' + plan.days + ' days'"></p>
+                </div>
+                <div class="text-right">
+                  <span class="text-[30px] font-bold leading-none text-ink" x-text="rupees(plan.price_paise)"></span>
+                  <span class="block text-caption text-ink-secondary" x-text="'for ' + plan.days + ' days · incl. GST'"></span>
+                </div>
               </div>
-            </template>
-          </section>
-
-          <section>
-            <h2 class="mb-md text-h4 text-ink">Select a plan</h2>
-            <div class="grid gap-md xl:grid-cols-3">
-              <template x-for="t in (plans?.tiers || [])" :key="t.id">
-                <button type="button" @click="tier = t.id"
-                        :class="tier === t.id ? 'border-primary ring-1 ring-primary' : 'border-hairline hover:border-hairline-strong'"
-                        class="relative flex flex-col rounded-card border-hair bg-surface p-lg text-left shadow-card transition-colors">
-                  <template x-if="t.popular">
-                    <span class="absolute -top-[10px] left-lg rounded-full bg-primary px-md py-[2px] text-[10px] font-bold tracking-[0.6px] text-ink-onPrimary">MOST POPULAR</span>
-                  </template>
-                  <span class="flex items-center">
-                    <span class="flex-1 text-h4 text-ink" x-text="t.name"></span>
-                    <span class="flex h-5 w-5 items-center justify-center rounded-full border-2" :class="tier === t.id ? 'border-primary' : 'border-ink-muted'">
-                      <span x-show="tier === t.id" class="h-[10px] w-[10px] rounded-full bg-primary"></span>
-                    </span>
-                  </span>
-                  <template x-if="!unitPrice(t.id)"><span class="mt-xs text-bodysm text-ink-secondary">Price not set</span></template>
-                  <template x-if="unitPrice(t.id)">
-                    <span class="mt-sm block">
-                      <span class="flex flex-wrap items-baseline gap-x-sm">
-                        <span class="text-[26px] font-bold leading-none text-ink" x-text="rupees(unitPrice(t.id).price_paise)"></span>
-                        <span x-show="unitPrice(t.id).mrp_paise > unitPrice(t.id).price_paise" class="text-bodysm text-ink-muted line-through" x-text="rupees(unitPrice(t.id).mrp_paise)"></span>
-                      </span>
-                      <span class="mt-xs flex items-center gap-sm">
-                        <span class="text-caption text-ink-secondary">per posting</span>
-                        <span x-show="unitPrice(t.id).discount_percent > 0" class="rounded-[10px] border border-success px-[6px] py-[1px] text-[11px] font-semibold text-success" x-text="unitPrice(t.id).discount_percent + '% off'"></span>
-                      </span>
-                    </span>
-                  </template>
-                  <ul class="mt-md space-y-[5px] border-t border-hairline-divider pt-md">
-                    <template x-for="feat in t.features" :key="feat">
-                      <li class="flex items-start gap-sm text-bodysm text-ink-secondary">
-                        <span class="mt-[3px] shrink-0 text-success">@include('admin.partials.icon', ['name' => 'check', 'class' => 'h-[14px] w-[14px]'])</span>
-                        <span x-text="feat"></span>
-                      </li>
-                    </template>
-                  </ul>
-                </button>
-              </template>
-            </div>
-          </section>
+              <ul class="mt-md grid gap-[6px] border-t border-hairline-divider pt-md sm:grid-cols-2">
+                <template x-for="feat in planTier.features" :key="feat">
+                  <li class="flex items-start gap-sm text-bodysm text-ink-secondary">
+                    <span class="mt-[3px] shrink-0 text-success">@include('admin.partials.icon', ['name' => 'check', 'class' => 'h-[14px] w-[14px]'])</span>
+                    <span x-text="feat"></span>
+                  </li>
+                </template>
+              </ul>
+            </section>
+          </template>
         </div>
 
         {{-- order summary --}}
@@ -140,14 +103,9 @@
             <div class="wa-card !p-lg">
               <p class="wa-section-title">Order summary</p>
               <dl class="mt-md space-y-sm text-bodysm">
-                <div class="flex justify-between gap-md"><dt class="text-ink-secondary">Plan</dt><dd class="font-semibold text-ink" x-text="tierName + ' · District reach'"></dd></div>
-                <div class="flex justify-between gap-md" x-show="unit">
-                  <dt class="text-ink-secondary" x-text="quantity + ' × ' + (unit ? rupees(unit.price_paise) : '')"></dt>
-                  <dd class="text-ink" x-text="rupees(mrpPaise)" :class="savingPaise > 0 && 'text-ink-muted line-through'"></dd>
-                </div>
-                <div class="flex justify-between gap-md text-success" x-show="savingPaise > 0">
-                  <dt>Discount</dt><dd x-text="'− ' + rupees(savingPaise)"></dd>
-                </div>
+                <div class="flex justify-between gap-md"><dt class="text-ink-secondary">Plan</dt><dd class="font-semibold text-ink" x-text="plan ? plan.name + ' · ' + plan.days + ' days' : ''"></dd></div>
+                <div class="flex justify-between gap-md"><dt class="text-ink-secondary">Job posts</dt><dd class="text-ink">Unlimited</dd></div>
+                <div class="flex justify-between gap-md"><dt class="text-ink-secondary">GST</dt><dd class="text-ink">Included</dd></div>
               </dl>
               <div class="mt-md flex items-baseline justify-between border-t border-hairline-divider pt-md">
                 <span class="text-h5 text-ink">Total</span>

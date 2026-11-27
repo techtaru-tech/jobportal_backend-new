@@ -272,7 +272,7 @@ Route::prefix('v1')->group(function () {
             Route::get('subscriptions/plans', [Admin\SubscriptionController::class, 'plans']);
 
             // Post a Job ▸ Choose plan — the price grid.
-            Route::get('job-plans', [Admin\JobPlanController::class, 'index']);
+            Route::get('plans', [Admin\PlanController::class, 'index']);
             Route::get('payments', [Admin\PaymentController::class, 'index']);
             Route::get('payments/settings', [Admin\PaymentController::class, 'settings']);
 
@@ -300,7 +300,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('jobs/{jobId}/approve', [Admin\JobPostingController::class, 'approve']);
                 Route::post('jobs/{jobId}/reject', [Admin\JobPostingController::class, 'reject']);
 
-                Route::put('job-plans', [Admin\JobPlanController::class, 'update']);
+                Route::put('plans', [Admin\PlanController::class, 'update']);
                 Route::put('payments/settings', [Admin\PaymentController::class, 'updateSettings']);
                 Route::post('payments/settings/test', [Admin\PaymentController::class, 'testConnection']);
 

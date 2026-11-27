@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\JobPostingStatus;
 use App\Models\AppNotification;
 use App\Models\JobCredit;
-use App\Models\JobPlanPrice;
 use App\Models\JobPosting;
 use App\Models\Organisation;
 use App\Models\User;
@@ -21,8 +20,10 @@ class PostJobFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function recruiterWithOrg(bool $verified = false, bool $withDocument = true): array
+    /** `$freePosts` 0 by default: most tests here are about paying. */
+    private function recruiterWithOrg(bool $verified = false, bool $withDocument = true, int $freePosts = 0): array
     {
+        $this->setPlan('recruiter_free_jobs', $freePosts);
         $recruiter = $this->actingAsRecruiter();
         $factory = Organisation::factory()->for($recruiter, 'recruiter');
         if ($verified) {
@@ -68,7 +69,7 @@ class PostJobFlowTest extends TestCase
             ->json('data');
     }
 
-    private function payFor(string $jobId, string $tier = 'silver', string $reach = 'district', int $quantity = 1): array
+    private function payFor(string $jobId, string $tier = 'monthly', string $reach = 'district', int $quantity = 1): array
     {
         $order = $this->postJson("{$this->api}/recruiter/jobs/{$jobId}/orders", [
             'tier' => $tier,
@@ -102,19 +103,91 @@ class PostJobFlowTest extends TestCase
         $this->saveDraft($org, ['title' => 'Second Technician']);
     }
 
-    public function test_the_plan_step_lists_tiers_reaches_and_prices(): void
+    public function test_the_plan_step_offers_one_monthly_plan(): void
     {
         $this->recruiterWithOrg();
 
         $plans = $this->getJson("{$this->api}/recruiter/job-plans")->assertOk()->json('data');
 
-        $this->assertSame(['basic', 'silver', 'gold'], array_column($plans['tiers'], 'id'));
-        $this->assertSame(['district', 'state'], array_column($plans['reaches'], 'id'));
-        $this->assertSame([1, 2, 3, 4], $plans['quantities']);
-        $this->assertSame('₹2,299', $plans['prices']['silver']['district']['1']['price_label']);
-        $this->assertSame('₹2,999', $plans['prices']['silver']['district']['1']['mrp_label']);
-        $this->assertSame(23, $plans['prices']['silver']['district']['1']['discount_percent']);
+        $this->assertSame(['monthly'], array_column($plans['tiers'], 'id'));
+        $this->assertSame(['district'], array_column($plans['reaches'], 'id'));
+        $this->assertSame([1], $plans['quantities']);
+        $this->assertSame('₹1,999', $plans['prices']['monthly']['district']['1']['price_label']);
+        $this->assertSame(199900, $plans['plan']['price_paise']);
+        $this->assertSame(30, $plans['plan']['days']);
+        $this->assertTrue($plans['plan']['gst_included']);
+        $this->assertContains('Unlimited job posts for 30 days', $plans['tiers'][0]['features']);
         $this->assertSame([], $plans['credits']);
+        $this->assertNull($plans['active_plan']);
+    }
+
+    public function test_the_first_job_post_is_free_and_the_next_needs_the_plan(): void
+    {
+        [, $org] = $this->recruiterWithOrg(verified: true, freePosts: 1);
+
+        $plans = $this->getJson("{$this->api}/recruiter/job-plans")->json('data');
+        $this->assertSame(1, $plans['free_jobs_left']);
+        $this->assertSame('free', $plans['credits'][0]['tier']);
+        $this->assertSame('Your free job post', $plans['credits'][0]['label']);
+
+        $first = $this->saveDraft($org);
+        $this->postJson("{$this->api}/recruiter/jobs/{$first['id']}/use-credit")
+            ->assertOk()
+            ->assertJsonPath('data.posting_status', 'pending_approval')
+            ->assertJsonPath('data.plan_tier', 'free');
+
+        // Free posts are reviewed as before: only paid posts of a verified
+        // company skip the queue.
+        $saved = JobPosting::find((int) substr($first['id'], 2));
+        $this->assertFalse($saved->isPaid());
+        $this->assertSame(JobPostingStatus::PendingApproval, $saved->posting_status);
+
+        $this->assertSame(0, $this->getJson("{$this->api}/recruiter/job-plans")->json('data.free_jobs_left'));
+
+        $second = $this->saveDraft($org, ['title' => 'Second Technician']);
+        $this->postJson("{$this->api}/recruiter/jobs/{$second['id']}/use-credit")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.plan.0', "You've used your free job post. Get the Monthly plan (₹1,999 incl. GST) for unlimited job posts for 30 days.");
+
+        // Paying covers it.
+        $this->payFor($second['id']);
+        $this->assertSame(JobPostingStatus::Active, JobPosting::find((int) substr($second['id'], 2))->posting_status);
+    }
+
+    public function test_an_approved_free_post_stays_live_for_the_set_days(): void
+    {
+        $this->setPlan('job_live_days', 20);
+        [, $org] = $this->recruiterWithOrg(freePosts: 1);
+        $job = $this->saveDraft($org);
+        $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/use-credit")->assertOk();
+
+        $saved = JobPosting::find((int) substr($job['id'], 2));
+        $saved->markApproved(null);
+
+        $this->assertEqualsWithDelta(20, now()->diffInDays($saved->fresh()->expires_at), 0.01);
+    }
+
+    public function test_an_account_that_posted_before_has_had_its_free_post(): void
+    {
+        [$recruiter, $org] = $this->recruiterWithOrg(freePosts: 1);
+        JobPosting::factory()->create([
+            'user_id' => $recruiter->id,
+            'organisation_id' => $org->id,
+            'posting_status' => JobPostingStatus::Active,
+        ]);
+
+        $this->assertSame(0, $this->getJson("{$this->api}/recruiter/job-plans")->json('data.free_jobs_left'));
+    }
+
+    public function test_raising_the_free_posts_in_admin_reaches_existing_accounts(): void
+    {
+        [, $org] = $this->recruiterWithOrg(freePosts: 1);
+        $job = $this->saveDraft($org);
+        $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/use-credit")->assertOk();
+
+        $this->setPlan('recruiter_free_jobs', 3);
+
+        $this->assertSame(2, $this->getJson("{$this->api}/recruiter/job-plans")->json('data.free_jobs_left'));
     }
 
     public function test_paying_sends_the_post_for_review_while_the_document_is_checked(): void
@@ -122,15 +195,15 @@ class PostJobFlowTest extends TestCase
         [$recruiter, $org] = $this->recruiterWithOrg();
         $job = $this->saveDraft($org);
 
-        $order = $this->payFor($job['id'], 'silver', 'district', 1);
+        $order = $this->payFor($job['id']);
 
         $this->assertSame('paid', $order['status']);
-        $this->assertSame(229900, $order['amount_paise']);
-        $this->assertSame('Silver · 1 posting', $order['plan_name']);
+        $this->assertSame(199900, $order['amount_paise']);
+        $this->assertSame('Monthly plan · unlimited job posts', $order['plan_name']);
 
         $saved = JobPosting::find((int) substr($job['id'], 2));
         $this->assertSame(JobPostingStatus::PendingApproval, $saved->posting_status);
-        $this->assertSame('silver', $saved->plan_tier);
+        $this->assertSame('monthly', $saved->plan_tier);
         $this->assertSame('document_under_review', $saved->hiringStage());
         $this->assertSame('Document submitted – Under review', $saved->hiringStageLabel());
 
@@ -174,7 +247,7 @@ class PostJobFlowTest extends TestCase
     {
         [$recruiter, $org] = $this->recruiterWithOrg(withDocument: false);
         $first = $this->saveDraft($org);
-        $this->payFor($first['id'], 'silver', 'district', 2);
+        $this->payFor($first['id']);
         $second = $this->saveDraft($org);
 
         $this->postJson("{$this->api}/recruiter/jobs/{$second['id']}/use-credit")->assertOk();
@@ -183,26 +256,72 @@ class PostJobFlowTest extends TestCase
         $this->assertSame('paid_document_missing', $saved->hiringStage());
     }
 
-    public function test_a_pack_leaves_postings_for_the_next_job_with_no_payment(): void
+    public function test_the_plan_covers_every_next_job_with_no_payment(): void
     {
         [, $org] = $this->recruiterWithOrg();
         $first = $this->saveDraft($org);
 
-        $order = $this->payFor($first['id'], 'gold', 'state', 3);
-        $this->assertSame(279900 * 3, $order['amount_paise']);
+        $order = $this->payFor($first['id']);
+        $this->assertSame(199900, $order['amount_paise']);
 
-        $credits = $this->getJson("{$this->api}/recruiter/job-plans")->json('data.credits');
-        $this->assertCount(1, $credits);
-        $this->assertSame(2, $credits[0]['remaining']);
+        $plans = $this->getJson("{$this->api}/recruiter/job-plans")->json('data');
+        $this->assertCount(1, $plans['credits']);
+        $this->assertTrue($plans['credits'][0]['unlimited']);
+        $this->assertNotNull($plans['active_plan']['expires_at']);
 
-        $second = $this->saveDraft($org, ['title' => 'Senior Lab Technician']);
-        $this->postJson("{$this->api}/recruiter/jobs/{$second['id']}/use-credit")
-            ->assertOk()
-            ->assertJsonPath('data.posting_status', 'pending_approval')
-            ->assertJsonPath('data.plan_tier', 'gold')
-            ->assertJsonPath('data.plan_reach', 'state');
+        foreach (['Senior Lab Technician', 'Night Lab Technician', 'Lab Assistant'] as $title) {
+            $next = $this->saveDraft($org, ['title' => $title]);
+            $this->postJson("{$this->api}/recruiter/jobs/{$next['id']}/use-credit")
+                ->assertOk()
+                ->assertJsonPath('data.posting_status', 'pending_approval')
+                ->assertJsonPath('data.plan_tier', 'monthly');
+        }
 
-        $this->assertSame(2, JobCredit::first()->used);
+        $this->assertSame(4, JobCredit::where('tier', 'monthly')->first()->used);
+
+        // My Plan says the same thing.
+        $this->getJson("{$this->api}/subscription")
+            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_monthly');
+    }
+
+    public function test_the_plan_lapses_after_its_days(): void
+    {
+        [, $org] = $this->recruiterWithOrg();
+        $this->payFor($this->saveDraft($org)['id']);
+
+        $this->travel(31)->days();
+
+        $next = $this->saveDraft($org, ['title' => 'After the month']);
+        $this->postJson("{$this->api}/recruiter/jobs/{$next['id']}/use-credit")->assertStatus(422);
+        $this->getJson("{$this->api}/subscription")
+            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_free');
+    }
+
+    public function test_buying_the_plan_again_adds_to_the_running_one(): void
+    {
+        [$recruiter] = $this->recruiterWithOrg();
+        $this->onEmployerPlan($recruiter);
+
+        $order = $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'recruiter', 'plan_id' => 'recruiter_monthly', 'method' => 'upi',
+        ])->assertOk()->json('data.order');
+        $this->postJson("{$this->api}/payments/orders/{$order['id']}/confirm")->assertOk();
+
+        $ends = JobCredit::where('tier', 'monthly')->orderByDesc('expires_at')->first()->expires_at;
+        $this->assertEqualsWithDelta(60, now()->diffInDays($ends), 0.01);
+    }
+
+    public function test_a_refund_ends_the_plan(): void
+    {
+        [, $org] = $this->recruiterWithOrg();
+        $order = $this->payFor($this->saveDraft($org)['id']);
+
+        app(\App\Services\Payments\PaymentRefunds::class)
+            ->refund(\App\Models\PaymentOrder::find($order['id']), 'test');
+
+        $this->assertSame([], $this->getJson("{$this->api}/recruiter/job-plans")->json('data.credits'));
+        $this->getJson("{$this->api}/subscription")
+            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_free');
     }
 
     public function test_using_a_credit_with_none_left_is_refused(): void
@@ -212,7 +331,7 @@ class PostJobFlowTest extends TestCase
 
         $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/use-credit")
             ->assertStatus(422)
-            ->assertJsonStructure(['errors' => ['credit_id']]);
+            ->assertJsonStructure(['errors' => ['plan']]);
     }
 
     public function test_a_post_cannot_be_paid_for_twice(): void
@@ -222,7 +341,7 @@ class PostJobFlowTest extends TestCase
         $this->payFor($job['id']);
 
         $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/orders", [
-            'tier' => 'basic', 'reach' => 'district', 'quantity' => 1, 'method' => 'card',
+            'tier' => 'monthly', 'reach' => 'district', 'quantity' => 1, 'method' => 'card',
         ])->assertStatus(422);
     }
 
@@ -277,30 +396,39 @@ class PostJobFlowTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Paid Technician')
             ->assertJsonPath('data.0.stage_label', 'Document submitted – Under review')
-            ->assertJsonPath('data.0.plan', 'Silver · District');
+            ->assertJsonPath('data.0.plan', 'Monthly · District');
     }
 
     public function test_the_admin_edited_price_is_what_is_charged(): void
     {
         [, $org] = $this->recruiterWithOrg();
-        JobPlanPrice::where(['tier' => 'basic', 'reach' => 'state', 'quantity' => 2])
-            ->update(['price_paise' => 150000]);
+        $this->setPlan('recruiter_price_paise', 150000);
         $job = $this->saveDraft($org);
 
-        $order = $this->payFor($job['id'], 'basic', 'state', 2);
+        $order = $this->payFor($job['id']);
 
-        $this->assertSame(300000, $order['amount_paise']);
+        $this->assertSame(150000, $order['amount_paise']);
     }
 
-    public function test_four_plus_postings_are_charged_at_the_largest_rows_rate(): void
+    public function test_an_older_client_asking_for_several_postings_pays_for_the_plan_once(): void
     {
         [, $org] = $this->recruiterWithOrg();
         $job = $this->saveDraft($org);
 
-        $order = $this->payFor($job['id'], 'basic', 'district', 6);
+        $order = $this->payFor($job['id'], 'monthly', 'district', 6);
 
-        $this->assertSame(189900 * 6, $order['amount_paise']);
-        $this->assertSame(6, JobCredit::first()->total);
+        $this->assertSame(199900, $order['amount_paise']);
+        $this->assertSame(\App\Services\JobPlanCatalog::UNLIMITED, JobCredit::first()->total);
+    }
+
+    public function test_a_retired_tier_cannot_be_bought(): void
+    {
+        [, $org] = $this->recruiterWithOrg();
+        $job = $this->saveDraft($org);
+
+        $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/orders", [
+            'tier' => 'gold', 'reach' => 'district', 'quantity' => 1, 'method' => 'upi',
+        ])->assertStatus(422);
     }
 
     public function test_a_number_to_call_is_required_once_calls_are_chosen(): void
@@ -344,7 +472,8 @@ class PostJobFlowTest extends TestCase
             'contact_mode' => 'apply_only',
             'contact_phone' => '9000379865',
         ]);
-        $this->payFor($applyOnly['id']);
+        // Covered by the plan just bought.
+        $this->postJson("{$this->api}/recruiter/jobs/{$applyOnly['id']}/use-credit")->assertOk();
 
         $this->actingAsCandidate();
         $jobs = collect($this->getJson("{$this->api}/jobs")->assertOk()->json('data'))->keyBy('title');
@@ -395,36 +524,61 @@ class PostJobFlowTest extends TestCase
         $this->actingAs(User::factory()->recruiter()->create());
 
         $this->postJson("{$this->api}/recruiter/jobs/{$job['id']}/orders", [
-            'tier' => 'basic', 'reach' => 'district', 'quantity' => 1, 'method' => 'upi',
+            'tier' => 'monthly', 'reach' => 'district', 'quantity' => 1, 'method' => 'upi',
         ])->assertNotFound();
     }
 
-    public function test_admin_edits_the_price_grid_and_it_is_audited(): void
+    private function planForm(array $overrides = []): array
+    {
+        return array_merge([
+            'recruiter_plan_name' => 'Monthly', 'recruiter_price' => 1999, 'recruiter_days' => 30,
+            'recruiter_free_jobs' => 1, 'job_live_days' => 30,
+            'seeker_plan_name' => 'Pro', 'seeker_price' => 99, 'seeker_days' => 30,
+            'seeker_free_applications' => 1, 'seeker_includes_resume' => true, 'resume_price' => 20,
+        ], $overrides);
+    }
+
+    public function test_admin_sets_prices_free_limits_and_days_and_it_is_audited(): void
     {
         $this->actingAsAdmin();
 
-        $grid = $this->getJson("{$this->api}/admin/job-plans")->assertOk()->json('data');
-        $this->assertCount(3 * 2 * 4, $grid['prices']);
+        $this->getJson("{$this->api}/admin/plans")->assertOk()
+            ->assertJsonPath('data.form.recruiter_price', 1999)
+            ->assertJsonPath('data.form.recruiter_free_jobs', 1)
+            ->assertJsonPath('data.form.seeker_price', 99);
 
-        $this->putJson("{$this->api}/admin/job-plans", [
-            'prices' => [['tier' => 'gold', 'reach' => 'state', 'quantity' => 1, 'price' => 3299, 'mrp' => 4499]],
-        ])->assertOk()->assertJsonPath('message', '1 price(s) updated.');
+        $this->putJson("{$this->api}/admin/plans", $this->planForm([
+            'recruiter_price' => 2499, 'recruiter_days' => 45, 'recruiter_free_jobs' => 2,
+            'seeker_price' => 149, 'seeker_free_applications' => 3, 'resume_price' => 30,
+        ]))->assertOk()
+            ->assertJsonPath('data.form.recruiter_price', 2499)
+            ->assertJsonPath('data.preview.recruiter.1.price_label', '₹2,499')
+            ->assertJsonPath('data.preview.recruiter.1.billing_period', 'for 45 days')
+            ->assertJsonPath('data.preview.jobSeeker.1.price_paise', 14900)
+            ->assertJsonPath('data.preview.resume.price_paise', 3000);
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'plans.update']);
 
-        $this->assertSame(329900, JobPlanPrice::where(['tier' => 'gold', 'reach' => 'state', 'quantity' => 1])->value('price_paise'));
-        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'job_plans.update']);
+        // What employers are now offered.
+        $this->actingAsRecruiter();
+        $plans = $this->getJson("{$this->api}/recruiter/job-plans")->json('data');
+        $this->assertSame(249900, $plans['plan']['price_paise']);
+        $this->assertSame(45, $plans['plan']['days']);
+        $this->assertSame(2, $plans['free_jobs_left']);
+    }
 
-        // An MRP below the price would show a negative discount.
-        $this->putJson("{$this->api}/admin/job-plans", [
-            'prices' => [['tier' => 'gold', 'reach' => 'state', 'quantity' => 1, 'price' => 3299, 'mrp' => 100]],
-        ])->assertStatus(422);
+    public function test_a_plan_price_must_be_positive(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->putJson("{$this->api}/admin/plans", $this->planForm(['recruiter_price' => 0]))
+            ->assertStatus(422)->assertJsonValidationErrors('recruiter_price');
     }
 
     public function test_a_read_only_operator_cannot_change_prices(): void
     {
         $this->actingAsAdmin('viewer');
 
-        $this->putJson("{$this->api}/admin/job-plans", [
-            'prices' => [['tier' => 'gold', 'reach' => 'state', 'quantity' => 1, 'price' => 1]],
-        ])->assertForbidden();
+        $this->getJson("{$this->api}/admin/plans")->assertOk();
+        $this->putJson("{$this->api}/admin/plans", $this->planForm())->assertForbidden();
     }
 }

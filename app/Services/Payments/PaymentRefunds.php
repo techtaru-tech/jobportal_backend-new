@@ -5,6 +5,7 @@ namespace App\Services\Payments;
 use App\Enums\PaymentStatus;
 use App\Models\JobCredit;
 use App\Models\PaymentOrder;
+use App\Models\Subscription;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -51,23 +52,41 @@ class PaymentRefunds
                 'failure_reason' => $reason,
             ])->save();
 
-            if ($order->plan_id === PaymentService::JOB_PLAN) {
-                JobCredit::query()
-                    ->where('payment_order_id', $order->id)
-                    ->get()
-                    ->each(fn (JobCredit $credit) => $credit->forceFill([
-                        'total' => $credit->used,
-                        'expires_at' => now(),
-                    ])->save());
-
-                return;
-            }
+            // Job posts the order paid for (a pack, or the employer plan
+            // however it was bought) close: what was already posted stays.
+            JobCredit::query()
+                ->where('payment_order_id', $order->id)
+                ->get()
+                ->each(fn (JobCredit $credit) => $credit->forceFill([
+                    'total' => $credit->used,
+                    'expires_at' => now(),
+                ])->save());
 
             $oneOff = PaymentService::oneOffById((string) $order->plan_id);
             if ($oneOff !== null) {
                 $order->user()->first()?->candidateProfile()->first()
                     ?->forceFill([$oneOff['grant'] => null])
                     ->save();
+
+                return;
+            }
+
+            // A refunded plan ends now; no later paid order means nothing
+            // else is keeping it running.
+            $laterPaid = PaymentOrder::query()
+                ->where('user_id', $order->user_id)
+                ->where('audience', $order->audience)
+                ->where('status', PaymentStatus::Paid)
+                ->where('id', '!=', $order->id)
+                ->where('paid_at', '>=', $order->paid_at ?? $order->created_at)
+                ->exists();
+            if (! $laterPaid) {
+                Subscription::query()
+                    ->where('user_id', $order->user_id)
+                    ->where('audience', $order->audience)
+                    ->whereNotNull('expires_at')
+                    ->where('expires_at', '>', now())
+                    ->update(['expires_at' => now()]);
             }
         });
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NotificationAudience;
+use App\Services\PlanSettings;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -52,12 +53,18 @@ class Subscription extends Model
     /** @return array<int, array<string, mixed>> */
     public static function catalogue(NotificationAudience $audience): array
     {
-        return config('plans.'.$audience->value, []);
+        return PlanSettings::catalogue($audience);
     }
 
     /** @return array<string, mixed>|null */
     public static function planById(NotificationAudience $audience, string $planId): ?array
     {
+        // The retired ₹999 recruiter plan reads as today's paid plan, so an
+        // account that bought it keeps a paid plan until it lapses.
+        if ($planId === PlanSettings::RECRUITER_LEGACY) {
+            $planId = PlanSettings::RECRUITER_PAID;
+        }
+
         foreach (static::catalogue($audience) as $plan) {
             if ($plan['id'] === $planId) {
                 return $plan;

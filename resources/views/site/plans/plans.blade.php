@@ -4,8 +4,8 @@
     @include('site.plans.plans', ['audience' => 'jobSeeker'])   // or 'recruiter'
 
   Plan cards side by side (pricing-page style), the current plan and its end
-  date, payment history, and — for employers — the job-posting plan prices
-  and remaining posting credits. Behaviour in js/site/pages/plans.js.
+  date, payment history, and — for employers — the free job posts left and
+  the plan running. Behaviour in js/site/pages/plans.js.
 --}}
 @push('page-scripts')
 <script defer src="{{ asset('js/site/pages/plans.js') }}?v={{ filemtime(public_path('js/site/pages/plans.js')) }}"></script>
@@ -18,7 +18,7 @@
     <div class="min-w-0 flex-1">
       <h1 class="text-h2 text-ink">{{ $isRecruiter ? 'Plan & billing' : 'My plan' }}</h1>
       <p class="mt-xs text-bodysm text-ink-secondary">
-        {{ $isRecruiter ? 'Grow your hiring pipeline with more visibility and no posting limits.' : 'Stand out to recruiters and get first access to new listings.' }}
+        {{ $isRecruiter ? 'Your first job post is free. Then post as many jobs as you need with one plan.' : 'Your first application is free. Then apply to as many jobs as you like with one plan.' }}
       </p>
     </div>
   </div>
@@ -85,8 +85,8 @@
               </ul>
               <p x-show="isCurrent(plan) && active?.expires_at" class="mt-lg text-caption text-ink-secondary"
                  x-text="'Active until ' + fmtDate(active?.expires_at)"></p>
-              <button type="button" @click="choose(plan)" :disabled="isCurrent(plan) || !!busy"
-                      :class="isCurrent(plan) ? 'wa-btn-ghost !border-hairline !text-ink-secondary' : (plan.is_free ? 'wa-btn-ghost' : 'wa-btn')"
+              <button type="button" @click="choose(plan)" :disabled="isCurrent(plan) || isLocked(plan) || !!busy"
+                      :class="isCurrent(plan) || isLocked(plan) ? 'wa-btn-ghost !border-hairline !text-ink-secondary' : (plan.is_free ? 'wa-btn-ghost' : 'wa-btn')"
                       class="mt-lg w-full">
                 <span x-show="busy === plan.id" x-html="ICONS.loader" class="animate-spin [&>svg]:h-5 [&>svg]:w-5"></span>
                 <span x-text="buttonLabel(plan)"></span>
@@ -97,82 +97,39 @@
       </section>
 
       @if ($isRecruiter)
-        {{-- Job-posting plans (bought per job while posting) --}}
+        {{-- Job posts: the free ones left and the plan running --}}
         <section>
           <div class="flex flex-wrap items-end gap-md">
             <div class="min-w-0 flex-1">
-              <p class="wa-section-title">Job posting plans</p>
-              <p class="mt-xs text-bodysm text-ink-secondary">Each job you publish uses one posting. Pick a plan when you post; buy several at once to pay less per job — unused postings stay as credits.</p>
+              <p class="wa-section-title">Your job posts</p>
+              <p class="mt-xs text-bodysm text-ink-secondary" x-text="jobPostsIntro"></p>
             </div>
             <a href="{{ url('/employer/jobs/new') }}" class="wa-btn-sm">
               @include('admin.partials.icon', ['name' => 'plus', 'class' => 'h-4 w-4'])Post a job
             </a>
           </div>
 
-          {{-- Credits --}}
           <div class="mt-lg rounded-card border-hair border-hairline bg-surface px-xl py-lg shadow-card">
             <template x-if="!jobPlans">
-              <p class="text-bodysm text-ink-muted">Loading your posting credits…</p>
+              <p class="text-bodysm text-ink-muted">Loading…</p>
             </template>
-            <template x-if="jobPlans && credits.length === 0">
-              <p class="flex items-center gap-sm text-bodysm text-ink-secondary">
-                <span x-html="ICONS.info" class="text-ink-muted [&>svg]:h-4 [&>svg]:w-4"></span>
-                No posting credits left. Buy a plan when you post your next job.
-              </p>
-            </template>
-            <template x-if="credits.length > 0">
-              <div>
-                <p class="text-h5 text-ink"><span x-text="creditsTotal"></span> posting credit<span x-show="creditsTotal !== 1">s</span> left</p>
-                <ul class="mt-sm flex flex-wrap gap-sm">
-                  <template x-for="c in credits" :key="c.id">
-                    <li class="wa-tag">
-                      <span x-text="c.label || (tierName(c.tier) + ' · ' + reachName(c.reach) + ' · ' + c.remaining + ' left')"></span>
-                      <span x-show="c.expires_at" class="text-ink-muted" x-text="'· until ' + fmtDate(c.expires_at)"></span>
-                    </li>
-                  </template>
-                </ul>
-              </div>
+            <template x-if="jobPlans">
+              <ul class="space-y-sm text-bodysm">
+                <li class="flex items-center gap-sm" x-show="jobPlans.active_plan">
+                  <span x-html="ICONS.checkCircle" class="shrink-0 text-success [&>svg]:h-4 [&>svg]:w-4"></span>
+                  <span class="text-ink"><span class="font-semibold" x-text="(jobPlans.plan?.name || 'Monthly') + ' plan active'"></span> — unlimited job posts until <span class="font-semibold" x-text="fmtDate(jobPlans.active_plan?.expires_at)"></span></span>
+                </li>
+                <li class="flex items-center gap-sm">
+                  <span x-html="ICONS.award" class="shrink-0 text-primary [&>svg]:h-4 [&>svg]:w-4"></span>
+                  <span class="text-ink" x-text="freePostsLine"></span>
+                </li>
+                <li class="flex items-center gap-sm" x-show="!jobPlans.active_plan && !jobPlans.free_jobs_left">
+                  <span x-html="ICONS.info" class="shrink-0 text-ink-muted [&>svg]:h-4 [&>svg]:w-4"></span>
+                  <span class="text-ink-secondary" x-text="'Get the ' + (jobPlans.plan?.name || 'Monthly') + ' plan above, or when you post your next job.'"></span>
+                </li>
+              </ul>
             </template>
           </div>
-
-          {{-- Price per job: tier × reach --}}
-          <div class="mt-lg grid gap-lg md:grid-cols-3" x-show="tiers.length">
-            <template x-for="t in tiers" :key="t.id">
-              <div class="relative flex flex-col rounded-card border-hair bg-surface p-xl shadow-card" :class="t.popular ? 'border-primary' : 'border-hairline'">
-                <span x-show="t.popular" class="absolute -top-[11px] left-xl rounded-full bg-primary px-md py-[3px] text-[11px] font-bold tracking-wide text-ink-onPrimary">POPULAR</span>
-                <h3 class="text-h4 text-ink" x-text="t.name"></h3>
-                <div class="mt-md divide-y divide-hairline-divider rounded-field border-hair border-hairline">
-                  <template x-for="r in reaches" :key="r.id">
-                    <div class="flex items-start gap-sm px-md py-sm" :title="r.description">
-                      <div class="min-w-0 flex-1">
-                        <p class="text-bodysm font-semibold text-ink" x-text="r.name"></p>
-                        <p class="text-[11.5px] text-ink-muted" x-text="bulkPrice(t.id, r.id)"></p>
-                      </div>
-                      <div class="text-right">
-                        <p class="text-bodysm font-bold text-ink" x-text="price(t.id, r.id)?.price_label || '—'"></p>
-                        <p class="text-[11.5px]" x-show="price(t.id, r.id)?.mrp_label">
-                          <span class="text-ink-muted line-through" x-text="price(t.id, r.id)?.mrp_label"></span>
-                          <span class="font-semibold text-success" x-show="price(t.id, r.id)?.discount_percent" x-text="price(t.id, r.id)?.discount_percent + '% off'"></span>
-                        </p>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-                <ul class="mt-lg space-y-xs">
-                  <template x-for="f in t.features" :key="f">
-                    <li class="flex items-start gap-sm text-bodysm text-ink">
-                      <span x-html="ICONS.check" class="mt-[3px] shrink-0 text-success [&>svg]:h-[14px] [&>svg]:w-[14px]"></span>
-                      <span x-text="f"></span>
-                    </li>
-                  </template>
-                </ul>
-              </div>
-            </template>
-          </div>
-          <p class="mt-md text-caption text-ink-muted" x-show="reaches.length">
-            Price per job.
-            <template x-for="r in reaches" :key="r.id"><span><span class="font-semibold" x-text="r.name + ':'"></span> <span x-text="r.description + ' '"></span></span></template>
-          </p>
         </section>
       @endif
 

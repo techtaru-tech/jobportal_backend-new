@@ -34,7 +34,7 @@ class PaymentTest extends TestCase
     {
         return $this->postJson("{$this->api}/payments/orders", array_merge([
             'audience' => 'recruiter',
-            'plan_id' => 'recruiter_business',
+            'plan_id' => 'recruiter_monthly',
             'method' => 'upi',
         ], $overrides))->json('data');
     }
@@ -59,12 +59,12 @@ class PaymentTest extends TestCase
 
         $this->postJson("{$this->api}/payments/orders", [
             'audience' => 'recruiter',
-            'plan_id' => 'recruiter_business',
+            'plan_id' => 'recruiter_monthly',
             'method' => 'upi',
         ])
             ->assertOk()
-            ->assertJsonPath('data.order.amount_paise', 99900)
-            ->assertJsonPath('data.order.amount_label', '₹999')
+            ->assertJsonPath('data.order.amount_paise', 199900)
+            ->assertJsonPath('data.order.amount_label', '₹1,999')
             ->assertJsonPath('data.order.status', 'created')
             ->assertJsonPath('data.order.method', 'upi');
     }
@@ -128,7 +128,7 @@ class PaymentTest extends TestCase
             ->assertJsonPath('data.order.status', 'paid');
 
         $this->getJson("{$this->api}/subscription")
-            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_business');
+            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_monthly');
 
         $this->assertNotNull(PaymentOrder::find($order['id'])->paid_at);
     }
@@ -185,7 +185,7 @@ class PaymentTest extends TestCase
     {
         $this->postJson("{$this->api}/payments/orders", [
             'audience' => 'recruiter',
-            'plan_id' => 'recruiter_business',
+            'plan_id' => 'recruiter_monthly',
             'method' => 'upi',
         ])->assertUnauthorized();
     }

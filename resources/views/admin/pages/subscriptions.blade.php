@@ -17,7 +17,7 @@
     <template x-if="plans.data">
       <div class="mb-xl">
         @include('admin.partials.section-eyebrow', [
-          'title' => 'Catalogue', 'hint' => 'Configured in config/plans.php — not editable here',
+          'title' => 'Catalogue', 'hint' => 'Edit prices and free limits in Plans & pricing',
         ])
         <div class="grid grid-cols-1 gap-md lg:grid-cols-2">
           <template x-for="audience in Object.keys(plans.data.audiences)" :key="audience">

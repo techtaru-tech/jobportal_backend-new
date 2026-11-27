@@ -1,7 +1,8 @@
 /**
  * /employer/jobs/{id}/checkout — the app's "Choose plan" step as a checkout
- * page: plan tiers, how many postings, postings left from an earlier pack,
- * the order total, and payment (POST …/orders → Inthes.confirmOrder).
+ * page. One plan (unlimited job posts for N days, price incl. GST, both set
+ * in Admin → Plans & pricing); the free job post or a running plan is used
+ * instead when there is one; payment is POST …/orders → Inthes.confirmOrder.
  * The business document is not a condition of paying: it is asked for on
  * the "under review" screen that follows (partials/submitted).
  * Every plan is bought at District reach — the app offers no other.
@@ -18,8 +19,7 @@ document.addEventListener('alpine:init', () => {
     job: null,
     org: null,
     plans: null,
-    tier: '',
-    quantity: 1,
+    tier: 'monthly',
     paying: false,
     submitted: null,
 
@@ -42,8 +42,7 @@ document.addEventListener('alpine:init', () => {
         this.job = job
         this.org = orgs.find((o) => o.id === job.organisation_id) || null
         this.plans = plans
-        const tiers = plans?.tiers || []
-        if (!this.tier && tiers.length) this.tier = (tiers.find((t) => t.popular) || tiers[0]).id
+        this.tier = (plans?.tiers || [])[0]?.id || 'monthly'
         // Already paid for: nothing to buy — show where it stands.
         if (!Emp.awaitingPayment(job)) this.submitted = job
       } catch (e) { this.loadError = e.message || "Couldn't load the plans. Check your connection and try again." }
@@ -51,24 +50,20 @@ document.addEventListener('alpine:init', () => {
     },
 
     get credits() { return (this.plans?.credits || []).filter((c) => c.remaining > 0) },
-    get quantities() { return this.plans?.quantities || [1] },
-    get largestBucket() { const q = this.quantities; return q[q.length - 1] || 1 },
-    get maxQuantity() { return this.plans?.max_quantity || 20 },
-
-    unitPrice(tier) {
-      const q = this.quantity
-      const bucket = q > this.largestBucket ? this.largestBucket : q
-      return this.plans?.prices?.[tier]?.[REACH]?.[String(bucket)] || null
+    /** The one plan: unlimited job posts for `days` days (Admin → Plans & pricing). */
+    get plan() { return this.plans?.plan || null },
+    get planTier() { return (this.plans?.tiers || [])[0] || null },
+    get totalPaise() { return this.plan ? this.plan.price_paise : null },
+    creditTitle(c) {
+      if (c.unlimited) return 'Your ' + (this.plan?.name || 'Monthly') + ' plan is active'
+      if (c.tier === 'free') return c.remaining === 1 ? 'You have 1 free job post' : 'You have ' + c.remaining + ' free job posts'
+      return 'You have ' + c.remaining + ' posting' + (c.remaining === 1 ? '' : 's') + ' left'
     },
-    get unit() { return this.unitPrice(this.tier) },
-    get tierName() { return (this.plans?.tiers || []).find((t) => t.id === this.tier)?.name || '' },
-    get totalPaise() { return this.unit ? this.unit.price_paise * this.quantity : null },
-    get mrpPaise() { return this.unit ? (this.unit.mrp_paise || this.unit.price_paise) * this.quantity : null },
-    get savingPaise() { return this.totalPaise == null ? 0 : Math.max(0, this.mrpPaise - this.totalPaise) },
-
-    quantityOn(q) { return q === this.largestBucket ? this.quantity >= q : this.quantity === q },
-    quantityLabel(q) { return q === this.largestBucket ? q + '+ postings' : (q === 1 ? '1 posting' : q + ' postings') },
-    changeQuantity(delta) { this.quantity = Math.min(this.maxQuantity, Math.max(this.largestBucket, this.quantity + delta)) },
+    creditNote(c) {
+      if (c.unlimited) return c.label + ' — post this job at no extra cost.'
+      if (c.tier === 'free') return 'Post this job free of charge.'
+      return c.label + ' — post this job on it at no extra cost.'
+    },
 
     async pay() {
       const total = this.totalPaise
@@ -78,7 +73,7 @@ document.addEventListener('alpine:init', () => {
       this.paying = true
       try {
         const res = await Inthes.api(`/recruiter/jobs/${encodeURIComponent(this.job.id)}/orders`, {
-          method: 'POST', body: { tier: this.tier, reach: REACH, quantity: this.quantity, method },
+          method: 'POST', body: { tier: this.tier, reach: REACH, quantity: 1, method },
         })
         const order = res.data?.order
         if (!order?.id) throw new Error("Couldn't reach the payment service. Please try again.")
@@ -98,8 +93,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const res = await Inthes.api(`/recruiter/jobs/${encodeURIComponent(this.job.id)}/use-credit`, { method: 'POST', body: { credit_id: credit.id } })
         this.submitted = res.data
-        const left = credit.remaining - 1
-        Inthes.toast(left > 0 ? `Posted on your existing plan — ${left} posting${left === 1 ? '' : 's'} left` : 'Posted on your existing plan')
+        Inthes.toast(credit.tier === 'free' ? 'Posted with your free job post' : 'Posted on your plan')
         window.scrollTo({ top: 0 })
       } catch (e) { Inthes.toast(e.message, true) }
       this.paying = false

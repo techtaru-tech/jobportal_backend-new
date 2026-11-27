@@ -42,6 +42,12 @@ class User extends Authenticatable
         return $this->hasMany(JobPosting::class);
     }
 
+    /** Job posts this employer can spend: the free ones and the paid plan. */
+    public function jobCredits(): HasMany
+    {
+        return $this->hasMany(JobCredit::class);
+    }
+
     public function recruiterProfile(): HasOne
     {
         return $this->hasOne(RecruiterProfile::class);

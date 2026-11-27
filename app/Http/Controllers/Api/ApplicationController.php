@@ -40,7 +40,15 @@ class ApplicationController extends ApiController
         // `missing_fields`, which the candidate can act on.
         $ownPosting = $this->applications->ownsPosting($user, $job);
 
+        // After the free applications, applying needs the paid plan. Said
+        // up front so the client can offer the plan before Smart Apply asks
+        // for anything; `can_apply` keeps meaning "the profile is ready".
+        $left = $this->applications->applicationsLeft($user);
+
         return ApiResponse::data([
+            'plan_required' => $left === 0,
+            'free_applications_left' => $left,
+            'plan_message' => $left === 0 ? $this->applications->planRequiredMessage() : null,
             'job_id' => PublicId::encode('j', $job->id),
             'required_fields' => $this->applications->requiredFields($job),
             'missing_fields' => $missing,

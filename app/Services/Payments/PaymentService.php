@@ -13,6 +13,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\JobPlanCatalog;
 use App\Services\JobPostingFlow;
+use App\Services\PlanSettings;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -56,9 +57,17 @@ class PaymentService
         if ($job->user_id !== $user->id) {
             abort(403, 'That posting does not belong to your account.');
         }
-        if ($job->isPaid() || ! in_array($job->posting_status, [JobPostingStatus::Draft, JobPostingStatus::Rejected], true)) {
+        if ($job->hasPlanSlot() || ! in_array($job->posting_status, [JobPostingStatus::Draft, JobPostingStatus::Rejected], true)) {
             throw ValidationException::withMessages([
                 'job_id' => ['That posting has already been paid for.'],
+            ])->status(422);
+        }
+
+        // Nothing to buy while a plan is running or a free post is left —
+        // the posting is sent with that instead (use-credit).
+        if ($this->jobPlans->usableCredits($user)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'plan' => ['Your plan already covers this job post — submit it without paying.'],
             ])->status(422);
         }
 
@@ -259,11 +268,18 @@ class PaymentService
                 'paid_at' => now(),
             ])->save();
 
-            $this->subscriptions->subscribe(
-                $order->user()->firstOrFail(),
-                $order->audience,
-                $plan,
-            );
+            $user = $order->user()->firstOrFail();
+
+            // The employer plan is what job posts are spent from: bought from
+            // the Plans page it starts the same unlimited-posts credit as when
+            // it is bought in Post a Job.
+            if ($order->audience === NotificationAudience::Recruiter && ! ($plan['is_free'] ?? false)) {
+                $this->activateRecruiterPlan($user, $order);
+
+                return;
+            }
+
+            $this->subscriptions->subscribe($user, $order->audience, $plan);
         });
 
         return $order->refresh();
@@ -289,17 +305,7 @@ class PaymentService
                 'paid_at' => now(),
             ])->save();
 
-            $days = (int) config('job_plans.credit_validity_days', 90);
-
-            return JobCredit::create([
-                'user_id' => $order->user_id,
-                'payment_order_id' => $order->id,
-                'tier' => $meta['tier'] ?? 'basic',
-                'reach' => $meta['reach'] ?? 'district',
-                'total' => max(1, (int) ($meta['quantity'] ?? 1)),
-                'used' => 0,
-                'expires_at' => $days > 0 ? now()->addDays($days) : null,
-            ]);
+            return $this->activateRecruiterPlan($order->user()->firstOrFail(), $order);
         });
 
         // Outside the transaction: the money is settled whatever happens to
@@ -310,7 +316,7 @@ class PaymentService
             ->find($meta['job_posting_id'] ?? 0);
 
         if ($job !== null
-            && ! $job->isPaid()
+            && ! $job->hasPlanSlot()
             && in_array($job->posting_status, [JobPostingStatus::Draft, JobPostingStatus::Rejected], true)) {
             $this->postingFlow->useCredit($job, $credit);
         }
@@ -324,6 +330,27 @@ class PaymentService
      *
      * @return array<string, mixed>
      */
+    /**
+     * The employer's paid plan: unlimited job posts until it lapses (a
+     * `monthly` credit), mirrored on the recruiter subscription so My Plan
+     * and the admin's Subscriptions list say the same thing.
+     */
+    private function activateRecruiterPlan(User $user, PaymentOrder $order): JobCredit
+    {
+        $credit = $this->jobPlans->grantMonthly($user, $order->id);
+
+        Subscription::updateOrCreate(
+            ['user_id' => $user->id, 'audience' => NotificationAudience::Recruiter->value],
+            [
+                'plan_id' => PlanSettings::RECRUITER_PAID,
+                'started_at' => now(),
+                'expires_at' => $credit->expires_at,
+            ],
+        );
+
+        return $credit;
+    }
+
     public function requirePlan(NotificationAudience $audience, string $planId): array
     {
         // One-offs share the plan_id field and the whole order flow, so they
@@ -353,6 +380,6 @@ class PaymentService
      */
     public static function oneOffById(string $id): ?array
     {
-        return config("plans.one_off.{$id}");
+        return PlanSettings::oneOff($id);
     }
 }

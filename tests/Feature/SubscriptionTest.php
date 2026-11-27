@@ -46,20 +46,35 @@ class SubscriptionTest extends TestCase
         $this->assertSame(0, Subscription::count());
     }
 
-    public function test_subscribing_activates_only_the_side_it_was_bought_for(): void
+    /** A paid plan is never handed out here — it starts when its payment is captured. */
+    public function test_a_paid_plan_cannot_be_switched_on_without_paying(): void
     {
         $this->actingAsRecruiter();
 
         $this->postJson("{$this->api}/subscription", [
             'audience' => 'recruiter',
-            'plan_id' => 'recruiter_business',
+            'plan_id' => 'recruiter_monthly',
         ])
-            ->assertOk()
-            ->assertJsonPath('data.plan_id', 'recruiter_business')
-            ->assertJsonPath('message', 'Business plan activated.');
+            ->assertStatus(422)
+            ->assertJsonPath('errors.plan_id.0', 'Pay for this plan to start it.');
+
+        $this->assertSame(0, Subscription::count());
+        $this->getJson("{$this->api}/subscription")
+            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_free');
+    }
+
+    public function test_paying_activates_only_the_side_it_was_bought_for(): void
+    {
+        $this->actingAsRecruiter();
+
+        $order = $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'recruiter', 'plan_id' => 'recruiter_monthly', 'method' => 'upi',
+        ])->assertOk()->json('data.order');
+        $this->postJson("{$this->api}/payments/orders/{$order['id']}/confirm")->assertOk();
 
         $this->getJson("{$this->api}/subscription")
-            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_business');
+            ->assertJsonPath('data.active.recruiter.plan_id', 'recruiter_monthly')
+            ->assertJsonPath('data.active.jobSeeker.plan_id', 'seeker_free');
     }
 
     public function test_an_account_cannot_buy_a_plan_for_the_other_side(): void
@@ -69,7 +84,7 @@ class SubscriptionTest extends TestCase
 
         $this->postJson("{$this->api}/subscription", [
             'audience' => 'recruiter',
-            'plan_id' => 'recruiter_business',
+            'plan_id' => 'recruiter_monthly',
         ])
             ->assertForbidden()
             ->assertJsonPath('code', 'wrong_account_role')
@@ -80,13 +95,16 @@ class SubscriptionTest extends TestCase
     {
         $this->actingAsCandidate();
 
-        $paid = $this->postJson("{$this->api}/subscription", [
-            'audience' => 'jobSeeker',
-            'plan_id' => 'seeker_pro',
-        ])->assertOk();
+        $order = $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'jobSeeker', 'plan_id' => 'seeker_pro', 'method' => 'upi',
+        ])->assertOk()->json('data.order');
+        $this->postJson("{$this->api}/payments/orders/{$order['id']}/confirm")->assertOk();
 
-        $this->assertNotNull($paid->json('data.expires_at'));
+        $this->assertNotNull($this->getJson("{$this->api}/subscription")->json('data.active.jobSeeker.expires_at'));
 
+        // A free switch (on another account: a running paid plan is not
+        // replaced early) has no expiry.
+        $this->actingAsCandidate();
         $free = $this->postJson("{$this->api}/subscription", [
             'audience' => 'jobSeeker',
             'plan_id' => 'seeker_free',
@@ -99,7 +117,7 @@ class SubscriptionTest extends TestCase
     {
         $this->actingAsCandidate();
 
-        foreach (['seeker_pro', 'seeker_free', 'seeker_pro'] as $plan) {
+        foreach (['seeker_free', 'seeker_free'] as $plan) {
             $this->postJson("{$this->api}/subscription", [
                 'audience' => 'jobSeeker',
                 'plan_id' => $plan,
@@ -158,5 +176,18 @@ class SubscriptionTest extends TestCase
             'audience' => 'jobSeeker',
             'plan_id' => 'seeker_pro',
         ])->assertUnauthorized();
+    }
+
+    public function test_free_cannot_replace_a_running_paid_plan(): void
+    {
+        $this->actingAsCandidate();
+        $order = $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'jobSeeker', 'plan_id' => 'seeker_pro', 'method' => 'upi',
+        ])->json('data.order');
+        $this->postJson("{$this->api}/payments/orders/{$order['id']}/confirm")->assertOk();
+
+        $this->postJson("{$this->api}/subscription", ['audience' => 'jobSeeker', 'plan_id' => 'seeker_free'])
+            ->assertStatus(422)->assertJsonValidationErrors('plan_id');
+        $this->getJson("{$this->api}/subscription")->assertJsonPath('data.active.jobSeeker.plan_id', 'seeker_pro');
     }
 }

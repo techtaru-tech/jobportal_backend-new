@@ -35,7 +35,7 @@ class JobPostingFlow
     public function useCredit(JobPosting $job, JobCredit $credit): JobPosting
     {
         if (! in_array($job->posting_status, [JobPostingStatus::Draft, JobPostingStatus::Rejected], true)
-            || $job->isPaid()) {
+            || $job->hasPlanSlot()) {
             throw ValidationException::withMessages([
                 'job' => ['That posting has already been submitted.'],
             ])->status(422);

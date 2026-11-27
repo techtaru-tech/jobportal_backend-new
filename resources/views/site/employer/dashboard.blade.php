@@ -5,10 +5,12 @@
 @section('employer_key', 'dashboard')
 
 @php
-  // The plan teaser is the same price grid the checkout shows, read server-side
-  // so a signed-out visitor sees real prices.
-  $catalog = json_decode(json_encode(app(\App\Services\JobPlanCatalog::class)->toApi()), true);
-  $teaser = collect($catalog['tiers'] ?? [])->map(fn ($t) => $t + ['price' => $catalog['prices'][$t['id']]['district']['1'] ?? null]);
+  // The plan teaser: the free posts and the one plan, as set in Admin → Plans
+  // & pricing, read server-side so a signed-out visitor sees real prices.
+  $recruiterPlans = \App\Services\PlanSettings::recruiterPlans();
+  $freePlan = collect($recruiterPlans)->firstWhere('is_free', true);
+  $paidPlan = collect($recruiterPlans)->firstWhere('is_free', false);
+  $freeJobs = \App\Services\PlanSettings::int('recruiter_free_jobs');
 @endphp
 
 @section('employer_guest')
@@ -51,28 +53,30 @@
   <section>
     <div class="mb-lg flex flex-wrap items-end justify-between gap-md">
       <div>
-        <h2 class="text-h2 text-ink">Simple pricing, per job post</h2>
-        <p class="mt-xs text-bodysm text-ink-secondary">Pay only when you post. Buy more postings at once and use them whenever you like.</p>
+        <h2 class="text-h2 text-ink">Simple pricing</h2>
+        <p class="mt-xs text-bodysm text-ink-secondary">
+          @if ($freeJobs > 0)
+            Your first {{ $freeJobs === 1 ? 'job post is' : $freeJobs.' job posts are' }} free. After that, one plan with unlimited job posts.
+          @else
+            One plan with unlimited job posts.
+          @endif
+        </p>
       </div>
     </div>
-    <div class="grid gap-md md:grid-cols-3">
-      @foreach ($teaser as $tier)
-        <div class="relative flex flex-col rounded-card border-hair bg-surface p-xl shadow-card {{ !empty($tier['popular']) ? 'border-primary ring-1 ring-primary' : 'border-hairline' }}">
-          @if (!empty($tier['popular']))
-            <span class="absolute -top-[11px] left-xl rounded-full bg-primary px-md py-[3px] text-[10.5px] font-bold tracking-[0.6px] text-ink-onPrimary">MOST POPULAR</span>
-          @endif
-          <p class="text-h4 text-ink">{{ $tier['name'] }}</p>
-          @if ($tier['price'])
-            <p class="mt-sm flex flex-wrap items-baseline gap-sm">
-              <span class="text-[28px] font-bold leading-none text-ink">{{ $tier['price']['price_label'] }}</span>
-              @if (($tier['price']['mrp_paise'] ?? 0) > $tier['price']['price_paise'])
-                <span class="text-bodysm text-ink-muted line-through">{{ $tier['price']['mrp_label'] }}</span>
-              @endif
-              <span class="text-caption text-ink-secondary">per posting</span>
-            </p>
-          @endif
+    <div class="grid gap-md md:grid-cols-2">
+      @foreach ([$freePlan, $paidPlan] as $plan)
+        @continue(! $plan)
+        <div class="relative flex flex-col rounded-card border-hair bg-surface p-xl shadow-card {{ $plan['is_free'] ? 'border-hairline' : 'border-primary ring-1 ring-primary' }}">
+          @unless ($plan['is_free'])
+            <span class="absolute -top-[11px] left-xl rounded-full bg-primary px-md py-[3px] text-[10.5px] font-bold tracking-[0.6px] text-ink-onPrimary">UNLIMITED JOB POSTS</span>
+          @endunless
+          <p class="text-h4 text-ink">{{ $plan['name'] }}</p>
+          <p class="mt-sm flex flex-wrap items-baseline gap-sm">
+            <span class="text-[28px] font-bold leading-none text-ink">{{ $plan['is_free'] ? '₹0' : $plan['price_label'] }}</span>
+            <span class="text-caption text-ink-secondary">{{ $plan['is_free'] ? 'to start' : $plan['billing_period'].' · incl. GST' }}</span>
+          </p>
           <ul class="mt-lg space-y-xs">
-            @foreach ($tier['features'] ?? [] as $f)
+            @foreach ($plan['features'] ?? [] as $f)
               <li class="flex items-start gap-sm text-bodysm text-ink-secondary">
                 <span class="mt-[3px] shrink-0 text-success">@include('admin.partials.icon', ['name' => 'check', 'class' => 'h-[14px] w-[14px]'])</span>{{ $f }}
               </li>

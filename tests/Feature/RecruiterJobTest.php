@@ -107,7 +107,7 @@ class RecruiterJobTest extends TestCase
         $this->assertCount(5, $codes->unique());
     }
 
-    /** §13 — the free recruiter tier allows one active posting at a time. */
+    /** One free job post per account; the next needs the employer plan. */
     public function test_the_free_plan_allows_only_one_active_posting(): void
     {
         [, $organisation] = $this->recruiterWithOrg();
@@ -117,7 +117,7 @@ class RecruiterJobTest extends TestCase
 
         $this->postJson("{$this->api}/recruiter/jobs", $this->payload("org_{$organisation->id}"))
             ->assertStatus(422)
-            ->assertJsonPath('errors.plan.0', 'The Free plan allows 1 active job post. Upgrade to Business to post more.');
+            ->assertJsonPath('errors.plan.0', "You've used your free job post. Get the Monthly plan (₹1,999 incl. GST) for unlimited job posts for 30 days.");
     }
 
     public function test_the_business_plan_lifts_the_posting_limit(): void
@@ -134,11 +134,7 @@ class RecruiterJobTest extends TestCase
 
     private function onBusinessPlan(User $recruiter): void
     {
-        app(SubscriptionService::class)->subscribe(
-            $recruiter,
-            NotificationAudience::Recruiter,
-            Subscription::planById(NotificationAudience::Recruiter, 'recruiter_business'),
-        );
+        $this->onEmployerPlan($recruiter);
     }
 
     public function test_freeform_qualifications_are_accepted(): void

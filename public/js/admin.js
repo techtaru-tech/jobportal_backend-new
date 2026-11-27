@@ -46,11 +46,11 @@
     { key: 'notifications', label: 'Notifications', icon: 'bell', badge: true,
       keywords: ['alerts', 'notifications', 'registered', 'signups', 'new employer',
                  'new job', 'approval', 'push', 'delivery', 'read rate'] },
-    { key: 'subscriptions', label: 'Plans', icon: 'creditCard',
-      keywords: ['subscriptions', 'billing', 'pricing', 'paid', 'free'] },
-    { key: 'jobPlans', label: 'Job plans', icon: 'creditCard',
-      keywords: ['job plans', 'posting price', 'basic', 'silver', 'gold', 'district',
-                 'state', 'price', 'mrp', 'discount', 'per posting'] },
+    { key: 'pricing', label: 'Plans & pricing', icon: 'creditCard',
+      keywords: ['plans', 'pricing', 'price', 'job plans', 'posting price', 'free job post',
+                 'free application', '1999', 'monthly', 'pro', 'resume price', 'gst'] },
+    { key: 'subscriptions', label: 'Subscriptions', icon: 'creditCard',
+      keywords: ['subscriptions', 'billing', 'subscribers', 'paid', 'free'] },
     { key: 'payments', label: 'Payments', icon: 'wallet',
       keywords: ['payments', 'razorpay', 'gateway', 'keys', 'api key', 'webhook', 'orders',
                  'transactions', 'refunds', 'revenue', 'upi', 'card'] },
@@ -247,7 +247,8 @@
       /** Paid-posting pipeline counts, for the stage pills above the list. */
       jobStages: [],
       /** Post a Job ▸ Choose plan — the price grid an operator edits. */
-      jobPlans: { data: null, busy: false, saving: false },
+      // Plans & pricing: every price, free limit and duration (PlanSettings).
+      pricing: { form: null, preview: null, busy: false, saving: false },
       jobStatusPick: '',
       jobExpiryPick: '',
 
@@ -959,38 +960,39 @@
         }[stage] || 'bg-surface-muted text-ink-secondary'
       },
 
-      // ── job plans ───────────────────────────────────────────────────
-      loadJobPlans() {
-        this.jobPlans.busy = true
-        this.api('/admin/job-plans')
-          .then((res) => { this.jobPlans.data = res.data })
+      // ── plans & pricing ─────────────────────────────────────────────
+      loadPricing() {
+        const p = this.pricing
+        p.busy = true
+        this.api('/admin/plans')
+          .then((res) => { p.form = res.data.form; p.preview = res.data.preview })
           .catch((e) => this.showToast(e.message, true))
-          .finally(() => { this.jobPlans.busy = false })
+          .finally(() => { p.busy = false })
       },
 
-      /** The editable cell for tier × reach × postings (created if missing). */
-      planCell(tier, reach, quantity) {
-        const prices = this.jobPlans.data.prices
-        let cell = prices.find((p) => p.tier === tier && p.reach === reach && p.quantity === quantity)
-        if (!cell) {
-          cell = { tier, reach, quantity, price: null, mrp: null }
-          prices.push(cell)
+      /** One line saying what users will get, from the form as typed. */
+      pricingSummary(side) {
+        const f = this.pricing.form
+        if (!f) return ''
+        const money = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN')
+        const n = (k, one, many) => { const v = Number(f[k]) || 0; return v + ' ' + (v === 1 ? one : many) }
+        if (side === 'recruiter') {
+          return (Number(f.recruiter_free_jobs) ? n('recruiter_free_jobs', 'free job post', 'free job posts') + ', then ' : '')
+            + money(f.recruiter_price) + ' (incl. GST) for unlimited job posts for ' + (f.recruiter_days || 0) + ' days.'
         }
-        return cell
+        return (Number(f.seeker_free_applications) ? n('seeker_free_applications', 'free application', 'free applications') + ', then ' : '')
+          + money(f.seeker_price) + ' (incl. GST) for unlimited applications for ' + (f.seeker_days || 0) + ' days'
+          + (f.seeker_includes_resume ? ', watermark-free resume included.' : '. Resume ' + money(f.resume_price) + ' separately.')
       },
 
-      saveJobPlans() {
-        const prices = this.jobPlans.data.prices
-          .filter((p) => p.price !== null && p.price !== '')
-          .map((p) => ({
-            tier: p.tier, reach: p.reach, quantity: p.quantity,
-            price: Number(p.price), mrp: p.mrp === null || p.mrp === '' ? null : Number(p.mrp),
-          }))
-        this.jobPlans.saving = true
-        this.api('/admin/job-plans', { method: 'PUT', body: { prices } })
-          .then((res) => { this.jobPlans.data = res.data; this.showToast(res.message || 'Saved.') })
+      savePricing() {
+        const p = this.pricing
+        if (p.saving || !p.form) return
+        p.saving = true
+        this.api('/admin/plans', { method: 'PUT', body: p.form })
+          .then((res) => { p.form = res.data.form; p.preview = res.data.preview; this.showToast(res.message || 'Saved.') })
           .catch((e) => this.showToast(e.message, true))
-          .finally(() => { this.jobPlans.saving = false })
+          .finally(() => { p.saving = false })
       },
 
       openJob(id) {

@@ -60,6 +60,26 @@ class SubscriptionController extends ApiController
             ])->status(422);
         }
 
+        // A paid plan starts only when its payment is captured
+        // (POST /payments/orders → confirm). This endpoint switches to the
+        // free plan; it never hands out a paid one.
+        if (! ($plan['is_free'] ?? false)) {
+            throw ValidationException::withMessages([
+                'plan_id' => ['Pay for this plan to start it.'],
+            ])->status(422);
+        }
+
+        // A running paid plan ends on its own date; switching to Free early
+        // would only throw away paid days (and, for an employer, leave the
+        // plan's job posts running on a Free account).
+        $current = $this->subscriptions->planFor($request->user(), $audience);
+        if (! ($current['is_free'] ?? true)) {
+            $until = $this->subscriptions->subscriptionFor($request->user(), $audience)?->expires_at?->format('j M Y');
+            throw ValidationException::withMessages([
+                'plan_id' => ["Your {$current['name']} plan is active".($until ? " until {$until}" : '').' — it moves back to Free on its own after that.'],
+            ])->status(422);
+        }
+
         $this->subscriptions->subscribe($request->user(), $audience, $plan);
 
         return ApiResponse::data(

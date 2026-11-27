@@ -48,6 +48,36 @@
         </div>
       </template>
 
+      {{-- The free applications are used: the plan --}}
+      <template x-if="$store.qa.stage === 'plan'">
+        <div>
+          <div class="flex gap-sm rounded-field border-hair border-primary-line bg-primary-light p-md text-bodysm leading-[1.45] text-primary-dark">
+            <span class="mt-[1px] shrink-0 text-primary">@include('admin.partials.icon', ['name' => 'crown', 'class' => 'h-[18px] w-[18px]'])</span>
+            <span x-text="$store.qa.planMessage"></span>
+          </div>
+          <template x-if="$store.qa.plan">
+            <div class="mt-lg rounded-card border-hair border-primary bg-surface p-lg ring-1 ring-primary">
+              <div class="flex items-end justify-between gap-md">
+                <p class="text-h4 text-ink" x-text="$store.qa.plan.name + ' plan'"></p>
+                <p class="text-right">
+                  <span class="text-[26px] font-bold leading-none text-ink" x-text="$store.qa.plan.price_label"></span>
+                  <span class="block text-caption text-ink-secondary" x-text="($store.qa.plan.billing_period || '') + ' · incl. GST'"></span>
+                </p>
+              </div>
+              <ul class="mt-md space-y-[5px] border-t border-hairline-divider pt-md">
+                <template x-for="f in $store.qa.plan.features" :key="f">
+                  <li class="flex items-start gap-sm text-bodysm text-ink-secondary">
+                    <span class="mt-[3px] shrink-0 text-success">@include('admin.partials.icon', ['name' => 'check', 'class' => 'h-[14px] w-[14px]'])</span>
+                    <span x-text="f"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+          <p x-show="$store.qa.error" class="mt-md text-bodysm text-danger" x-text="$store.qa.error"></p>
+        </div>
+      </template>
+
       {{-- Confirm: everything is in the profile --}}
       <template x-if="$store.qa.stage === 'confirm'">
         <div>
@@ -164,7 +194,7 @@
     </div>
 
     {{-- Footer actions --}}
-    <div x-show="['confirm', 'form', 'done'].includes($store.qa.stage)" class="flex flex-col-reverse gap-sm border-t border-hairline-divider px-xl py-lg sm:flex-row sm:justify-end"
+    <div x-show="['confirm', 'form', 'done', 'plan'].includes($store.qa.stage)" class="flex flex-col-reverse gap-sm border-t border-hairline-divider px-xl py-lg sm:flex-row sm:justify-end"
          style="padding-bottom: max(16px, env(safe-area-inset-bottom))">
       <template x-if="$store.qa.stage === 'done'">
         <div class="flex w-full flex-col-reverse gap-sm sm:flex-row sm:justify-end">
@@ -176,6 +206,10 @@
         <div class="flex w-full flex-col-reverse gap-sm sm:flex-row sm:justify-end">
           <button type="button" @click="$store.qa.close()" :disabled="$store.qa.busy" class="wa-btn-quiet">Cancel</button>
           <button type="button" x-show="$store.qa.stage === 'confirm'" @click="$store.qa.submit()" :disabled="$store.qa.busy" class="wa-btn-sm">Submit application</button>
+          <button type="button" x-show="$store.qa.stage === 'plan' && $store.qa.plan" @click="$store.qa.buyPlan()" :disabled="$store.qa.busy" class="wa-btn-sm">
+            <span x-show="$store.qa.busy" x-html="ICONS.loader" class="animate-spin [&>svg]:h-4 [&>svg]:w-4"></span>
+            <span x-text="'Get ' + ($store.qa.plan?.name || '') + ' plan · ' + ($store.qa.plan?.price_label || '')"></span>
+          </button>
           <button type="submit" form="qa-form" x-show="$store.qa.stage === 'form'" :disabled="$store.qa.busy" class="wa-btn-sm">
             <span x-show="$store.qa.busy" x-html="ICONS.loader" class="animate-spin [&>svg]:h-4 [&>svg]:w-4"></span>
             Save &amp; apply

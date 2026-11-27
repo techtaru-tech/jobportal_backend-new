@@ -7,6 +7,8 @@ use App\Enums\NotificationAudience;
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\JobPlanCatalog;
+use App\Services\PlanSettings;
 use App\Support\ApiResponse;
 use App\Support\PublicId;
 use Illuminate\Database\Eloquent\Builder;
@@ -99,7 +101,7 @@ class SubscriptionController extends ApiController
         $audiences = [];
 
         foreach (NotificationAudience::cases() as $audience) {
-            $plans = (array) config('plans.'.$audience->value, []);
+            $plans = PlanSettings::catalogue($audience);
 
             $audiences[$audience->value] = array_map(fn (array $plan) => [
                 'id' => $plan['id'],
@@ -118,50 +120,38 @@ class SubscriptionController extends ApiController
 
         return ApiResponse::data([
             'audiences' => $audiences,
-            'paid_period_days' => (int) config('plans.paid_period_days', 30),
+            'paid_period_days' => PlanSettings::paidDays(NotificationAudience::Recruiter),
+            'paid_days' => [
+                NotificationAudience::Recruiter->value => PlanSettings::paidDays(NotificationAudience::Recruiter),
+                NotificationAudience::JobSeeker->value => PlanSettings::paidDays(NotificationAudience::JobSeeker),
+            ],
             'at_free_ceiling' => $this->atFreeCeiling(),
-            'note' => 'Plans are configured in config/plans.php and are not editable here — price_label is rendered verbatim by the app.',
+            'note' => 'Prices, free limits and durations are edited in Plans & pricing.',
         ]);
     }
 
     /**
-     * Recruiters on a free plan who have used up their `active_jobs` allowance.
-     *
-     * Derived from the limit rather than hardcoded to 1, so it stays correct if
-     * the free plan's allowance changes.
+     * Employers who have used their free job posts and have no plan running —
+     * the people the paid plan is for.
      *
      * @return list<array<string, mixed>>
      */
     private function atFreeCeiling(): array
     {
-        $freePlan = collect(config('plans.'.NotificationAudience::Recruiter->value, []))
-            ->firstWhere('is_free', true);
-
-        $limit = $freePlan['limits']['active_jobs'] ?? null;
-
-        // Null means unlimited: there is no ceiling to be at.
-        if ($limit === null) {
-            return [];
-        }
-
         return User::query()
+            ->whereHas('jobCredits', fn (Builder $c) => $c
+                ->where('tier', JobPlanCatalog::FREE)
+                ->whereColumn('used', '>=', 'total'))
+            ->whereDoesntHave('jobCredits', fn (Builder $c) => $c->usable())
             ->withCount(['jobPostings as active_jobs_count' => fn ($q) => $q
                 ->where('posting_status', JobPostingStatus::Active->value)])
-            ->having('active_jobs_count', '>=', (int) $limit)
-            // Either no subscription row at all, or one on the free plan.
-            ->where(fn (Builder $q) => $q
-                ->whereDoesntHave('subscriptions', fn (Builder $s) => $s
-                    ->where('audience', NotificationAudience::Recruiter->value))
-                ->orWhereHas('subscriptions', fn (Builder $s) => $s
-                    ->where('audience', NotificationAudience::Recruiter->value)
-                    ->where('plan_id', $freePlan['id'])))
             ->limit(50)
             ->get(['id', 'phone'])
             ->map(fn (User $u) => [
                 'id' => PublicId::encode('u', $u->id),
                 'phone' => $u->phone,
                 'active_jobs' => (int) $u->active_jobs_count,
-                'limit' => (int) $limit,
+                'limit' => PlanSettings::int('recruiter_free_jobs'),
             ])->all();
     }
 }

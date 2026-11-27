@@ -176,7 +176,7 @@ class CandidateProfile extends Model
      */
     public function hasWatermarkFreeResume(): bool
     {
-        $included = config('plans.one_off.resume_watermark_free.included_in');
+        $included = (\App\Services\PlanSettings::oneOff(\App\Services\PlanSettings::RESUME)['included_in'] ?? null);
 
         $byPlan = $included !== null
             && app(SubscriptionService::class)->planIncludes(

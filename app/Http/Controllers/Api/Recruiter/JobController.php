@@ -54,8 +54,16 @@ class JobController extends ApiController
     {
         $asDraft = $request->boolean('save_as_draft');
 
+        // Straight to review needs a free post or a running plan; without
+        // one the posting is not created at all.
+        $credit = null;
         if (! $asDraft) {
-            $this->assertCanPostAnother($request);
+            $credit = $this->jobPlans->usableCredits($request->user())->first();
+            if (! $credit instanceof JobCredit) {
+                throw ValidationException::withMessages([
+                    'plan' => [$this->planRequiredMessage()],
+                ])->status(422);
+            }
         }
 
         $validated = $this->validated($request);
@@ -67,9 +75,7 @@ class JobController extends ApiController
             // Denormalised so the candidate-facing card renders without a join.
             'organisation' => $organisation->name,
         ]);
-        if ($asDraft) {
-            $job->posting_status = JobPostingStatus::Draft;
-        }
+        $job->posting_status = JobPostingStatus::Draft;
         $job->save();
 
         if ($asDraft) {
@@ -80,7 +86,7 @@ class JobController extends ApiController
             );
         }
 
-        $this->notifier->jobPosted($job->load('organisationRecord'));
+        $job = $this->postingFlow->useCredit($job, $credit);
 
         /*
          * "Submitted", not "posted".
@@ -94,55 +100,18 @@ class JobController extends ApiController
          */
         return ApiResponse::data(
             new JobResource($job->load('organisationRecord')),
-            "Submitted for approval — you'll be notified once it's live.",
+            $this->submittedMessage($job),
             201,
         );
     }
 
-    /**
-     * The free plan allows one active posting at a time (`plans.php`).
-     *
-     * Enforced here and not only in the app: the limit is the whole difference
-     * between the free and paid recruiter tiers, and until now the only thing
-     * applying it was the client that benefits from ignoring it. The app still
-     * hides the button, so reaching this is either a stale screen or someone
-     * calling the API directly.
-     */
-    private function assertCanPostAnother(Request $request): void
+    /** Said wherever a posting needs the paid plan. */
+    private function planRequiredMessage(): string
     {
-        JobPosting::expireOverdue();
+        $plan = $this->jobPlans->toApi()['plan'];
 
-        $limit = $this->subscriptions->limitFor(
-            $request->user(),
-            NotificationAudience::Recruiter,
-            'active_jobs',
-        );
-
-        if ($limit === null) {
-            return;
-        }
-
-        // A posting waiting on review occupies a slot exactly as a live one
-        // does. Counting only `active` would let a free account submit an
-        // unlimited number of postings and have every one of them approved
-        // into existence — the limit would be enforced against a state the
-        // recruiter no longer controls, which is no limit at all.
-        $active = $request->user()->jobPostings()
-            ->whereIn('posting_status', [
-                JobPostingStatus::PendingApproval->value,
-                JobPostingStatus::Active->value,
-            ])
-            ->count();
-
-        if ($active >= $limit) {
-            throw ValidationException::withMessages([
-                'plan' => [
-                    $limit === 1
-                        ? 'The Free plan allows 1 active job post. Upgrade to Business to post more.'
-                        : "Your plan allows {$limit} active job posts. Upgrade to post more.",
-                ],
-            ])->status(422);
-        }
+        return "You've used your free job post. Get the {$plan['name']} plan ({$plan['price_label']} incl. GST) "
+            ."for unlimited job posts for {$plan['days']} days.";
     }
 
     /** GET /recruiter/jobs/mine (§8.2) — every status, unlike the public list. */
@@ -270,7 +239,7 @@ class JobController extends ApiController
 
         if (! $credit instanceof JobCredit) {
             throw ValidationException::withMessages([
-                'credit_id' => ['You have no postings left on a plan — choose a plan to continue.'],
+                'plan' => [$this->planRequiredMessage()],
             ])->status(422);
         }
 
@@ -326,7 +295,7 @@ class JobController extends ApiController
         return match ($job->hiringStage()) {
             'live' => 'Your post is live.',
             'paid_document_missing', 'posted_document_missing' => 'Your post is under review. Upload your company document to get it live.',
-            default => 'Your post is under review.',
+            default => "Submitted for approval — you'll be notified once it's live.",
         };
     }
 

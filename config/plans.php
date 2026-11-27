@@ -2,145 +2,27 @@
 
 /*
 |--------------------------------------------------------------------------
-| Subscription plans
+| Plans
 |--------------------------------------------------------------------------
 |
-| The plan catalogue for both sides of the marketplace. Lived in the app as
-| `SubscriptionCatalog` until now, which meant pricing and entitlements
-| shipped with a release and a user on an old build saw stale prices.
+| Prices, free limits and durations are managed in Admin → Plans & pricing
+| and read through App\Services\PlanSettings (defaults live there too):
 |
-| Keyed by audience so the two sides stay genuinely separate: one account can
-| be a free job seeker and a paying recruiter at the same time, and neither
-| plan says anything about the other.
+|   Employer:   the first job post free, then one plan — unlimited job posts
+|               for 30 days, ₹1,999 incl. GST.
+|   Job seeker: the first application free, then one plan — unlimited
+|               applications for 30 days, ₹99 incl. GST.
+|   Resume:     the watermark-free resume, a separate ₹20 one-off.
 |
-| `limits` is what the server actually enforces — everything else is display
-| copy. A limit of null means unlimited.
+| Nothing here sets a price any more.
 |
 */
 
 return [
 
-    'jobSeeker' => [
-        [
-            'id' => 'seeker_free',
-            'name' => 'Free',
-            'price_label' => 'Free',
-            'price_paise' => 0,
-            'billing_period' => '',
-            'is_free' => true,
-            'is_popular' => false,
-            'features' => [
-                'Unlimited job applications',
-                'Smart Apply one-tap applying',
-                'Standard search visibility',
-            ],
-            'limits' => [],
-        ],
-        [
-            'id' => 'seeker_pro',
-            'name' => 'Pro',
-            'price_label' => '₹99',
-            'price_paise' => 9900,
-            'billing_period' => 'per month',
-            'is_free' => false,
-            'is_popular' => true,
-            'features' => [
-                'Priority placement in recruiter search',
-                'Profile boost badge on every application',
-                // Said out loud on My Plan. It is the one entitlement a
-                // candidate could otherwise only discover by being asked for
-                // ₹20 somewhere else in the app.
-                'Watermark-free resume downloads',
-                'Early access to new job listings',
-            ],
-            // A Pro subscriber already has the watermark-free resume, so the
-            // one-off below is never charged to them — see `included_in`.
-            'limits' => ['watermark_free_resume' => true],
-        ],
-    ],
-
-    'recruiter' => [
-        [
-            'id' => 'recruiter_free',
-            'name' => 'Free',
-            'price_label' => 'Free',
-            'price_paise' => 0,
-            'billing_period' => '',
-            'is_free' => true,
-            'is_popular' => false,
-            'features' => [
-                '1 active job post at a time',
-                'View and manage all applicants',
-                'Chat with applicants',
-            ],
-            // Enforced in Recruiter\JobController::store. The app also hides
-            // the button, but the app is not the thing standing between a free
-            // account and unlimited postings.
-            'limits' => ['active_jobs' => 1],
-        ],
-        [
-            'id' => 'recruiter_business',
-            'name' => 'Business',
-            'price_label' => '₹999',
-            'price_paise' => 99900,
-            'billing_period' => 'per month',
-            'is_free' => false,
-            'is_popular' => true,
-            'features' => [
-                'Unlimited active job posts',
-                'Featured listing placement',
-                'Unlimited applicant chat',
-            ],
-            'limits' => ['active_jobs' => null],
-        ],
-    ],
-
     /*
-    |--------------------------------------------------------------------------
-    | One-off purchases
-    |--------------------------------------------------------------------------
-    |
-    | Bought once, kept forever — not a subscription, and deliberately not in
-    | the catalogues above, which the My Plan screen renders wholesale. They
-    | go through the same PaymentOrder flow; `PaymentService::capture` grants
-    | the entitlement instead of starting a subscription.
-    |
-    | `grant` names the `candidate_profiles` column stamped on capture.
-    |
-    | `included_in` names a plan limit that already covers this, so a paying
-    | subscriber is never charged twice for something their plan includes.
-    | The entitlement check reads the plan before it reads the stamp.
-    */
-    'one_off' => [
-        'resume_watermark_free' => [
-            'id' => 'resume_watermark_free',
-            'name' => 'Watermark-free resume',
-            'price_label' => '₹20',
-            'price_paise' => 2000,
-            'grant' => 'resume_watermark_free_at',
-            'included_in' => 'watermark_free_resume',
-            'description' => 'Download your resume without the INTHES mark. '
-                .'One payment, and every future version is clean too.',
-        ],
-    ],
-
-    /*
-    | How long a paid plan runs before it lapses back to free.
-    |
-    | A paid plan is now reached through a `PaymentOrder`: the plan activates
-    | when that order is captured, never before. `price_paise` above is the
-    | amount charged (paise, the unit every Indian gateway takes) and
-    | `price_label` stays the display string the app renders verbatim — the
-    | two must agree, so change them together.
-    */
-    'paid_period_days' => 30,
-
-    /*
-    | Which gateway captures a payment. `test` settles orders locally without
-    | contacting anyone, which is what lets the whole employer flow run
-    | end-to-end before a merchant account exists. Swap to a real driver by
-    | binding it in `PaymentServiceProvider` — nothing outside that binding
-    | knows which one is live.
+    | Which gateway captures a payment when Admin → Payments has not chosen
+    | one. `test` settles orders locally without contacting anyone.
     */
     'payment_gateway' => env('PAYMENT_GATEWAY', 'test'),
 ];

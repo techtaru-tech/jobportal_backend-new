@@ -47,7 +47,7 @@ class PaymentController extends ApiController
     public function oneOff(): JsonResponse
     {
         return ApiResponse::data([
-            'purchases' => array_values(config('plans.one_off', [])),
+            'purchases' => array_values(\App\Services\PlanSettings::oneOffs()),
         ]);
     }
 

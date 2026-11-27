@@ -180,6 +180,7 @@ class SmartApplyTest extends TestCase
     /** §6.1 — the same candidate may apply to the same job more than once. */
     public function test_a_candidate_may_reapply_to_the_same_job(): void
     {
+        $this->withUnlimitedFreeApplications();
         $job = JobPosting::factory()->create();
         $this->actingAsCandidate();
 
@@ -251,6 +252,7 @@ class SmartApplyTest extends TestCase
 
     public function test_the_list_filters_by_one_or_several_statuses(): void
     {
+        $this->withUnlimitedFreeApplications();
         $this->actingAsCandidate();
 
         foreach ([ApplicationStatus::Applied, ApplicationStatus::Shortlisted, ApplicationStatus::Selected] as $status) {
@@ -368,5 +370,67 @@ class SmartApplyTest extends TestCase
 
         $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])
             ->assertCreated();
+    }
+
+    // ── the free applications, then the plan ────────────────────────────
+
+    public function test_the_first_application_is_free_and_the_next_needs_the_plan(): void
+    {
+        [$first, $second] = JobPosting::factory()->count(2)->create();
+        $this->actingAsCandidate();
+
+        $this->getJson("{$this->api}/applications/requirements/j_{$first->id}")
+            ->assertJsonPath('data.plan_required', false)
+            ->assertJsonPath('data.free_applications_left', 1);
+
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$first->id}"])->assertCreated();
+
+        $this->getJson("{$this->api}/applications/requirements/j_{$second->id}")
+            ->assertJsonPath('data.plan_required', true)
+            ->assertJsonPath('data.free_applications_left', 0)
+            ->assertJsonPath('data.plan_message', "You've used your free job application. Get the Pro plan (₹99 incl. GST) for unlimited job applications for 30 days.");
+
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$second->id}"])
+            ->assertStatus(422)
+            ->assertJsonStructure(['errors' => ['plan']]);
+        $this->assertSame(1, Application::count());
+    }
+
+    public function test_the_paid_plan_allows_unlimited_applications(): void
+    {
+        $jobs = JobPosting::factory()->count(3)->create();
+        $this->actingAsCandidate();
+
+        $order = $this->postJson("{$this->api}/payments/orders", [
+            'audience' => 'jobSeeker', 'plan_id' => 'seeker_pro', 'method' => 'upi',
+        ])->assertOk()->json('data.order');
+        $this->assertSame(9900, $order['amount_paise']);
+        $this->postJson("{$this->api}/payments/orders/{$order['id']}/confirm")->assertOk();
+
+        foreach ($jobs as $job) {
+            $this->postJson("{$this->api}/applications", ['job_id' => "j_{$job->id}"])->assertCreated();
+        }
+        $this->getJson("{$this->api}/applications/requirements/j_{$jobs[0]->id}")
+            ->assertJsonPath('data.plan_required', false)
+            ->assertJsonPath('data.free_applications_left', null);
+    }
+
+    public function test_the_free_applications_and_the_price_come_from_admin(): void
+    {
+        $this->setPlan('seeker_free_applications', 2);
+        $this->setPlan('seeker_price_paise', 4900);
+        [$a, $b, $c] = JobPosting::factory()->count(3)->create();
+        $this->actingAsCandidate();
+
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$a->id}"])->assertCreated();
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$b->id}"])->assertCreated();
+        $this->postJson("{$this->api}/applications", ['job_id' => "j_{$c->id}"])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.plan.0', "You've used your 2 free job applications. Get the Pro plan (₹49 incl. GST) for unlimited job applications for 30 days.");
+
+        $plans = collect($this->getJson("{$this->api}/subscription")->json('data.plans.jobSeeker') ?? []);
+        if ($plans->isNotEmpty()) {
+            $this->assertSame(4900, $plans->firstWhere('id', 'seeker_pro')['price_paise']);
+        }
     }
 }
