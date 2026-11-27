@@ -33,6 +33,18 @@ return [
     | stays on the server — the app and website only ever call our API. A
     | busy model (503) is retried once on `fallback_model`.
     */
+    /*
+    | Razorpay — the website's payment gateway (PAYMENT_GATEWAY=razorpay).
+    | Dashboard → Account & Settings → API Keys (key id + secret), and
+    | Webhooks (the secret you set there). Test keys start rzp_test_.
+    */
+    'razorpay' => [
+        'key_id' => env('RAZORPAY_KEY_ID'),
+        'key_secret' => env('RAZORPAY_KEY_SECRET'),
+        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
+        'business_name' => env('RAZORPAY_BUSINESS_NAME', 'INTHES'),
+    ],
+
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),

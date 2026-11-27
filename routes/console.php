@@ -38,3 +38,4 @@ Schedule::command('postings:remind-missing-documents')
     ->dailyAt('10:30')
     ->timezone('Asia/Kolkata')
     ->withoutOverlapping();
+

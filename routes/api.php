@@ -32,6 +32,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
 
     /* §2 Authentication ---------------------------------------------------- */
+    // Razorpay webhooks — public, authenticated by the X-Razorpay-Signature HMAC.
+    Route::post('payments/razorpay/webhook', \App\Http\Controllers\Api\RazorpayWebhookController::class)->middleware('throttle:300,1');
+
     Route::prefix('auth')->group(function () {
         // The real guard is per-phone (3 per 10 minutes, §2.1). These per-IP
         // caps are only an abuse backstop and are deliberately loose — mobile

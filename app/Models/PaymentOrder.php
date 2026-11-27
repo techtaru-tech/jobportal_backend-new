@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'user_id', 'audience', 'plan_id', 'meta', 'amount_paise', 'currency',
-    'method', 'status', 'gateway', 'gateway_ref', 'failure_reason', 'paid_at',
+    'method', 'status', 'gateway', 'gateway_order_id', 'gateway_ref', 'failure_reason', 'paid_at',
 ])]
 class PaymentOrder extends Model
 {

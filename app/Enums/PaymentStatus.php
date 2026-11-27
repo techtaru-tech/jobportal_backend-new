@@ -9,6 +9,9 @@ enum PaymentStatus: string
     case Paid = 'paid';
     case Failed = 'failed';
 
+    /** Paid, then fully refunded (Razorpay) — see App\Services\Payments\PaymentRefunds. */
+    case Refunded = 'refunded';
+
     /** @return array<int, string> */
     public static function values(): array
     {
@@ -21,6 +24,7 @@ enum PaymentStatus: string
             self::Created => 'Awaiting payment',
             self::Paid => 'Paid',
             self::Failed => 'Failed',
+            self::Refunded => 'Refunded',
         };
     }
 

@@ -70,7 +70,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const res = await Inthes.api('/payments/orders', { method: 'POST', body: { audience: 'jobSeeker', plan_id: offer.id, method } })
         const order = res.data?.order || res.data
-        await Inthes.confirmOrder(order.id)
+        await Inthes.confirmOrder(order.id, res.data?.checkout)
         // The entitlement is the server's answer — nothing changes until re-read.
         await Inthes.loadMe()
         Inthes.toast('Your resume downloads without the INTHES mark.')

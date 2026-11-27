@@ -82,7 +82,7 @@ document.addEventListener('alpine:init', () => {
         })
         const order = res.data?.order
         if (!order?.id) throw new Error("Couldn't reach the payment service. Please try again.")
-        await Inthes.confirmOrder(order.id)
+        await Inthes.confirmOrder(order.id, res.data?.checkout)
         await this.showSubmitted()
         Inthes.toast('Payment successful')
       } catch (e) {

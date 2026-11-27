@@ -84,7 +84,7 @@
             const res = await Inthes.api('/payments/orders', { method: 'POST', body: { audience, plan_id: plan.id, method } })
             const order = res.data?.order || res.data
             if (!order?.id) throw new Error('Could not start the payment. Please try again.')
-            await Inthes.confirmOrder(order.id)
+            await Inthes.confirmOrder(order.id, res.data?.checkout)
           }
           await this.load()
           Inthes.toast(plan.is_free ? 'You are on the Free plan' : `${plan.name} plan activated`)

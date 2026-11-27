@@ -796,9 +796,81 @@
     })
   }
 
-  async function confirmOrder(orderId) {
-    const res = await api(`/payments/orders/${orderId}/confirm`, { method: 'POST', body: { gateway_payload: {} } })
+  // ── Razorpay checkout ───────────────────────────────────────────────
+  let razorpayLoading = null
+  function loadRazorpay() {
+    if (window.Razorpay) return Promise.resolve()
+    if (razorpayLoading) return razorpayLoading
+    razorpayLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script')
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      s.onload = () => resolve()
+      s.onerror = () => { razorpayLoading = null; reject(new Error("Couldn't load the payment page. Check your connection and try again.")) }
+      document.head.appendChild(s)
+    })
+    return razorpayLoading
+  }
+
+  /**
+   * Opens Razorpay's checkout for [checkout] (the server's `checkout` block)
+   * and resolves with what it hands back on success. Closing it rejects with
+   * `cancelled` set — nothing was charged.
+   */
+  async function razorpayPay(checkout) {
+    await loadRazorpay()
+    return new Promise((resolve, reject) => {
+      const rzp = new window.Razorpay({
+        key: checkout.key_id,
+        order_id: checkout.razorpay_order_id,
+        amount: checkout.amount,
+        currency: checkout.currency || 'INR',
+        name: checkout.name || 'INTHES',
+        description: checkout.description || '',
+        image: checkout.image || (location.origin + '/brand/inthes-mark.png'),
+        prefill: checkout.prefill || {},
+        notes: checkout.notes || {},
+        theme: { color: '#EB0401' },
+        handler: (r) => resolve({
+          razorpay_payment_id: r.razorpay_payment_id,
+          razorpay_order_id: r.razorpay_order_id,
+          razorpay_signature: r.razorpay_signature,
+        }),
+        modal: {
+          ondismiss: () => {
+            const err = new Error('Payment cancelled. You were not charged.')
+            err.cancelled = true
+            reject(err)
+          },
+        },
+      })
+      rzp.on('payment.failed', (r) => {
+        // Razorpay lets the payer retry in the same window; this is only
+        // reported, and the window stays open.
+        if (r && r.error && r.error.description) toast(r.error.description, true)
+      })
+      rzp.open()
+    })
+  }
+
+  /**
+   * Settles order [orderId]. [checkout] is the `checkout` block the server
+   * returned when the order was opened: for Razorpay it opens the payment
+   * window first, and the payment it returns is what the server verifies.
+   */
+  async function confirmOrder(orderId, checkout = null) {
+    let payload = {}
+    if (checkout && checkout.requires_sdk && checkout.gateway === 'razorpay') {
+      payload = await razorpayPay(checkout)
+    }
+    const res = await api(`/payments/orders/${orderId}/confirm`, { method: 'POST', body: { gateway_payload: payload } })
     const order = res.data?.order || res.data
+    // Taken but not settled yet (payment_order.dart isPending): not a failure.
+    // Thrown so no caller toasts success; `pending` lets it say so calmly.
+    if (order?.status === 'pending') {
+      const err = new Error("Your payment is processing. We'll apply it as soon as it completes.")
+      err.pending = true
+      throw err
+    }
     if (order?.status && order.status !== 'paid') throw new Error(order.failure_reason || 'Payment failed. You were not charged.')
     return order
   }

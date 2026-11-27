@@ -13,9 +13,6 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\JobPlanCatalog;
 use App\Services\JobPostingFlow;
-use App\Services\Payments\Store\AppStoreGateway;
-use App\Services\Payments\Store\GooglePlayGateway;
-use App\Services\Payments\Store\StoreProducts;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -67,12 +64,6 @@ class PaymentService
 
         $amount = $this->jobPlans->requireTotal($tier, $reach, $quantity);
 
-        if ($method->isStore() && ! in_array($quantity, StoreProducts::jobPlanQuantities(), true)) {
-            $sizes = implode(', ', StoreProducts::jobPlanQuantities());
-            throw ValidationException::withMessages([
-                'quantity' => ["In the app you can buy packs of {$sizes} postings."],
-            ])->status(422);
-        }
 
         $attributes = [
             'plan_id' => self::JOB_PLAN,
@@ -84,7 +75,7 @@ class PaymentService
             ],
             'amount_paise' => $amount,
             'method' => $method,
-            'gateway' => $this->gatewayFor($method)->name(),
+            'gateway' => $this->gateway->name(),
         ];
 
         // Re-picking (or backing out of the payment sheet and coming back)
@@ -126,11 +117,6 @@ class PaymentService
     ): PaymentOrder {
         $amount = (int) ($plan['price_paise'] ?? 0);
 
-        if ($method->isStore() && self::oneOffById((string) $plan['id']) === null) {
-            throw ValidationException::withMessages([
-                'plan_id' => ['This plan cannot be bought through the app store yet.'],
-            ])->status(422);
-        }
 
         if ($amount <= 0) {
             throw ValidationException::withMessages([
@@ -163,7 +149,7 @@ class PaymentService
                 'plan_id' => $plan['id'],
                 'amount_paise' => $amount,
                 'method' => $method,
-                'gateway' => $this->gatewayFor($method)->name(),
+                'gateway' => $this->gateway->name(),
             ])->save();
 
             return $existing;
@@ -177,27 +163,14 @@ class PaymentService
             'currency' => 'INR',
             'method' => $method,
             'status' => PaymentStatus::Created,
-            'gateway' => $this->gatewayFor($method)->name(),
+            'gateway' => $this->gateway->name(),
         ]);
     }
 
     /** @return array<string, mixed> */
     public function checkoutFor(PaymentOrder $order): array
     {
-        return $this->gatewayFor($order->method)->createCheckout($order);
-    }
-
-    /**
-     * The gateway that settles [$method]: the store's own for Google Play /
-     * App Store, otherwise the configured payment gateway.
-     */
-    private function gatewayFor(?PaymentMethod $method): PaymentGateway
-    {
-        return match ($method) {
-            PaymentMethod::GooglePlay => app(GooglePlayGateway::class),
-            PaymentMethod::AppStore => app(AppStoreGateway::class),
-            default => $this->gateway,
-        };
+        return $this->gateway->createCheckout($order);
     }
 
     /**
@@ -219,7 +192,7 @@ class PaymentService
             return $order;
         }
 
-        $result = $this->gatewayFor($order->method)->capture($order, $clientPayload);
+        $result = $this->gateway->capture($order, $clientPayload);
 
         if (! $result->successful) {
             $order->fill([
