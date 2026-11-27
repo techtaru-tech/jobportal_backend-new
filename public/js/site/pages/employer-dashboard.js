@@ -70,11 +70,14 @@ document.addEventListener('alpine:init', () => {
         }
       }
       for (const o of this.orgs) {
-        if (o.review_state === 'no_document' || (!o.document_name && !o.verified)) {
+        // Asked for only once a paid post of the company's waits on it — a
+        // company with no document and nothing paid for is just "not verified
+        // yet" (OrganisationsController.needsDocument).
+        if (o.review_state !== 'verified' && o.review_state !== 'pending' && Emp.orgNeedsDocument(o, this.jobs)) {
           const hidden = o.hidden_postings || 0
           out.push({
             key: 'doc' + o.id, tone: 'brand', icon: 'upload', title: o.name,
-            text: hidden > 0 ? `Upload your business document — ${hidden} posting${hidden === 1 ? ' is' : 's are'} not being shown.` : 'Upload your business document to get verified.',
+            text: hidden > 0 ? `Upload your business document — ${hidden} posting${hidden === 1 ? ' is' : 's are'} not being shown.` : 'Upload your business document — a paid post is waiting on it.',
             href: '/employer/companies?doc=' + encodeURIComponent(o.id), cta: 'Upload document',
           })
         } else if (o.review_state === 'pending') {

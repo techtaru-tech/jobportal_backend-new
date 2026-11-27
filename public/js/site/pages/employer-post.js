@@ -81,11 +81,8 @@ document.addEventListener('alpine:init', () => {
             location.replace('/employer/jobs')
             return
           }
-          if (['closed', 'expired'].includes(job.posting_status)) {
-            Inthes.toast('A closed job can’t be edited.', true)
-            location.replace(this.jobUrl(job))
-            return
-          }
+          // Any status can be edited — the app offers Edit on every post and
+          // PATCH /recruiter/jobs/{id} accepts it.
           this.beginEdit(job)
         } else {
           // The employer's own company, filled in for a repeat post.

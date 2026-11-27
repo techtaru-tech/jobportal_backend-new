@@ -13,8 +13,9 @@
   </div>
 
   <div class="grid gap-lg">
-    {{-- An open list: pick one, or add your own (≤ 40 characters). --}}
-    <div data-field="co.industry">@include('site.ui.combo', ['label' => 'Industry', 'model' => 'co.industry', 'items' => "opt('organisation_industries')", 'placeholder' => 'Select or add your industry', 'attrs' => 'maxlength=40', 'error' => 'coErrors.industry'])</div>
+    {{-- An open list: pick one, or add your own (≤ 40 characters). Industries used on
+         earlier companies are offered back (coIndustries). --}}
+    <div data-field="co.industry">@include('site.ui.combo', ['label' => 'Industry', 'model' => 'co.industry', 'items' => 'coIndustries()', 'placeholder' => 'Select or add your industry', 'attrs' => 'maxlength=40', 'error' => 'coErrors.industry'])</div>
     <div data-field="co.size">
       <span class="wa-label">Company size @include('site.ui.mark', ['required' => true])</span>
       <div class="grid grid-cols-3 gap-sm">

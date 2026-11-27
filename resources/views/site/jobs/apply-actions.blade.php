@@ -18,7 +18,7 @@
       </div>
     </template>
     <template x-if="!($store.auth.signedIn && (job.own_posting || $store.jobs.hasApplied(job)))">
-      <button type="button" @click="Inthes.quickApply(job)" class="wa-btn {{ $full ? 'w-full' : 'min-w-[180px] flex-1 sm:flex-none' }}">Apply now</button>
+      <button type="button" @click="Inthes.quickApply(job)" class="wa-btn {{ $full ? 'w-full' : 'min-w-[180px] flex-1 sm:flex-none' }}" x-text="kit.applyCta(job)">Apply now</button>
     </template>
 
     @if (!$full)

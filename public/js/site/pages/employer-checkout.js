@@ -81,7 +81,8 @@ document.addEventListener('alpine:init', () => {
         await this.showSubmitted()
         Inthes.toast('Payment successful')
       } catch (e) {
-        Inthes.toast(e.message || "That payment didn't go through. Please try again.", true)
+        // Pending: the app keeps the post as it is and says it's processing.
+        Inthes.toast(e.message || "That payment didn't go through. Please try again.", !e.pending)
       }
       this.paying = false
     },

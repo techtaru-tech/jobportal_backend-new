@@ -116,7 +116,13 @@
                         ['label' => 'Experience', 'value' => $job->experience],
                         ['label' => 'Job type', 'value' => $job->type],
                         ['label' => 'Shift', 'value' => $job->shift],
+                        // The rest only when the posting has them — as in the app's key-details grid.
+                        ['label' => 'Openings', 'value' => $job->openings > 0 ? (string) $job->openings : null, 'optional' => true],
+                        ['label' => 'Education', 'value' => $job->min_education, 'optional' => true],
+                        ['label' => 'Gender', 'value' => $job->preferred_gender, 'optional' => true],
+                        ['label' => 'Locality', 'value' => $job->locality, 'optional' => true],
                     ] as $fact)
+                        @continue(!empty($fact['optional']) && blank($fact['value']))
                         <div class="min-w-0">
                             <dt class="text-kicker text-ink-secondary">{{ strtoupper($fact['label']) }}</dt>
                             <dd class="mt-[3px] break-words text-bodysm font-semibold text-ink">
@@ -143,22 +149,36 @@
             {{-- Signed in: why this job fits (or does not). --}}
             @include('site.jobs.match')
 
-            @if ($job->about)
-                <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card">
-                    <h2 class="text-h3 text-ink">About this role</h2>
-                    <p class="mt-md whitespace-pre-line text-body text-ink-secondary">{{ $job->about }}</p>
-                </section>
+            {{-- The app's fee warning (job_detail_view), under the key details. --}}
+            @if ($job->charges_fee)
+                <div class="flex items-start gap-md rounded-card border-hair border-warning/30 bg-warning-bg p-lg text-warning">
+                    @include('admin.partials.icon', ['name' => 'alert', 'class' => 'mt-[1px] h-5 w-5 shrink-0'])
+                    <p class="text-bodysm font-medium">This employer charges candidates a fee for this job.</p>
+                </div>
             @endif
 
+            {{-- The app's order and form: skills, about, responsibilities,
+                 qualifications, benefits, then the employer. Skills,
+                 qualifications and benefits are chips; responsibilities a list. --}}
             @foreach ([
-                ['title' => 'What you will do', 'items' => $job->duties ?? []],
-                ['title' => 'What we are looking for', 'items' => $job->qualifications ?? []],
-                ['title' => 'Skills', 'items' => $job->skills ?? []],
-                ['title' => 'Benefits', 'items' => $job->benefits ?? []],
+                ['title' => 'Skills required', 'items' => $job->skills ?? [], 'as' => 'chips'],
+                ['title' => 'About the job', 'items' => $job->about, 'as' => 'text'],
+                ['title' => 'Responsibilities', 'items' => $job->duties ?? [], 'as' => 'list'],
+                ['title' => 'Qualifications', 'items' => $job->qualifications ?? [], 'as' => 'chips'],
+                ['title' => 'Benefits', 'items' => $job->benefits ?? [], 'as' => 'chips'],
             ] as $block)
-                @if (!empty($block['items']))
-                    <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card">
-                        <h2 class="text-h3 text-ink">{{ $block['title'] }}</h2>
+                @continue(blank($block['items']))
+                <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card">
+                    <h2 class="text-h3 text-ink">{{ $block['title'] }}</h2>
+                    @if ($block['as'] === 'text')
+                        <p class="mt-md whitespace-pre-line text-body text-ink-secondary">{{ $block['items'] }}</p>
+                    @elseif ($block['as'] === 'chips')
+                        <div class="mt-md flex flex-wrap gap-xs">
+                            @foreach ($block['items'] as $item)
+                                <span class="wa-tag !text-ink">{{ $item }}</span>
+                            @endforeach
+                        </div>
+                    @else
                         <ul class="mt-md space-y-sm">
                             @foreach ($block['items'] as $item)
                                 <li class="flex items-start gap-md text-bodysm text-ink-secondary">
@@ -167,51 +187,9 @@
                                 </li>
                             @endforeach
                         </ul>
-                    </section>
-                @endif
-            @endforeach
-
-            {{--
-              What Smart Apply will ask the candidate for.
-
-              Shown because it is the honest answer to "can I apply for this?".
-              A posting that demands a resume and a qualification is a different
-              proposition from one that wants a name, and finding that out after
-              installing the app is finding it out too late.
-
-              The labels cover `App\Enums\ProfileField` and nothing else; the
-              `Str::headline` fallback below is for an old posting whose stored
-              list still names `skills` or `specialization`, both of which left
-              the enum with the sections behind them.
-            --}}
-            @if (!empty($job->required_fields))
-                @php
-                    $fieldLabels = [
-                        'name' => 'Full name',
-                        'qualification' => 'Qualification',
-                        'experience' => 'Experience',
-                        'location' => 'Location',
-                        'gender' => 'Gender',
-                        'dob' => 'Date of birth',
-                        'address' => 'Address',
-                        'resume' => 'Resume',
-                    ];
-                @endphp
-                <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card" data-reveal>
-                    <h2 class="text-h3 text-ink">What you need to apply</h2>
-                    <p class="mt-xs text-bodysm text-ink-secondary">
-                        This employer asks for these on your profile. Everything else is optional.
-                    </p>
-                    <div class="mt-md flex flex-wrap gap-xs">
-                        @foreach ($job->required_fields as $field)
-                            <span class="inline-flex items-center gap-xs rounded-field bg-primary-light px-md py-[6px] text-tag font-semibold text-primary-dark">
-                                @include('admin.partials.icon', ['name' => 'check', 'class' => 'h-[13px] w-[13px]'])
-                                {{ $fieldLabels[$field] ?? Str::headline($field) }}
-                            </span>
-                        @endforeach
-                    </div>
+                    @endif
                 </section>
-            @endif
+            @endforeach
 
             {{-- The employer, with everything the record actually holds. This
                  is the other half of the decision: a candidate is choosing a
@@ -258,6 +236,49 @@
                         </a>
                     @endif
                 @endif
+            </section>
+
+            {{--
+              What Smart Apply will ask the candidate for.
+
+              Shown because it is the honest answer to "can I apply for this?".
+              Every job asks for the personal details in
+              `ProfileField::alwaysRequired()` (name, gender, date of birth,
+              address); the posting's own `required_fields` add to them. A
+              stored value the enum no longer has (`skills`, `specialization`)
+              is ignored, as the server's gate ignores it. Labels are Quick
+              Apply's (js/site/quick-apply.js FIELD_LABEL).
+            --}}
+            @php
+                $fieldLabels = [
+                    'name' => 'Full name',
+                    'gender' => 'Gender',
+                    'dob' => 'Date of birth',
+                    'address' => 'Address',
+                    'qualification' => 'Highest qualification',
+                    'experience' => 'Total experience',
+                    'location' => 'Preferred cities',
+                    'resume' => 'Resume',
+                ];
+                $requiredFields = collect(App\Enums\ProfileField::alwaysRequired())
+                    ->map(fn ($f) => $f->value)
+                    ->merge(collect($job->required_fields ?? [])->filter(fn ($f) => App\Enums\ProfileField::tryFrom((string) $f)))
+                    ->unique()
+                    ->values();
+            @endphp
+            <section class="rounded-card border-hair border-hairline bg-surface p-xl shadow-card" data-reveal>
+                <h2 class="text-h3 text-ink">What you need to apply</h2>
+                <p class="mt-xs text-bodysm text-ink-secondary">
+                    Your profile needs these before you can apply. Quick Apply asks only for the ones you have not filled yet.
+                </p>
+                <div class="mt-md flex flex-wrap gap-xs">
+                    @foreach ($requiredFields as $field)
+                        <span class="inline-flex items-center gap-xs rounded-field bg-primary-light px-md py-[6px] text-tag font-semibold text-primary-dark">
+                            @include('admin.partials.icon', ['name' => 'check', 'class' => 'h-[13px] w-[13px]'])
+                            {{ $fieldLabels[$field] ?? Str::headline($field) }}
+                        </span>
+                    @endforeach
+                </div>
             </section>
         </div>
 
@@ -336,7 +357,7 @@
             <template x-if="!($store.auth.signedIn && (job.own_posting || $store.jobs.hasApplied(job)))">
                 <div class="flex items-center gap-sm">
                     <button type="button" @click="$store.jobs.toggleSave(job)" :aria-label="$store.jobs.isSaved(job) ? 'Remove from saved jobs' : 'Save job'" :class="$store.jobs.isSaved(job) ? '!border-primary text-primary' : 'text-ink'" class="inline-flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-button border-btn border-hairline-strong bg-surface"><span x-html="ICONS.bookmark" :class="$store.jobs.isSaved(job) && '[&>svg]:fill-current'" class="[&>svg]:h-5 [&>svg]:w-5"></span></button>
-                    <button type="button" @click="Inthes.quickApply(job)" class="wa-btn flex-1">Apply now</button>
+                    <button type="button" @click="Inthes.quickApply(job)" class="wa-btn flex-1" x-text="kit.applyCta(job)">Apply now</button>
                 </div>
             </template>
             <p class="mt-xs text-center text-caption text-ink-secondary" x-text="kit.readiness(job)"></p>

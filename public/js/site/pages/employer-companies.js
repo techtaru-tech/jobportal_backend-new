@@ -2,8 +2,8 @@
  * /employer/companies — the companies an employer posts for
  * (recruiter_profile organisations_view + organisation_form_sheet): their
  * verification state, business document, and add / edit / remove. The
- * document is uploaded from each company's card (the form has no document,
- * GST or logo field). `?doc=<organisationId>` scrolls to that company's card.
+ * document is uploaded from a company's card only while a paid post of its
+ * waits on it, as in the app (the form has no document, GST or logo field). `?doc=<organisationId>` scrolls to that company's card.
  */
 document.addEventListener('alpine:init', () => {
   Alpine.data('empCompanies', () => ({
@@ -11,6 +11,7 @@ document.addEventListener('alpine:init', () => {
     loading: true,
     error: '',
     orgs: [],
+    jobs: [], // only to tell which companies a paid post is waiting on
     formOpen: false,
     formBusy: false,
     docBusy: '',
@@ -24,7 +25,11 @@ document.addEventListener('alpine:init', () => {
     async load(first = false) {
       if (first) this.loading = true
       this.error = ''
-      try { this.orgs = await Emp.loadOrgs() } catch (e) { this.error = e.message }
+      try {
+        const [orgs, jobs] = await Promise.all([Emp.loadOrgs(), Emp.loadMine().catch(() => this.jobs)])
+        this.orgs = orgs
+        this.jobs = jobs
+      } catch (e) { this.error = e.message }
       this.loading = false
       if (first) {
         const id = new URLSearchParams(location.search).get('doc')
@@ -33,9 +38,11 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    stateLabel: Emp.orgStateLabel,
+    /** The document is asked for only once a paid post of the company's waits on it (organisations_view). */
+    needsDocument(org) { return Emp.orgNeedsDocument(org, this.jobs) },
+    stateLabel(org) { return Emp.orgStateLabel(org, this.needsDocument(org)) },
     statePill: Emp.orgStatePill,
-    notice: Emp.orgNotice,
+    notice(org) { return Emp.orgNotice(org, this.needsDocument(org)) },
 
     openForm(org = null) {
       this.coReset(org)
@@ -99,21 +106,13 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    /** Upload / replace the document straight from the card. */
+    /** "Upload business document" on a card a paid post is waiting on. */
     async uploadDoc(org, ev) {
       const file = ev.target.files && ev.target.files[0]
       ev.target.value = ''
       if (!file || this.docBusy) return
       const problem = Emp.fileProblem('doc', file)
       if (problem) { Inthes.toast(problem, true); return }
-      if (org.verified) {
-        const ok = await Inthes.confirm({
-          title: 'Replace the company document?',
-          message: `${org.name} is verified. A new document sends it back for verification, and its jobs are hidden from candidates until it is checked.`,
-          ok: 'Replace', danger: true,
-        })
-        if (!ok) return
-      }
       this.docBusy = org.id
       try {
         await Inthes.upload(`/recruiter/organisations/${encodeURIComponent(org.id)}/document`, file)

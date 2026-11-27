@@ -25,7 +25,9 @@
   /** The `ProfileField` gate, as `isSatisfiedBy` reads the profile. */
   const SATISFIED = {
     name: (p) => !!trim(p.name),
-    qualification: (p) => !!p.qualification || (p.educations || []).length > 0,
+    // The flat value only — an education entry alone does not satisfy it
+    // (ProfileField::isSatisfiedBy, CandidateProfile.has in the app).
+    qualification: (p) => !!trim(p.qualification),
     experience: (p) => !!p.experience,
     location: (p) => Array.isArray(p.location) ? p.location.length > 0 : !!p.location,
     resume: (p) => !!p.resume,
@@ -43,11 +45,14 @@
     qualification: 'Highest qualification', experience: 'Total experience', location: 'Preferred cities', resume: 'Resume',
   }
 
-  /** Application status, the product's own words — never "rejected" to a candidate. */
+  /** Application status, the product's own words — never "rejected" to a candidate.
+   *  `tone` is the app's MTag variant (applications_view _statusVariant):
+   *  selected → accent, shortlisted → outline, applied / rejected → neutral.
+   */
   const APP_STATUS = {
-    applied: { label: 'Applied', note: 'Waiting for the employer to review', tone: 'bg-info-bg text-info' },
-    shortlisted: { label: 'Shortlisted', note: 'The employer is interested in you', tone: 'bg-primary-light text-primary-dark' },
-    selected: { label: 'Selected', note: 'You got the job', tone: 'bg-success-bg text-success' },
+    applied: { label: 'Applied', note: 'Waiting for the employer to review', tone: 'bg-surface-muted text-ink-secondary' },
+    shortlisted: { label: 'Shortlisted', note: 'The employer is interested in you', tone: 'bg-transparent text-primary ring-[1.2px] ring-inset ring-primary' },
+    selected: { label: 'Selected', note: 'You got the job', tone: 'bg-primary-light text-primary-dark' },
     rejected: { label: 'Not selected', note: 'The employer went with someone else', tone: 'bg-surface-muted text-ink-secondary' },
   }
   const APP_TABS = [
@@ -91,6 +96,12 @@
     salaryFloor,
     matchTone,
     appStatus: (s) => APP_STATUS[s] || { label: s || '', note: '', tone: 'bg-surface-muted text-ink-secondary' },
+    /** The Apply button's label — the app's `applyCta` for a job that can be applied to. */
+    applyCta(job) {
+      const auth = Alpine.store('auth')
+      if (!auth.signedIn || auth.isEmployer) return 'Apply now'
+      return kit.missingFor(job, auth.me).length ? 'Finish my profile to apply' : 'Apply now'
+    },
     fieldLabel: (f) => FIELD_LABEL[f] || f,
     jobUrl: (job) => '/jobs/' + encodeURIComponent(job?.code || job?.id || ''),
     salary: (job) => job?.salary_display || job?.salary || '',
@@ -126,9 +137,9 @@
       if (!app) return []
       const at = Object.fromEntries((app.timeline || []).map((t) => [t.stage, t.at]))
       const order = ['applied', 'shortlisted', 'selected']
-      const reached = app.status === 'rejected'
-        ? Math.max(0, ...order.map((s, i) => (at[s] ? i : -1)))
-        : order.indexOf(app.status)
+      // Nothing records how far a rejected application got, so — like the
+      // app's track_controller — only "Applied" counts as reached.
+      const reached = app.status === 'rejected' ? 0 : order.indexOf(app.status)
       return order.map((stage, i) => ({
         // A stage not reached has no date, even if the timeline once recorded it
         // (the employer moved the application back).

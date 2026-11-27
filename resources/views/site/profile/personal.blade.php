@@ -19,11 +19,14 @@
 
   @include('site.ui.input', ['label' => 'Email', 'model' => 'pf.email', 'type' => 'email', 'placeholder' => 'you@example.com', 'icon' => 'mail', 'attrs' => 'maxlength=190 autocomplete=email'])
 
-  @include('site.ui.chips', ['label' => 'Gender', 'model' => 'pf.gender', 'iconKind' => 'personGender', 'items' => "opt('genders')"])
+  <div>
+    <span class="wa-label">Gender @include('site.profile.gate-mark', ['field' => 'gender'])</span>
+    @include('site.ui.chips', ['model' => 'pf.gender', 'iconKind' => 'personGender', 'items' => "opt('genders')"])
+  </div>
 
   <div class="grid gap-lg">
     <label class="block">
-      <span class="wa-label">Date of birth @include('site.ui.mark', ['required' => false])</span>
+      <span class="wa-label">Date of birth @include('site.profile.gate-mark', ['field' => 'dob'])</span>
       <div class="relative">
         <span class="pointer-events-none absolute left-md top-1/2 -translate-y-1/2 text-ink-muted">@include('admin.partials.icon', ['name' => 'cake', 'class' => 'h-[18px] w-[18px]'])</span>
         <input type="date" x-model="pf.dob" :min="profDobMin" :max="profDobMax" class="wa-input pl-[44px]">
@@ -41,7 +44,7 @@
 
   {{-- Typed, or the current position. Typing drops a pin taken earlier. --}}
   <div>
-    <span class="wa-label">Where you live @include('site.ui.mark', ['required' => false])</span>
+    <span class="wa-label">Where you live @include('site.profile.gate-mark', ['field' => 'address'])</span>
     <div class="relative">
       <span class="pointer-events-none absolute left-md top-[15px] text-ink-muted">@include('admin.partials.icon', ['name' => 'home', 'class' => 'h-[18px] w-[18px]'])</span>
       <textarea x-model="pf.address" @input="profAddressTyped()" rows="2" maxlength="255" placeholder="Area, city" class="wa-textarea pl-[44px]"></textarea>

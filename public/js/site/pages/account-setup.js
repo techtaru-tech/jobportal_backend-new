@@ -4,11 +4,15 @@
  * The app's own 10-step wizard (OnboardingController): one section per
  * step, in the app's order and with its titles. Each step saves only what
  * was answered (blanks never wipe an earlier answer — the app's onboarding
- * rule); every step can be skipped, and "Do it later" is always there.
+ * rule); every step can be skipped, and "Do it later" is always there —
+ * except in an apply run (below).
  *
  * `?next=` (a site path) is where the visitor was headed — e.g. the job they
  * tried to apply to from an employer account before switching to a new job
- * seeker account. "Do this later" and the finish screen go back there.
+ * seeker account. "Do it later" and Finish go back there. When it is a job's
+ * Apply (`/jobs/{code}?apply=1`) the run is gated as the app's is: the steps
+ * holding what that job still needs cannot be skipped, and the way out is
+ * "Not now" (back to the job without applying).
  */
 document.addEventListener('alpine:init', () => {
   const K = window.ProfileKit
@@ -28,14 +32,37 @@ document.addEventListener('alpine:init', () => {
     { key: 'video', icon: 'video', title: 'Your intro video', subtitle: 'Optional, and the single fastest way to stand out — 60 seconds is enough.' },
   ]
 
+  /**
+   * OnboardingController._stepFields — which job requirements each step can
+   * satisfy. `resume` is rendered from the personal, education and experience
+   * steps, so a job wanting one asks all three (each for its own input).
+   */
+  const STEP_FIELDS = {
+    personal: ['name', 'gender', 'dob', 'address', 'resume'],
+    education: ['qualification', 'resume'],
+    experience: ['experience', 'resume'],
+    preferences: ['location'],
+  }
+  const RESUME_INPUT = { personal: 'name', education: 'qualification', experience: 'experience' }
+  /** OnboardingController.gateLabel — the question as it reads on screen. */
+  const GATE_LABEL = {
+    name: 'Full name', gender: 'Gender', dob: 'Date of birth', address: 'Where you live',
+    qualification: 'Highest qualification', experience: 'Total experience', location: 'Preferred cities', resume: 'Resume details',
+  }
+
   Alpine.data('accountSetup', () => K.merge(K.mixin(), {
     STEPS,
     step: 0,
-    done: false,
     ready: false,
     busy: false,
     quick: '',
-    finishing: false,
+    /** The team answer is kept in the form and saved with the step, as in the app. */
+    profTeamDeferred: true,
+    /**
+     * Reached from an Apply: what the job was missing when this run started.
+     * A snapshot (the app's `_outstanding`) — the bar must not move as it is answered.
+     */
+    outstanding: [],
     /** Where to carry on afterwards — a same-site path only. */
     nextUrl: (() => {
       const n = new URLSearchParams(location.search).get('next') || ''
@@ -57,23 +84,82 @@ document.addEventListener('alpine:init', () => {
       this.profFill()
       // With no saved degree the form starts from the flat qualification.
       if (!(this.me?.educations || []).length) this.pf.edu.qualification = this.me?.qualification || ''
+      await this._loadGate()
       this.ready = true
+    },
+
+    // ── the Apply gate (OnboardingController, gated mode) ───────────────
+    /** The job in `?next=/jobs/{code}?apply=1`, and what it needs that the profile lacks. */
+    async _loadGate() {
+      if (!this.nextIsApply || !Inthes.jobsKit) return
+      const code = decodeURIComponent(this.nextUrl.match(/^\/jobs\/([^/?]+)/)[1])
+      try {
+        const job = (await Inthes.api('/jobs/' + encodeURIComponent(code))).data
+        this.outstanding = job ? Inthes.jobsKit.missingFor(job, this.me) : []
+      } catch (e) { this.outstanding = [] /* the job page re-checks on the way back */ }
+    },
+    get isGated() { return this.outstanding.length > 0 },
+    _requiredOf(key) { return (STEP_FIELDS[key] || []).filter((f) => this.outstanding.includes(f)) },
+    /** A step this job needs something from: no Skip, and Save waits until it is filled. */
+    stepRequired(key) { return this.isGated && this._requiredOf(key).length > 0 },
+    /** Read from the form, not the saved profile — satisfied the moment it is filled in. */
+    _fieldAnswered(field) {
+      const f = this.pf
+      switch (field) {
+        case 'name': return !!trim(f.name)
+        case 'gender': return !!f.gender
+        case 'dob': return !!f.dob
+        case 'address': return this._address != null
+        case 'qualification': return !!f.edu.qualification || (this.me?.educations || []).length > 0 || !!trim(this.me?.qualification)
+        case 'experience': return !!f.experience
+        case 'location': return f.location.length > 0
+        case 'resume': return ['name', 'qualification', 'experience'].every((x) => this._fieldAnswered(x))
+      }
+      return false
+    },
+    /** "To continue, fill in: …" — what [key] still owes this job, in on-screen words. */
+    gateMissingOn(key) {
+      if (!this.isGated) return []
+      const out = []
+      for (const f of this._requiredOf(key)) {
+        const field = f === 'resume' ? RESUME_INPUT[key] : f
+        if (!field || this._fieldAnswered(field) || out.includes(field)) continue
+        out.push(field)
+      }
+      return out.map((f) => GATE_LABEL[f])
+    },
+    stepSatisfied(key) { return this.gateMissingOn(key).length === 0 },
+    /** The question carries a `*` when this job makes it compulsory. */
+    profGateReq(field) {
+      if (!this.isGated) return false
+      return STEPS.some((s) => this._requiredOf(s.key).some((f) => (f === 'resume' ? RESUME_INPUT[s.key] : f) === field))
+    },
+    get gateSummary() {
+      const left = this.outstanding.filter((f) => !this._fieldAnswered(f)).length
+      return left === 0 ? 'Everything this job needs is filled in' : `This job needs ${left} more detail${left === 1 ? '' : 's'}`
+    },
+    /** Leaves a gated run without applying — back to the job, not into Quick Apply. */
+    abandonGate() {
+      if (this.busy) return
+      location.href = this.nextUrl.replace(/([?&])apply=1(&|$)/, (m, a, b) => (b ? a : '')).replace(/[?&]$/, '')
     },
 
     /**
      * Whether [key] has an answer — on screen or saved (OnboardingController.hasAnswer
-     * reads the draft). Drives the bar, the count, and Skip (hidden once answered).
+     * reads the form, which starts from the saved profile). Drives the bar, the
+     * count, and Skip (hidden once answered).
      */
     answered(key) {
       const f = this.pf
       const set = (v) => v !== null && v !== undefined && v !== ''
       const draft = {
-        personal: !!trim(f.name),
+        personal: [f.name, f.email, f.gender, f.dob, f.address, f.home_city, f.home_state, f.marital_status,
+          f.father_name, f.mother_name, f.native_place, f.nationality, f.alternate_phone, f.whatsapp_number].some((v) => !!trim(v)),
         education: this.profEduStarted,
-        experience: !!f.experience || this.profExpStarted,
+        experience: !!f.experience || this.profExpStarted || f.managed_team != null,
         languages: f.languages.length > 0,
         preferences: f.location.length > 0 || f.roles.length > 0 || f.job_types.length > 0 || f.shifts.length > 0 || (f.org_types || []).length > 0 || !!f.salary,
-        availability: [f.currently_employed, f.immediate_joiner, f.willing_to_relocate, f.has_vehicle, f.has_driving_licence, f.notice_period].some(set),
+        availability: [f.currently_employed, f.immediate_joiner, f.willing_to_relocate, f.has_vehicle, f.has_driving_licence, f.notice_period, f.last_working_date, f.earliest_joining_date].some(set),
         skills: f.skills.length > 0 || f.hobbies.length > 0,
         about: !!trim(f.about),
         video: !!this.profVideoDraft,
@@ -84,12 +170,14 @@ document.addEventListener('alpine:init', () => {
       const m = this.me || {}
       const set = (v) => v !== null && v !== undefined && v !== ''
       switch (key) {
-        case 'personal': return !!trim(m.name)
+        case 'personal': return [m.name, m.email, m.gender, m.dob, m.address, m.home_city, m.home_state, m.marital_status,
+          m.father_name, m.mother_name, m.native_place, m.nationality, m.alternate_phone, m.whatsapp_number].some((v) => !!trim(v))
         case 'education': return (m.educations || []).length > 0 || !!trim(m.qualification)
-        case 'experience': return !!trim(m.experience)
+        case 'experience': return !!trim(m.experience) || (m.experiences || []).length > 0 || m.managed_team != null
         case 'languages': return (m.languages || []).length > 0
-        case 'preferences': return (m.location || []).length > 0 || (m.preferred_roles || []).length > 0 || (m.preferred_job_types || []).length > 0 || !!m.expected_salary
-        case 'availability': return [m.currently_employed, m.immediate_joiner, m.willing_to_relocate, m.has_vehicle, m.has_driving_licence, m.notice_period].some(set)
+        case 'preferences': return (m.location || []).length > 0 || (m.preferred_roles || []).length > 0 || (m.preferred_job_types || []).length > 0
+          || (m.preferred_shifts || []).length > 0 || (m.preferred_organisation_types || []).length > 0 || !!m.expected_salary
+        case 'availability': return [m.currently_employed, m.immediate_joiner, m.willing_to_relocate, m.has_vehicle, m.has_driving_licence, m.notice_period, m.last_working_date, m.earliest_joining_date].some(set)
         case 'skills': return (m.skills || []).length > 0 || (m.hobbies || []).length > 0
         case 'about': return !!trim(m.about)
         case 'photo': return !!m.photo || !!m.photo_url
@@ -150,6 +238,9 @@ document.addEventListener('alpine:init', () => {
             await this._profExpWrite()
             this.pf.exp = K.emptyExp()
           }
+          // The team answer, kept in the form until now; its line is already
+          // in the About text, which saves with the About step.
+          if (f.managed_team != null && f.managed_team !== me.managed_team) await patch({ managed_team: f.managed_team })
           break
         case 'languages':
           if (f.languages.length) {
@@ -195,6 +286,9 @@ document.addEventListener('alpine:init', () => {
 
     async next() {
       if (this.busy) return
+      // A step the job needs waits until it holds what the job asks for.
+      const owed = this.gateMissingOn(this._key)
+      if (owed.length) { Inthes.toast('To continue, fill in: ' + owed.join(', '), true); return }
       const problem = this._problem(this._key)
       if (problem) { Inthes.toast(problem, true); return }
       this.busy = true
@@ -214,11 +308,13 @@ document.addEventListener('alpine:init', () => {
     },
 
     prev() {
-      if (this.step > 0) { this.step -= 1; window.scrollTo({ top: 0, behavior: 'smooth' }) }
+      if (this.step > 0) { this.step -= 1; window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+      // In an apply run Back on the first step goes back to the job.
+      if (this.isGated) this.abandonGate()
     },
     goTo(i) { if (i < this.step && !this.busy) this.step = i },
     async skip() {
-      if (this.busy) return
+      if (this.busy || this.stepRequired(this._key)) return
       if (this.step < STEPS.length - 1) { this.step += 1; window.scrollTo({ top: 0, behavior: 'smooth' }); return }
       this.busy = true
       await this._finish()
@@ -232,30 +328,25 @@ document.addEventListener('alpine:init', () => {
     },
 
     /**
-     * The resume is rendered on the way out rather than asked for. Silent: a
-     * profile too sparse to render is not an error.
+     * The resume is re-rendered on the way out rather than asked for — whenever
+     * the profile can fill one, as the app's `_generateResumeQuietly` does.
+     * Silent: a profile too sparse to render is not an error.
      */
     async _renderResume() {
-      if (K.missingForResume(this.me).length || this.me?.resume) return
-      this.finishing = true
-      try { await Inthes.api('/candidate/profile/resume/generate', { method: 'POST' }); await Inthes.loadMe() } catch (e) { /* the profile can rebuild it */ }
-      this.finishing = false
+      if (K.missingForResume(this.me).length) return
+      try { await Inthes.api('/candidate/profile/resume/generate', { method: 'POST' }) } catch (e) { /* the profile can rebuild it */ }
     },
 
-    async leave(to) {
-      // Waits for the resume being written, so navigating away doesn't cut it off.
-      while (this.finishing) await new Promise((r) => setTimeout(r, 150))
-      location.href = to
-    },
-
-    /** "Do it later" — saves the step on screen (best effort) and leaves. */
+    /**
+     * "Do it later" — saves the step on screen (best effort) and leaves, as
+     * the app's skipAll. Not offered in an apply run, where it is "Not now".
+     */
     async later() {
       if (this.busy) return
+      if (this.isGated) { this.abandonGate(); return }
       this.busy = true
-      if (!this.done && !this._problem(this._key)) { try { await this._save(this._key) } catch (e) { /* never trap someone who asked to leave */ } }
-      if (!K.missingForResume(this.me).length && !this.me?.resume) {
-        try { await Inthes.api('/candidate/profile/resume/generate', { method: 'POST' }) } catch (e) { /* later */ }
-      }
+      if (!this._problem(this._key)) { try { await this._save(this._key) } catch (e) { /* never trap someone who asked to leave */ } }
+      await this._renderResume()
       location.href = this.nextUrl || '/jobs'
     },
 

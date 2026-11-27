@@ -43,23 +43,29 @@
           <span class="wa-pill shrink-0" :class="statePill(org)" x-text="stateLabel(org)"></span>
         </div>
 
-        <p class="mt-md flex items-center gap-xs text-caption" :class="notice(org).cls">
-          <span x-html="ICONS[notice(org).icon]" class="shrink-0 [&>svg]:h-[14px] [&>svg]:w-[14px]"></span>
-          <span x-text="notice(org).text"></span>
-        </p>
+        <template x-if="notice(org)">
+          <p class="mt-md flex items-center gap-xs text-caption" :class="notice(org).cls">
+            <span x-html="ICONS[notice(org).icon]" class="shrink-0 [&>svg]:h-[14px] [&>svg]:w-[14px]"></span>
+            <span x-text="notice(org).text"></span>
+          </p>
+        </template>
 
-        {{-- document --}}
-        <div class="mt-md flex flex-wrap items-center gap-sm rounded-field bg-surface-muted px-md py-sm">
-          <span class="shrink-0 [&>svg]:h-[18px] [&>svg]:w-[18px]" :class="org.document_name || org.verified ? 'text-ink-secondary' : 'text-primary'" x-html="org.document_name || org.verified ? ICONS.fileText : ICONS.alert"></span>
-          <span class="min-w-0 flex-1 truncate text-bodysm" :class="org.document_name || org.verified ? 'text-ink-secondary' : 'font-semibold text-primary-dark'" x-text="org.document_name || (org.verified ? 'No document on file' : 'Business document not uploaded yet')"></span>
-          <template x-if="org.document_name">
-            <button type="button" class="shrink-0 text-btnghost text-ink-secondary hover:text-ink" @click="viewDocument(org)">View</button>
-          </template>
-          <label class="shrink-0 cursor-pointer text-btnghost text-primary hover:underline">
+        {{-- document: View once one is on file; Upload only while a paid post waits on it
+             (organisations_view — the app offers no Replace) --}}
+        <template x-if="org.document_name">
+          <div class="mt-md flex items-center gap-sm rounded-field bg-surface-muted px-md py-sm">
+            <span class="shrink-0 text-ink-secondary [&>svg]:h-[18px] [&>svg]:w-[18px]" x-html="ICONS.fileText"></span>
+            <span class="min-w-0 flex-1 truncate text-bodysm text-ink-secondary" x-text="org.document_name"></span>
+            <button type="button" class="shrink-0 text-btnghost text-ink-secondary hover:text-ink" @click="viewDocument(org)">View document</button>
+          </div>
+        </template>
+        <template x-if="needsDocument(org)">
+          <label class="wa-btn-sm mt-md w-full cursor-pointer" :class="docBusy && 'pointer-events-none opacity-60'">
             <input type="file" class="sr-only" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" @change="uploadDoc(org, $event)" :disabled="!!docBusy">
-            <span x-text="docBusy === org.id ? 'Uploading…' : (org.document_name ? 'Replace' : 'Upload')"></span>
+            <span x-html="docBusy === org.id ? ICONS.loader : ICONS.upload" :class="docBusy === org.id && 'animate-spin'" class="[&>svg]:h-4 [&>svg]:w-4"></span>
+            <span x-text="docBusy === org.id ? 'Uploading…' : 'Upload business document'"></span>
           </label>
-        </div>
+        </template>
 
         <div class="mt-auto flex flex-wrap items-center gap-xs border-t border-hairline-divider pt-sm" style="margin-top: 16px">
           <span x-show="org.hidden_postings > 0" class="wa-tag" x-text="org.hidden_postings + (org.hidden_postings === 1 ? ' job' : ' jobs') + ' hidden'"></span>

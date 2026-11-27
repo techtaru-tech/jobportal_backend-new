@@ -78,11 +78,11 @@
         </button>
       </div>
       <p class="mt-lg text-kicker uppercase tracking-[1.2px] text-primary">Step 1 of 2</p>
-      <h2 class="mt-sm text-h1 text-ink">Enter your mobile number</h2>
+      <h2 class="mt-sm text-h1 text-ink">What's your mobile number?</h2>
       <p class="mt-xs text-bodysm text-ink-secondary"
          x-text="$store.auth.modal.switching
            ? ($store.auth.modal.role === 'recruiter' ? 'Your employer account is separate from your job seeker account. New here? You\'ll set it up next.' : 'Your job seeker account is separate from your employer account. New here? You\'ll set up your profile next.')
-           : ($store.auth.modal.reason ? 'Sign in ' + $store.auth.modal.reason + '. We\'ll send a 6-digit code to verify it.' : 'We\'ll send a 6-digit code to verify it.')"></p>
+           : ($store.auth.modal.reason ? 'Sign in ' + $store.auth.modal.reason + '. We\'ll send a 6-digit code. No password to remember.' : 'We\'ll send a 6-digit code. No password to remember.')"></p>
 
       <form @submit.prevent="Inthes.sendOtp()" class="mt-xl flex flex-1 flex-col">
         {{-- Which account (the app's IconChoiceChip pair) --}}
@@ -173,8 +173,8 @@
         </label>
         <p x-show="$store.auth.modal.error" x-text="$store.auth.modal.error" role="alert" class="mt-md rounded-field bg-danger-bg px-md py-sm text-bodysm text-danger"></p>
         <div class="mt-lg text-center">
-          <button type="button" x-show="$store.auth.modal.resendIn <= 0" @click="Inthes.sendOtp()" class="text-btnghost font-semibold text-primary-dark hover:underline">Resend code</button>
-          <span x-show="$store.auth.modal.resendIn > 0" class="text-caption text-ink-muted">Resend code in <span x-text="$store.auth.modal.resendIn"></span>s</span>
+          <button type="button" x-show="$store.auth.modal.resendIn <= 0" @click="Inthes.sendOtp()" class="text-btnghost font-semibold text-primary-dark hover:underline">Didn't get it? Resend OTP</button>
+          <span x-show="$store.auth.modal.resendIn > 0" class="text-caption text-ink-muted">Didn't get it? Resend in <span x-text="$store.auth.modal.resendIn"></span>s</span>
         </div>
 
         <div class="mt-auto pt-xxl">

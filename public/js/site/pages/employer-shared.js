@@ -175,8 +175,9 @@
     } catch (e) { Inthes.toast(e.message, true); return null }
   }
 
+  /** Offered for every posting, as in the app (JobShare.share): only a missing link stops it. */
   function shareJob(job) {
-    if (!job.share_url || job.posting_status !== 'active') { Inthes.toast("This job can't be shared yet", true); return }
+    if (!job.share_url) { Inthes.toast("This job can't be shared yet", true); return }
     Inthes.share(job.title, job.share_url)
   }
 
@@ -191,10 +192,16 @@
     return merged
   }
 
-  /** What the job-actions menu can offer for a posting. */
+  /**
+   * What the job-actions menu can offer for a posting. The app's sheet shows
+   * all four always; here an action is shown only where the API takes it:
+   * PATCH …/status moves active ↔ paused and either to closed, nothing else
+   * (JobPostingStatus::allowedTransitions); PATCH …/jobs/{id} edits a posting
+   * in any status.
+   */
   function canToggle(job) { return ['active', 'paused'].includes(job.posting_status) }
-  function canClose(job) { return ['active', 'paused', 'pending_approval'].includes(job.posting_status) }
-  function canEdit(job) { return !['closed', 'expired'].includes(job.posting_status) }
+  function canClose(job) { return ['active', 'paused'].includes(job.posting_status) }
+  function canEdit(job) { return !!job }
 
   /**
    * The job-actions menu's handlers (site/employer/partials/job-menu). The
@@ -326,22 +333,37 @@
     return out
   }
 
-  function orgStateLabel(org) {
-    return { verified: 'Verified', pending: 'Under review' }[org.review_state] || 'Not verified'
+  /**
+   * True when a paid post of this company's is waiting on its business
+   * document — the only time the app asks for one
+   * (OrganisationsController.needsDocument).
+   */
+  function orgNeedsDocument(org, jobs) {
+    return !!org && (jobs || []).some((j) => j.organisation_id === org.id && docMissing(j))
+  }
+
+  /** organisations_view's status tag: before a paid post needs it, a company without a document is just "Not verified yet". */
+  function orgStateLabel(org, needsDocument = false) {
+    return { verified: 'Verified', pending: 'Under review' }[org.review_state] || (needsDocument ? 'Document required' : 'Not verified yet')
   }
   function orgStatePill(org) {
     return { verified: 'bg-success-bg text-success', pending: 'bg-warning-bg text-warning' }[org.review_state] || 'bg-primary-light text-primary-dark'
   }
 
-  /** The one-line verification notice under each company (VerificationNotice, compact). */
-  function orgNotice(org) {
+  /**
+   * The one-line verification notice under each company (VerificationNotice,
+   * compact). Null for a company without a document that no paid post is
+   * waiting on — the app says nothing about uploading until then.
+   */
+  function orgNotice(org, needsDocument = false) {
     const hidden = org.hidden_postings || 0
     const postings = hidden === 1 ? '1 posting' : `${hidden} postings`
     if (org.review_state === 'verified') return { text: 'Verified company', icon: 'badgeCheck', cls: 'text-success' }
     if (org.review_state === 'pending') {
       return { text: hidden > 0 ? `Your ${postings} ${hidden === 1 ? 'is' : 'are'} not being shown yet` : 'Verification in progress', icon: 'clock', cls: 'text-warning' }
     }
-    return { text: hidden > 0 ? `Your ${postings} ${hidden === 1 ? 'is' : 'are'} not being shown` : 'Upload your business document to get verified', icon: 'alert', cls: 'text-primary-dark' }
+    if (!needsDocument) return null
+    return { text: hidden > 0 ? `Your ${postings} ${hidden === 1 ? 'is' : 'are'} not being shown` : 'Upload your company document', icon: 'alert', cls: 'text-primary-dark' }
   }
 
   /** PDF/JPG/PNG up to 10 MB for the document; JPG/PNG up to 3 MB for the logo — the API's own limits. Returns an error or null. */
@@ -382,6 +404,19 @@
 
       coHiringTypes() { return Alpine.store('opts').data?.hiring_types || {} },
       coSizes() { const s = Inthes.opt('organisation_sizes'); return s.length ? s : ['Small', 'Mid', 'Large'] },
+      /**
+       * The server's industries plus any this employer added on an earlier
+       * company, so a custom one is offered back rather than retyped
+       * (PostJobController / OrganisationsController.industryOptions).
+       */
+      coIndustries() {
+        const out = [...Inthes.opt('organisation_industries')]
+        for (const o of (Array.isArray(this.orgs) ? this.orgs : [])) {
+          const v = String(o.industry || '').trim()
+          if (v && !out.includes(v)) out.push(v)
+        }
+        return out
+      },
       coHasLogo() { return this.co.logo },
       coLogoSrc() { return this.co.logo ? this.co.logo_url : '' },
 
@@ -464,7 +499,7 @@
     day, salary, amount, withScheme, isEmail, awaitingPayment, docMissing, notices, noticeHref,
     loadMine, loadOrgs, toggleJob, closeJob, shareJob, replaceIn, canToggle, canClose, canEdit, jobActions, submittedDoc,
     blankCompany, companyFrom, companyBody, companyErrors, withFilesFrom, fileProblem, companyForm, uploadBusinessDocument,
-    orgStateLabel, orgStatePill, orgNotice,
+    orgNeedsDocument, orgStateLabel, orgStatePill, orgNotice,
     apName, apCurrentRole, apDesignation, apLocation, apStrength, strengthLabel, experienceRank,
     /** The helpers templates call, spread into a page component. */
     helpers: {

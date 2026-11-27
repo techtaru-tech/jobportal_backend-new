@@ -1,6 +1,6 @@
 /**
  * /account/resume — the resume built from the profile: preview, download,
- * share, "Create my resume" when there is none, and the ₹20 watermark-free
+ * share, what is still missing when there is none, and the ₹20 watermark-free
  * one-off (method sheet → order → confirm → re-read).
  */
 document.addEventListener('alpine:init', () => {

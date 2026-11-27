@@ -59,7 +59,7 @@
         if (this.isCurrent(plan)) return 'Current plan'
         if (this.isLocked(plan)) return 'After your plan ends'
         if (plan.is_free) return 'Switch to Free'
-        return 'Upgrade to ' + plan.name
+        return 'Upgrade'
       },
 
       async choose(plan) {
@@ -91,7 +91,7 @@
           await this.load()
           Inthes.toast(plan.is_free ? 'You are on the Free plan' : `${plan.name} plan activated`)
         } catch (e) {
-          Inthes.toast(e.message, true)
+          Inthes.toast(e.message, !e.pending) // pending: processing, not failed
           this.load()
         }
         this.busy = ''

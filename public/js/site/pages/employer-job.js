@@ -20,6 +20,12 @@ document.addEventListener('alpine:init', () => {
     { key: 'qualification', label: 'Qualification' },
     { key: 'location', label: 'Location' },
   ]
+  /** Today + `days` as the local `yyyy-MM-dd` a date input takes. */
+  const localDay = (days) => {
+    const d = new Date()
+    d.setDate(d.getDate() + days)
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+  }
   const blankInterview = () => ({ open: false, date: '', time: '', type: 'online', location_or_link: '', notes: '', busy: false, error: '' })
 
   Alpine.data('empJob', (props = {}) => ({
@@ -287,25 +293,17 @@ document.addEventListener('alpine:init', () => {
       if (ok) this.setStatus('rejected', 'Application rejected')
     },
 
+    /**
+     * Only offered on a shortlisted applicant with no interview yet, as the
+     * app's primary button (applicant_profile_view.dart). The date starts
+     * where the app's picker does — three days out — in `yyyy-MM-dd`.
+     */
     openInterview() {
       this.moreOpen = false
-      const i = this.detail?.interview
-      this.interview = Object.assign(blankInterview(), {
-        open: true, type: i?.type === 'inPerson' ? 'inPerson' : 'online',
-        // Rescheduling starts from the current slot.
-        date: /^\d{4}-\d{2}-\d{2}/.test(i?.date || '') ? i.date.slice(0, 10) : '',
-        location_or_link: i?.location_or_link || '', notes: i?.notes || '',
-        time: (() => {
-          const m = String(i?.time || '').match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
-          if (!m) return ''
-          let h = Number(m[1]) % 12
-          if (m[3].toUpperCase() === 'PM') h += 12
-          return String(h).padStart(2, '0') + ':' + m[2]
-        })(),
-      })
+      this.interview = Object.assign(blankInterview(), { open: true, date: localDay(3) })
     },
-    get interviewMinDate() { return new Date().toISOString().slice(0, 10) },
-    get interviewMaxDate() { return new Date(Date.now() + 180 * 864e5).toISOString().slice(0, 10) },
+    get interviewMinDate() { return localDay(0) },
+    get interviewMaxDate() { return localDay(180) },
     get interviewReady() { const v = this.interview; return !!(v.date && v.time && v.location_or_link.trim()) },
 
     /**

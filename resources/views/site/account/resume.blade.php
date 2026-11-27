@@ -3,8 +3,9 @@
 
   Desktop: the PDF previewed in the page with Download / Open / Share beside
   it. Phones: the same actions (a phone opens PDFs in its own viewer). No
-  resume yet: what is missing, linked to the profile card that fixes it, or
-  "Create my resume". Plus the ₹20 watermark-free one-off.
+  resume yet: what is missing, linked to the profile card that fixes it —
+  no "Create" button, as in the app (the server writes it as soon as the
+  profile can fill one). Plus the ₹20 watermark-free one-off.
 --}}
 @extends('site.account.layout')
 
@@ -111,7 +112,7 @@
         @include('admin.partials.icon', ['name' => 'fileText', 'class' => 'h-6 w-6'])
       </span>
       <h2 class="mt-lg text-h3 text-ink">No resume yet</h2>
-      <p class="mt-xs text-bodysm text-ink-secondary">Inthes writes it for you from your profile — nothing to upload.</p>
+      <p class="mt-xs text-bodysm text-ink-secondary">Written for you from your profile</p>
 
       {{-- Named one by one, each linked to the card that fixes it. --}}
       <template x-if="profMissingForResume.length">
@@ -128,11 +129,9 @@
           </ul>
         </div>
       </template>
-      <template x-if="!profMissingForResume.length">
-        <button type="button" @click="profGenerateResume()" :disabled="profResumeBusy" class="wa-btn mt-xl w-full sm:w-auto">
-          <span x-html="profResumeBusy ? ICONS.loader : ICONS.sparkles" :class="profResumeBusy && 'animate-spin'" class="[&>svg]:h-5 [&>svg]:w-5"></span> Create my resume
-        </button>
-      </template>
+      {{-- No "Create" button, as in the app: the server writes it as soon as
+           the profile can fill one, and re-writes it on every change. --}}
+      <p class="mt-lg text-caption text-ink-muted">It is written for you as soon as your profile has enough on it.</p>
     </div>
   </template>
 </div>

@@ -105,6 +105,51 @@
     return [...bands].reverse().find((b) => rangeOf(b).to !== 0) || bands[bands.length - 1]
   }
 
+  /**
+   * The photo as the app uploads it: centre-cropped square, at most 1024px,
+   * re-encoded as JPEG at 85%. Throws when the browser cannot read the image.
+   */
+  async function squarePhoto(file, max = 1024, quality = 0.85) {
+    let src
+    let release = () => {}
+    if (window.createImageBitmap) {
+      try {
+        src = await createImageBitmap(file, { imageOrientation: 'from-image' })
+        release = () => src.close && src.close()
+      } catch (e) { src = null }
+    }
+    if (!src) {
+      const url = URL.createObjectURL(file)
+      try {
+        src = await new Promise((resolve, reject) => {
+          const img = new Image()
+          img.onload = () => resolve(img)
+          img.onerror = reject
+          img.src = url
+        })
+      } finally { URL.revokeObjectURL(url) }
+    }
+    const w = src.naturalWidth || src.width
+    const h = src.naturalHeight || src.height
+    if (!w || !h) throw new Error('unreadable')
+    const side = Math.min(w, h)
+    const out = Math.min(side, max)
+    const canvas = document.createElement('canvas')
+    canvas.width = out
+    canvas.height = out
+    const ctx = canvas.getContext('2d')
+    // JPEG has no transparency — a PNG's clear corners go white, not black.
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, out, out)
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(src, (w - side) / 2, (h - side) / 2, side, side, 0, 0, out, out)
+    release()
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
+    if (!blob) throw new Error('unreadable')
+    const name = (trim(file.name).replace(/\.[^.]*$/, '') || 'photo') + '.jpg'
+    return new File([blob], name, { type: 'image/jpeg' })
+  }
+
   /** TeamSummary — the one About line the team answer becomes. */
   const TEAM_PREFIX = 'Managed a team of'
   const teamLine = (size, org) => `${TEAM_PREFIX} ${size} ${size === 1 ? 'person' : 'people'}${trim(org) ? ' at ' + trim(org) : ''}.`
@@ -270,6 +315,8 @@
       _profTeamTimer: null,
       /** Setup collects the team answer into the About text; the profile saves it at once. */
       profTeamDeferred: false,
+      /** Whether the job being applied to makes [field] compulsory — setup's gate; never on the profile page. */
+      profGateReq() { return false },
 
       PROF_MAX_HOBBIES: MAX_HOBBIES,
       PROF_ABOUT_MAX: ABOUT_MAX,
@@ -365,11 +412,18 @@
         if (this.profPhotoBusy) return
         this._profPhotoChosen(await window.Inthes.takePhoto())
       },
-      _profPhotoChosen(file) {
+      /**
+       * Square-cropped and resized before it leaves the device, as the app's
+       * ProfilePhotoMixin does (crop 1:1, max 1024px, JPEG): the server caps
+       * the upload at 3 MB, which a phone camera's photo clears on its own.
+       */
+      async _profPhotoChosen(file) {
         if (!file) return
-        if (!/^image\/(jpe?g|png)$/i.test(file.type) && !/\.(jpe?g|png)$/i.test(file.name)) { toast('Upload a JPG or PNG image.', true); return }
-        if (file.size > 3 * 1024 * 1024) { toast('Your photo must be smaller than 3 MB.', true); return }
-        this.profUploadPhoto(file)
+        if (file.type && !/^image\//i.test(file.type)) { toast('Upload a JPG or PNG image.', true); return }
+        let photo
+        try { photo = await squarePhoto(file) } catch (e) { toast('Upload a JPG or PNG image.', true); return }
+        if (photo.size > 3 * 1024 * 1024) { toast('Your photo must be smaller than 3 MB.', true); return }
+        this.profUploadPhoto(photo)
       },
       async profUploadPhoto(file) {
         if (this.profPhotoBusy) return
@@ -882,20 +936,8 @@
         } catch (e) { toast(e.message, true) }
         this.profVideoBusy = false
       },
-
-      // ── resume ──────────────────────────────────────────────────────────
-      profResumeBusy: false,
-      /** Renders the resume from the profile (the server keeps it current after that). */
-      async profGenerateResume() {
-        if (this.profResumeBusy || this.profMissingForResume.length) return
-        this.profResumeBusy = true
-        try {
-          await api('/candidate/profile/resume/generate', { method: 'POST' })
-          await window.Inthes.loadMe()
-          toast('Resume created from your profile.')
-        } catch (e) { toast(e.message, true) }
-        this.profResumeBusy = false
-      },
+      // No resume action: the server writes it from the profile and keeps it
+      // current (ResumeRenderer), so there is no "Create" button — as in the app.
     }
   }
 

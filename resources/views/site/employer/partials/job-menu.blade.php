@@ -1,6 +1,8 @@
-{{-- A posting's "⋮" actions (recruiter/widgets/job_actions_sheet.dart), shown only
-     where they apply: Edit (sends a live post back for approval), Share,
-     Pause / Resume and Close — plus Choose plan / Upload document when the
+{{-- A posting's "⋮" actions (recruiter/widgets/job_actions_sheet.dart), in the
+     app's order: Share (live posts only — the app offers it always, but a
+     link to a non-live post is a dead end), Edit (sends a live post back for approval) always;
+     Pause / Resume and Close only on an active or paused post — the only
+     statuses PATCH …/status accepts them from — plus Choose plan / Upload document when the
      posting is waiting on one. "View Candidates" and "Preview" are buttons
      on the row itself (site/employer/partials/job-buttons), not in here.
      Fixed-positioned so a scrolling table can't clip it.
@@ -38,11 +40,12 @@
       <template x-if="{{ $job }}.posting_status === 'active' && {{ $job }}.organisation_verified">
         <a :href="publicUrl({{ $job }})" target="_blank" rel="noopener" class="{{ $item }}"><span x-html="ICONS.externalLink" class="{{ $ico }}"></span>View public page</a>
       </template>
-      <template x-if="canEdit({{ $job }})">
-        <a :href="jobUrl({{ $job }}) + '/edit'" class="{{ $item }}"><span x-html="ICONS.pencil" class="{{ $ico }}"></span>Edit job</a>
-      </template>
+      {{-- Share only a live post: a link to anything else lands on "no longer available". --}}
       <template x-if="{{ $job }}.posting_status === 'active'">
         <button type="button" class="{{ $item }}" @click="open = false; jobShare({{ $job }})"><span x-html="ICONS.share" class="{{ $ico }}"></span>Share job</button>
+      </template>
+      <template x-if="canEdit({{ $job }})">
+        <a :href="jobUrl({{ $job }}) + '/edit'" class="{{ $item }}"><span x-html="ICONS.pencil" class="{{ $ico }}"></span>Edit job</a>
       </template>
       <template x-if="canToggle({{ $job }})">
         <button type="button" class="{{ $item }}" @click="open = false; jobToggle({{ $job }})">

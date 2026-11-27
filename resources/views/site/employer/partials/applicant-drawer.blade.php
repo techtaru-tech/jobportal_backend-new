@@ -62,20 +62,18 @@
             <template x-if="detail.status === 'applied'">
               <button type="button" class="wa-btn-sm" :disabled="statusBusy" @click="shortlist()">@include('admin.partials.icon', ['name' => 'check', 'class' => 'h-4 w-4']) Shortlist</button>
             </template>
-            <template x-if="detail.status === 'shortlisted'">
-              <button type="button" class="wa-btn-sm" :disabled="statusBusy" @click="markSelected()">@include('admin.partials.icon', ['name' => 'checkCircle', 'class' => 'h-4 w-4']) Mark as selected</button>
+            {{-- Shortlisted: an interview first, then hiring (applicant_profile_view _primaryButton). --}}
+            <template x-if="detail.status === 'shortlisted' && !detail.interview">
+              <button type="button" class="wa-btn-sm" @click="openInterview()">@include('admin.partials.icon', ['name' => 'calendar', 'class' => 'h-4 w-4']) Schedule Interview</button>
+            </template>
+            <template x-if="detail.status === 'shortlisted' && detail.interview">
+              <button type="button" class="wa-btn-sm" :disabled="statusBusy" @click="markSelected()">@include('admin.partials.icon', ['name' => 'checkCircle', 'class' => 'h-4 w-4']) Mark as Selected</button>
             </template>
             <template x-if="detail.status === 'selected'">
               <span class="inline-flex h-10 items-center gap-xs rounded-button bg-success-bg px-lg text-btnghost font-semibold text-success">@include('admin.partials.icon', ['name' => 'checkCircle', 'class' => 'h-4 w-4']) Selected</span>
             </template>
             <template x-if="detail.status === 'rejected'">
               <button type="button" class="wa-btn-ghost-sm" :disabled="statusBusy" @click="reopen()">@include('admin.partials.icon', ['name' => 'refresh', 'class' => 'h-4 w-4']) Reopen</button>
-            </template>
-            <template x-if="detail.status !== 'rejected'">
-              <button type="button" class="wa-btn-ghost-sm" @click="openInterview()">
-                @include('admin.partials.icon', ['name' => 'calendar', 'class' => 'h-4 w-4'])
-                <span x-text="detail.interview ? 'Reschedule' : 'Schedule interview'"></span>
-              </button>
             </template>
             <a :href="messageUrl()" class="wa-btn-quiet border-hair border-hairline bg-surface">@include('admin.partials.icon', ['name' => 'message', 'class' => 'h-4 w-4']) Message</a>
             <div class="relative" @click.outside="moreOpen = false">
@@ -249,9 +247,11 @@
           </section>
 
           <section class="wa-card !p-lg !py-xs">
-            <p class="wa-section-title pb-xs pt-md">Personal & contact</p>
-            <template x-for="row in [['Phone', dp.phone], ['Email', dp.email], ['WhatsApp', dp.whatsapp_number], ['Gender', dp.gender],
-                ['Age', dp.age ? dp.age + ' years' : ''], ['Address', dp.address], ['Marital status', dp.marital_status]]" :key="row[0]">
+            {{-- Only what the app reaches too (its More sheet's Call / Email). Gender, age,
+                 address and marital status are in the snapshot but the app's applicant
+                 profile never shows them to an employer, so neither does this. --}}
+            <p class="wa-section-title pb-xs pt-md">Contact</p>
+            <template x-for="row in [['Phone', dp.phone], ['Email', dp.email]]" :key="row[0]">
               <div class="{{ $kv }}"><span class="{{ $kvLabel }}" x-text="row[0]"></span><span class="{{ $kvValue }}" x-text="row[1] || '—'"></span></div>
             </template>
           </section>
@@ -273,7 +273,7 @@
 {{-- Schedule interview --}}
 <div x-show="interview.open" x-cloak x-transition.opacity class="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 sm:items-center sm:px-page">
   <form @submit.prevent="scheduleInterview()" @click.outside="interview.open = false" class="max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-sheet bg-surface p-xl shadow-raised animate-pop-in sm:rounded-dialog">
-    <h3 class="text-h2 text-ink" x-text="detail?.interview ? 'Reschedule interview' : 'Schedule Interview'"></h3>
+    <h3 class="text-h2 text-ink">Schedule Interview</h3>
     <p class="mt-[2px] text-bodysm text-ink-secondary" x-text="'with ' + (detail ? apName(detail) : '')"></p>
     <div class="mt-lg space-y-lg">
       <div class="grid grid-cols-2 gap-md">

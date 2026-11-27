@@ -2,7 +2,10 @@
   /account/setup — "Create your profile", the app's own 10-step wizard
   (OnboardingView): one section per step, in the app's order, with its
   titles, the 10-segment bar, "Step N of 10 · N answered", "Do it later",
-  and Save & continue / Skip on every step.
+  and Save & continue / Skip on every step. Reached from an Apply
+  (?next=/jobs/{code}?apply=1), the steps that job needs cannot be skipped,
+  their questions carry a *, and "Do it later" becomes a close — the app's
+  gated onboarding.
 
   Fields are the profile page's own (site/profile/*), so the same answers
   and rules apply in both places; js/site/pages/account-setup.js saves each
@@ -24,11 +27,18 @@
 
   <div x-show="ready" x-cloak>
     {{-- ── Header: the app's kicker, 10-segment bar and step count ───── --}}
-    <div x-show="!done" class="sticky top-0 z-20 -mx-page bg-canvas-alt/95 px-page pb-md pt-sm backdrop-blur lg:static lg:mx-0 lg:bg-transparent lg:px-0">
+    <div class="sticky top-0 z-20 -mx-page bg-canvas-alt/95 px-page pb-md pt-sm backdrop-blur lg:static lg:mx-0 lg:bg-transparent lg:px-0">
       <div class="flex items-center justify-between">
         <p class="text-kicker uppercase tracking-[1.2px] text-ink-secondary" x-text="nextIsApply ? 'Finish to apply' : 'Create your profile'"></p>
-        <button type="button" @click="later()" :disabled="busy" class="text-btn font-semibold text-primary hover:underline" data-setup-later>Do it later</button>
+        {{-- "Do it later" only where later is a real option. In an apply run
+             the way out is leaving the application, so it is a close. --}}
+        <button type="button" x-show="!isGated" @click="later()" :disabled="busy" class="text-btn font-semibold text-primary hover:underline" data-setup-later>Do it later</button>
+        <button type="button" x-show="isGated" x-cloak @click="abandonGate()" :disabled="busy" aria-label="Not now" title="Not now"
+                class="-mr-xs inline-flex h-8 w-8 items-center justify-center rounded-field text-ink-secondary hover:bg-surface">
+          <span x-html="ICONS.x" class="[&>svg]:h-5 [&>svg]:w-5"></span>
+        </button>
       </div>
+      <p x-show="isGated" x-cloak class="mt-[2px] text-caption font-semibold text-primary" x-text="gateSummary"></p>
       <ol class="mt-md flex gap-[3px]" aria-label="Steps">
         <template x-for="(s, i) in STEPS" :key="s.key">
           <li class="flex-1">
@@ -42,13 +52,15 @@
     </div>
 
     {{-- ── Step title (OnboardingView: title + subtitle) ─────────────── --}}
-    <div x-show="!done" class="mt-lg">
+    <div class="mt-lg">
       <h1 class="text-h1 text-ink" x-text="STEPS[step].title"></h1>
       <p class="mt-xs text-bodysm text-ink-secondary" x-text="STEPS[step].subtitle"></p>
+      {{-- Says which steps are the gate, so a Save that will not go is explained. --}}
+      <p x-show="stepRequired(STEPS[step].key)" x-cloak class="mt-sm inline-block rounded-field bg-primary-light px-sm py-[4px] text-caption font-semibold text-primary-dark">Required for this job</p>
     </div>
 
     {{-- 1 · About you --}}
-    <template x-if="!done && STEPS[step].key === 'personal'">
+    <template x-if="STEPS[step].key === 'personal'">
       <div class="mt-lg space-y-lg">
         <div class="rounded-card border-hair border-primary/35 bg-primary-light p-lg">
           <p class="flex items-center gap-xs text-bodysm font-bold text-primary-dark">
@@ -65,7 +77,7 @@
     </template>
 
     {{-- 2 · Your education --}}
-    <template x-if="!done && STEPS[step].key === 'education'">
+    <template x-if="STEPS[step].key === 'education'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">
         <div x-show="profEducations.length" class="space-y-sm">
           <template x-for="e in profEducations" :key="e.id">
@@ -88,9 +100,12 @@
 
     {{-- 3 · Your experience — Total experience, saved roles, the role form,
          "+ Add another experience", then team management (the app's order). --}}
-    <template x-if="!done && STEPS[step].key === 'experience'">
+    <template x-if="STEPS[step].key === 'experience'">
       <div class="wa-card mt-lg space-y-lg !p-lg sm:!p-xl">
-        @include('site.ui.chips', ['label' => 'Total experience', 'model' => 'pf.experience', 'items' => "opt('experience_bands')"])
+        <div>
+          <span class="wa-label">Total experience @include('site.profile.gate-mark', ['field' => 'experience'])</span>
+          @include('site.ui.chips', ['model' => 'pf.experience', 'items' => "opt('experience_bands')"])
+        </div>
 
         <template x-if="profExperiences.length">
           <div>
@@ -120,77 +135,54 @@
     </template>
 
     {{-- 4 · Languages --}}
-    <template x-if="!done && STEPS[step].key === 'languages'">
+    <template x-if="STEPS[step].key === 'languages'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">@include('site.profile.languages')</div>
     </template>
 
     {{-- 5 · What are you looking for? --}}
-    <template x-if="!done && STEPS[step].key === 'preferences'">
+    <template x-if="STEPS[step].key === 'preferences'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">@include('site.profile.preferences')</div>
     </template>
 
     {{-- 6 · Your availability --}}
-    <template x-if="!done && STEPS[step].key === 'availability'">
+    <template x-if="STEPS[step].key === 'availability'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">@include('site.profile.availability')</div>
     </template>
 
     {{-- 7 · Skills & interests --}}
-    <template x-if="!done && STEPS[step].key === 'skills'">
+    <template x-if="STEPS[step].key === 'skills'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">@include('site.profile.skills')</div>
     </template>
 
     {{-- 8 · A line about you --}}
-    <template x-if="!done && STEPS[step].key === 'about'">
+    <template x-if="STEPS[step].key === 'about'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">@include('site.profile.about')</div>
     </template>
 
     {{-- 9 · Your photo --}}
-    <template x-if="!done && STEPS[step].key === 'photo'">
+    <template x-if="STEPS[step].key === 'photo'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">@include('site.profile.photo', ['label' => false])</div>
     </template>
 
     {{-- 10 · Your intro video --}}
-    <template x-if="!done && STEPS[step].key === 'video'">
+    <template x-if="STEPS[step].key === 'video'">
       <div class="wa-card mt-lg !p-lg sm:!p-xl">@include('site.profile.video', ['heading' => false])</div>
     </template>
 
-    {{-- ── Done ───────────────────────────────────────────────────────── --}}
-    <template x-if="done">
-      <div class="mt-lg space-y-lg">
-        <div class="wa-card !p-lg text-center sm:!p-xl">
-          <span class="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-success-bg text-success">
-            @include('admin.partials.icon', ['name' => 'checkCircle', 'class' => 'h-7 w-7'])
-          </span>
-          <p class="mt-md text-h3 text-ink"><span x-text="'Profile ' + profStrength + '% complete'"></span></p>
-          <p class="mt-xs text-bodysm text-ink-secondary" x-text="profStrengthLabel + ' · ' + profHiringLabel"></p>
-          <p class="mt-sm text-caption text-ink-muted" x-show="finishing">Writing your resume from your profile…</p>
-          <p class="mt-sm text-caption text-success" x-show="!finishing && me?.resume">Your resume is ready — built from what you entered.</p>
-          <div class="mt-xl flex flex-col justify-center gap-sm sm:flex-row">
-            <template x-if="nextUrl">
-              <button type="button" @click="leave(nextUrl)" class="wa-btn" data-setup-next>
-                <span x-show="finishing" x-html="ICONS.loader" class="animate-spin [&>svg]:h-5 [&>svg]:w-5"></span>
-                <span x-text="nextIsApply ? 'Continue applying' : 'Continue'"></span>
-              </button>
-            </template>
-            <button type="button" x-show="!nextUrl" @click="leave('/jobs?sort=relevant')" class="wa-btn">
-              <span x-show="finishing" x-html="ICONS.loader" class="animate-spin [&>svg]:h-5 [&>svg]:w-5"></span> See jobs that match me
-            </button>
-            <button type="button" @click="leave('/account')" class="wa-btn-ghost">Go to my profile</button>
-          </div>
-        </div>
-      </div>
-    </template>
-
     {{-- ── Footer: Back · Skip · Save & continue (the app's bottom bar) ─ --}}
-    <div x-show="!done" class="sticky bottom-0 z-20 -mx-page mt-lg border-t border-hairline-divider bg-canvas-alt/95 px-page py-md backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0">
+    <div class="sticky bottom-0 z-20 -mx-page mt-lg border-t border-hairline-divider bg-canvas-alt/95 px-page py-md backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0">
+      {{-- A grey button alone says "no" without saying why; this names the field. --}}
+      <p x-show="gateMissingOn(STEPS[step].key).length" x-cloak class="mb-xs text-caption text-danger"
+         x-text="'To continue, fill in: ' + gateMissingOn(STEPS[step].key).join(', ')"></p>
       <div class="flex items-center gap-sm">
-        <button type="button" x-show="step > 0" @click="prev()" :disabled="busy" aria-label="Back" class="wa-btn-quiet h-[54px] w-[54px] border-hair border-hairline !px-0">
+        <button type="button" x-show="step > 0 || isGated" @click="prev()" :disabled="busy" aria-label="Back" class="wa-btn-quiet h-[54px] w-[54px] border-hair border-hairline !px-0">
           <span x-html="ICONS.arrowLeft" class="[&>svg]:h-5 [&>svg]:w-5"></span>
         </button>
-        <button type="button" x-show="!answered(STEPS[step].key)" @click="skip()" :disabled="busy" class="wa-btn-quiet h-[54px]" x-text="step === STEPS.length - 1 ? 'Skip & finish' : 'Skip'"></button>
-        <button type="button" @click="next()" :disabled="busy" class="wa-btn flex-[2]" data-setup-next-step>
+        <button type="button" x-show="!answered(STEPS[step].key) && !stepRequired(STEPS[step].key)" @click="skip()" :disabled="busy" class="wa-btn-quiet h-[54px]"
+                x-text="step === STEPS.length - 1 ? (isGated ? 'Skip & apply' : 'Skip & finish') : 'Skip'"></button>
+        <button type="button" @click="next()" :disabled="busy || !stepSatisfied(STEPS[step].key)" class="wa-btn flex-[2]" data-setup-next-step>
           <span x-show="busy" x-html="ICONS.loader" class="animate-spin [&>svg]:h-5 [&>svg]:w-5"></span>
-          <span x-text="step === STEPS.length - 1 ? 'Finish' : 'Save & continue'"></span>
+          <span x-text="step === STEPS.length - 1 ? (isGated ? 'Save & apply' : 'Finish') : 'Save & continue'"></span>
         </button>
       </div>
     </div>

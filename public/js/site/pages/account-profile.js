@@ -71,18 +71,14 @@ document.addEventListener('alpine:init', () => {
     section(id) { return this.sections.find((s) => s.id === id) || {} },
 
     /**
-     * "Complete these" — the app's prompts (resume, summary, languages, photo,
-     * availability, skills, video), with the details most jobs filter on
-     * first when they are missing. Each one jumps to the card that fixes it.
+     * "Complete these" — the app's prompts (ProfileController._seekerBoosts:
+     * resume, summary, languages, photo, availability, skills, video), the
+     * first three only. Each one jumps to the card that fixes it.
      */
     get boosts() {
       const p = this.me
       if (!p) return []
       const all = []
-      if (!K.trim(p.name)) all.push({ label: 'Add your name', gain: 'Required', to: 'personal', edit: 'personal' })
-      if (!p.qualification && !(p.educations || []).length) all.push({ label: 'Add your education', gain: 'Required', to: 'education', edit: 'edu' })
-      if (!p.experience && !(p.experiences || []).length) all.push({ label: 'Add experience or mark fresher', gain: 'Required', to: 'experience', edit: '' })
-      if (!(p.location || []).length) all.push({ label: 'Pick preferred cities', gain: 'Important', to: 'preferences', edit: 'preferences' })
       if (!p.resume) all.push({ label: 'Add your resume', gain: '+15%', href: '/account/resume' })
       if (!p.about) all.push({ label: 'Add a profile summary', gain: '+10%', to: 'about', edit: 'about' })
       if (!(p.languages || []).length) all.push({ label: 'Add languages', gain: '+5%', to: 'languages', edit: 'languages' })
@@ -90,7 +86,7 @@ document.addEventListener('alpine:init', () => {
       if (!K.progressFor(p, 'availability').complete) all.push({ label: 'Add your availability', gain: 'Recommended', to: 'availability', edit: 'availability' })
       if (!K.progressFor(p, 'skills').complete) all.push({ label: 'Add skills & interests', gain: 'Recommended', to: 'about', edit: 'about' })
       if (!p.intro_video_url) all.push({ label: 'Record a 1-min intro video', gain: 'Recommended', to: 'video', edit: '' })
-      return all
+      return all.slice(0, 3)
     },
 
     get headline() {

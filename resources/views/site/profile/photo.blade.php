@@ -25,7 +25,7 @@
     <label class="wa-btn-ghost-sm cursor-pointer" :class="profPhotoBusy && 'pointer-events-none opacity-60'">
       <span x-html="ICONS.image" class="[&>svg]:h-4 [&>svg]:w-4"></span>
       <span x-text="me?.photo ? 'Change photo' : 'Choose photo'"></span>
-      <input type="file" accept="image/jpeg,image/png" class="sr-only" @change="profPickPhoto($event.target)">
+      <input type="file" accept="image/*" class="sr-only" @change="profPickPhoto($event.target)">
     </label>
     {{-- A profile photo is usually a selfie: the webcam on a computer, the
          camera app on a phone (Inthes.takePhoto). `capture` on a file input

@@ -71,7 +71,7 @@
                 <td class="px-lg py-md"><span class="wa-pill" :class="kit.appStatus(a.status).tone" x-text="kit.appStatus(a.status).label"></span></td>
                 <td class="px-lg py-md">
                   <div class="h-[6px] overflow-hidden rounded-full bg-surface-muted">
-                    <div class="h-full rounded-full" :class="a.status === 'rejected' ? 'bg-ink-muted' : 'bg-primary'" :style="`width:${a.progress_percent ?? 33}%`"></div>
+                    <div class="h-full rounded-full bg-primary" :style="`width:${a.progress_percent ?? 33}%`"></div>
                   </div>
                   <p class="mt-[3px] text-caption text-ink-muted" x-text="kit.appStatus(a.status).note"></p>
                 </td>
@@ -94,7 +94,7 @@
               <p class="mt-[2px] truncate text-bodysm text-ink-secondary" x-text="[a.job?.organisation, a.job?.city].filter(Boolean).join(' · ')"></p>
               <p class="mt-xs text-caption text-ink-muted" x-text="'Applied ' + fmtDate(a.applied_at)"></p>
               <div class="mt-sm h-[5px] overflow-hidden rounded-full bg-surface-muted">
-                <div class="h-full rounded-full" :class="a.status === 'rejected' ? 'bg-ink-muted' : 'bg-primary'" :style="`width:${a.progress_percent ?? 33}%`"></div>
+                <div class="h-full rounded-full bg-primary" :style="`width:${a.progress_percent ?? 33}%`"></div>
               </div>
             </div>
           </a>
