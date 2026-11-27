@@ -67,6 +67,12 @@ class PaymentOrder extends Model
             );
         }
 
+        // A one-off (e.g. the watermark-free resume) by its name, not its id.
+        $oneOff = PaymentService::oneOffById((string) $this->plan_id);
+        if ($oneOff !== null) {
+            return (string) ($oneOff['name'] ?? $this->plan_id);
+        }
+
         return $this->plan()['name'] ?? $this->plan_id;
     }
 

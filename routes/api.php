@@ -273,6 +273,8 @@ Route::prefix('v1')->group(function () {
 
             // Post a Job ▸ Choose plan — the price grid.
             Route::get('job-plans', [Admin\JobPlanController::class, 'index']);
+            Route::get('payments', [Admin\PaymentController::class, 'index']);
+            Route::get('payments/settings', [Admin\PaymentController::class, 'settings']);
 
             Route::get('option-lists', [Admin\OptionListController::class, 'index']);
             Route::get('option-lists/{list}', [Admin\OptionListController::class, 'show']);
@@ -299,6 +301,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('jobs/{jobId}/reject', [Admin\JobPostingController::class, 'reject']);
 
                 Route::put('job-plans', [Admin\JobPlanController::class, 'update']);
+                Route::put('payments/settings', [Admin\PaymentController::class, 'updateSettings']);
+                Route::post('payments/settings/test', [Admin\PaymentController::class, 'testConnection']);
 
                 Route::patch('applications/{reference}/status', [Admin\ApplicationController::class, 'updateStatus']);
 

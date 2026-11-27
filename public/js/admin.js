@@ -51,6 +51,9 @@
     { key: 'jobPlans', label: 'Job plans', icon: 'creditCard',
       keywords: ['job plans', 'posting price', 'basic', 'silver', 'gold', 'district',
                  'state', 'price', 'mrp', 'discount', 'per posting'] },
+    { key: 'payments', label: 'Payments', icon: 'wallet',
+      keywords: ['payments', 'razorpay', 'gateway', 'keys', 'api key', 'webhook', 'orders',
+                 'transactions', 'refunds', 'revenue', 'upi', 'card'] },
     { key: 'optionLists', label: 'Reference data', icon: 'sliders',
       keywords: ['skills', 'cities', 'qualifications', 'categories', 'options', 'lists',
                  'shifts', 'job types'] },
@@ -260,6 +263,13 @@
 
       plans: { data: null },
       subs: { audience: '', state: '', data: [], meta: null, busy: false, error: false },
+
+      // Payments: the gateway is managed here (keys, on/off), and every order.
+      payments: { q: '', status: '', gateway: '', data: [], meta: null, summary: null, busy: false, error: false },
+      paySettings: {
+        data: null, busy: false, saving: false, testing: false, test: null, copied: false,
+        form: { gateway: 'test', razorpay_key_id: '', razorpay_key_secret: '', razorpay_webhook_secret: '' },
+      },
 
       optionLists: { data: null, busy: false },
       optionListDetail: { data: null, key: '', busy: false },
@@ -1179,6 +1189,88 @@
       loadSubs(page = 1) {
         return this.loadList(this.subs, '/admin/subscriptions',
           { audience: this.subs.audience, state: this.subs.state }, page)
+      },
+
+      // ── payments ────────────────────────────────────────────────────
+      rupees(paise) {
+        return '₹' + ((Number(paise) || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })
+      },
+
+      loadPayments(page = 1) {
+        const state = this.payments
+        const search = new URLSearchParams()
+        Object.entries({ q: state.q, status: state.status, gateway: state.gateway }).forEach(([k, v]) => { if (v) search.set(k, v) })
+        search.set('page', page || 1)
+        search.set('per_page', 20)
+        state.busy = true
+        state.error = false
+        return this.api('/admin/payments?' + search.toString())
+          .then((res) => { state.data = res.data; state.meta = res.meta; state.summary = res.summary || null })
+          .catch((e) => { state.error = true; this.showToast(e.message, true) })
+          .finally(() => { state.busy = false })
+      },
+
+      payStatusTone(status) {
+        return {
+          paid: 'bg-success-bg text-success',
+          created: 'bg-surface-muted text-ink-secondary',
+          failed: 'bg-danger-bg text-danger',
+          refunded: 'bg-warning-bg text-warning',
+        }[status] || 'bg-surface-muted text-ink-secondary'
+      },
+
+      _applyPaySettings(data) {
+        const ps = this.paySettings
+        ps.data = data
+        ps.form = {
+          gateway: data.gateway,
+          razorpay_key_id: data.razorpay.key_id || '',
+          razorpay_key_secret: '',
+          razorpay_webhook_secret: '',
+        }
+      },
+
+      loadPaySettings() {
+        const ps = this.paySettings
+        ps.busy = true
+        ps.test = null
+        this.api('/admin/payments/settings')
+          .then((res) => this._applyPaySettings(res.data))
+          .catch((e) => this.showToast(e.message, true))
+          .finally(() => { ps.busy = false })
+      },
+
+      savePaySettings() {
+        const ps = this.paySettings
+        if (ps.saving) return
+        ps.saving = true
+        this.api('/admin/payments/settings', { method: 'PUT', body: ps.form })
+          .then((res) => { this._applyPaySettings(res.data); ps.test = null; this.showToast(res.message || 'Saved.') })
+          .catch((e) => this.showToast(e.message, true))
+          .finally(() => { ps.saving = false })
+      },
+
+      testPaySettings() {
+        const ps = this.paySettings
+        if (ps.testing) return
+        ps.testing = true
+        ps.test = null
+        this.api('/admin/payments/settings/test', {
+          method: 'POST',
+          body: { razorpay_key_id: ps.form.razorpay_key_id, razorpay_key_secret: ps.form.razorpay_key_secret },
+        })
+          .then((res) => { ps.test = { ok: !!res.data?.ok, message: res.message } })
+          .catch((e) => { ps.test = { ok: false, message: e.message } })
+          .finally(() => { ps.testing = false })
+      },
+
+      copyWebhookUrl() {
+        const url = this.paySettings.data?.webhook_url
+        if (!url) return
+        navigator.clipboard?.writeText(url).then(() => {
+          this.paySettings.copied = true
+          setTimeout(() => { this.paySettings.copied = false }, 1800)
+        }).catch(() => this.showToast(url))
       },
 
       // ── option lists ────────────────────────────────────────────────

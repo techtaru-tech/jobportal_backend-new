@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PaymentOrder;
 use App\Services\Payments\PaymentService;
+use App\Services\Payments\PaymentSettings;
 use App\Services\Payments\RazorpayGateway;
 use App\Services\Payments\PaymentRefunds;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +30,7 @@ class RazorpayWebhookController extends Controller
 {
     public function __invoke(Request $request, PaymentService $payments, RazorpayGateway $razorpay, PaymentRefunds $refunds): JsonResponse
     {
-        $secret = (string) config('services.razorpay.webhook_secret');
+        $secret = (string) PaymentSettings::razorpayWebhookSecret();
         $expected = hash_hmac('sha256', $request->getContent(), $secret);
         if ($secret === '' || ! hash_equals($expected, (string) $request->header('X-Razorpay-Signature'))) {
             return response()->json(['message' => 'Invalid signature.'], 400);

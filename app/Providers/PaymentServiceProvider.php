@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Payments\PaymentGateway;
+use App\Services\Payments\PaymentSettings;
 use App\Services\Payments\RazorpayGateway;
 use App\Services\Payments\TestGateway;
 use Illuminate\Support\ServiceProvider;
@@ -19,7 +20,8 @@ class PaymentServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PaymentGateway::class, function () {
-            return match (config('plans.payment_gateway', 'test')) {
+            // Admin → Payments decides; .env (PAYMENT_GATEWAY) is the fallback.
+            return match (PaymentSettings::gateway()) {
                 'razorpay' => new RazorpayGateway(),
                 default => new TestGateway(),
             };

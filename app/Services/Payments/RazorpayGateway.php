@@ -58,7 +58,7 @@ class RazorpayGateway implements PaymentGateway
         return [
             'gateway' => $this->name(),
             'requires_sdk' => true,
-            'key_id' => config('services.razorpay.key_id'),
+            'key_id' => PaymentSettings::razorpayKeyId(),
             'razorpay_order_id' => $res->json('id'),
             'amount' => $order->amount_paise,
             'currency' => $order->currency ?: 'INR',
@@ -153,10 +153,10 @@ class RazorpayGateway implements PaymentGateway
 
     private function http(): PendingRequest
     {
-        $key = config('services.razorpay.key_id');
-        $secret = config('services.razorpay.key_secret');
+        $key = PaymentSettings::razorpayKeyId();
+        $secret = PaymentSettings::razorpayKeySecret();
         if (! $key || ! $secret) {
-            throw new GatewayNotConfigured('RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are not set');
+            throw new GatewayNotConfigured('Razorpay key id / secret are not set (Admin → Payments, or .env)');
         }
 
         return Http::withBasicAuth($key, $secret)->acceptJson()->timeout(20);
