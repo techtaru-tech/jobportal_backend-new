@@ -21,8 +21,9 @@
 return [
 
     /*
-    | Which gateway captures a payment when Admin → Payments has not chosen
-    | one. `test` settles orders locally without contacting anyone.
+    | Which gateway captures a payment: razorpay | test. Left unset, Razorpay
+    | is used whenever its keys are in .env, and always in production
+    | (PaymentSettings::gateway). `test` settles orders without any money.
     */
-    'payment_gateway' => env('PAYMENT_GATEWAY', 'test'),
+    'payment_gateway' => env('PAYMENT_GATEWAY'),
 ];

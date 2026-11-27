@@ -10,6 +10,7 @@ use App\Services\PlanSettings;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Admin → Plans & pricing.
@@ -59,6 +60,13 @@ class PlanController extends ApiController
             'seeker_includes_resume' => (bool) $v['seeker_includes_resume'],
             'resume_price_paise' => (int) round($v['resume_price'] * 100),
         ];
+
+        // Prices live in `app_settings` (migration 2026_11_27_000002). A
+        // server that pulled the code but never migrated would otherwise
+        // answer a bare 500 here.
+        if (! Schema::hasTable('app_settings')) {
+            return ApiResponse::error('Plans can’t be saved yet: run "php artisan migrate" on the server.', 503);
+        }
 
         $before = PlanSettings::all();
         $changed = [];

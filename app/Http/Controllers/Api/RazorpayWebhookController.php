@@ -40,7 +40,7 @@ class RazorpayWebhookController extends Controller
         $payment = $request->input('payload.payment.entity') ?? [];
 
         try {
-            if (in_array($event, ['payment.captured', 'order.paid'], true) && ! empty($payment['id']) && ! empty($payment['order_id'])) {
+            if (in_array($event, ['payment.captured', 'order.paid', 'qr_code.credited'], true) && ! empty($payment['id']) && ! empty($payment['order_id'])) {
                 $orderId = $razorpay->paymentOrderIdFor((string) $payment['order_id']);
                 $order = $orderId ? PaymentOrder::find($orderId) : null;
                 if ($order && $order->status->isOpen()) {

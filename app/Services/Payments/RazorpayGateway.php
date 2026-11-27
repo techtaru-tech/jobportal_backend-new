@@ -70,8 +70,8 @@ class RazorpayGateway implements PaymentGateway
                 'contact' => $user?->phone ? '+91'.$user->phone : null,
                 'email' => $user?->email ?: $profile?->email,
                 'name' => $profile?->name ?: $user?->name,
-                // The method picked on our sheet is shown first.
-                'method' => $order->method?->value,
+                // No method: the clients go straight to Razorpay, which
+                // offers UPI, cards and net banking itself.
             ]),
             'notes' => ['payment_order_id' => (string) $order->id],
         ];

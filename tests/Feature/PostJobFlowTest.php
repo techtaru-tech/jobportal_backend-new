@@ -581,4 +581,16 @@ class PostJobFlowTest extends TestCase
         $this->getJson("{$this->api}/admin/plans")->assertOk();
         $this->putJson("{$this->api}/admin/plans", $this->planForm())->assertForbidden();
     }
+
+    public function test_a_server_that_never_migrated_says_so_instead_of_a_500(): void
+    {
+        $this->actingAsAdmin();
+        \Illuminate\Support\Facades\Schema::drop('app_settings');
+        \App\Models\AppSetting::flush();
+
+        $this->getJson("{$this->api}/admin/plans")->assertOk()->assertJsonPath('data.form.recruiter_price', 1999);
+        $this->putJson("{$this->api}/admin/plans", $this->planForm(['recruiter_price' => 2499]))
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'Plans can’t be saved yet: run "php artisan migrate" on the server.');
+    }
 }

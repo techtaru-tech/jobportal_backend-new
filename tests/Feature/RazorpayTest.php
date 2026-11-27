@@ -58,7 +58,7 @@ class RazorpayTest extends TestCase
         $this->assertSame('order_RZ1', $data['checkout']['razorpay_order_id']);
         $this->assertSame('rzp_test_abc', $data['checkout']['key_id']);
         $this->assertSame(2000, $data['checkout']['amount']);
-        $this->assertSame('upi', $data['checkout']['prefill']['method']);
+        $this->assertArrayNotHasKey('method', $data['checkout']['prefill'], 'Razorpay offers every method itself');
         Http::assertSent(fn ($r) => $r->url() === 'https://api.razorpay.com/v1/orders'
             && $r['amount'] === 2000 && $r['notes']['payment_order_id'] === (string) $data['order']['id']);
         $this->assertSame('order_RZ1', PaymentOrder::find($data['order']['id'])->gateway_order_id);

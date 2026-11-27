@@ -775,12 +775,18 @@
   }
 
   // ── payments ────────────────────────────────────────────────────────
+  /** Plans and purchases open Razorpay directly — no method sheet first. */
+  const DIRECT_TO_GATEWAY = true
   /**
    * The payment-method sheet. Resolves with `upi` | `card` | `netbanking`, or
    * null when cancelled. Then open the order the caller needs and settle it
    * with `confirmOrder(id)`.
    */
   async function pay(amountLabel) {
+    // Straight to Razorpay: the payer picks UPI / card / net banking in its
+    // own window, so our method sheet is skipped. The order API still takes
+    // a method; Razorpay ignores it (nothing is prefilled).
+    if (DIRECT_TO_GATEWAY) return 'upi'
     const p = $ui().pay
     if (!p.methods.length) {
       try {

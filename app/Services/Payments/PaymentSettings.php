@@ -2,42 +2,51 @@
 
 namespace App\Services\Payments;
 
-use App\Models\AppSetting;
-
 /**
- * Where the payment gateway's settings come from: the admin panel
- * (Payments → Gateway settings) first, then .env / config as the fallback,
- * so a fresh install still works from .env and the admin can take over
- * without a deploy.
+ * The payment gateway's settings — from the server only (.env → config).
+ *
+ * Not editable in the admin panel: the keys are set once on the server and
+ * the panel only shows whether payments are live (Admin → Payments).
+ *
+ *   RAZORPAY_KEY_ID          publishable, rzp_live_… (has a default in config/services.php)
+ *   RAZORPAY_KEY_SECRET      required — never in git
+ *   RAZORPAY_WEBHOOK_SECRET  the secret set on the Razorpay webhook
+ *   PAYMENT_GATEWAY          optional: razorpay | test
  */
 class PaymentSettings
 {
-    public const GATEWAY = 'payments.gateway';
-    public const RZP_KEY_ID = 'payments.razorpay.key_id';
-    public const RZP_KEY_SECRET = 'payments.razorpay.key_secret';
-    public const RZP_WEBHOOK_SECRET = 'payments.razorpay.webhook_secret';
-
-    /** `razorpay` | `test`. */
+    /**
+     * `razorpay` | `test`.
+     *
+     * Without PAYMENT_GATEWAY: Razorpay whenever its keys are present, and
+     * always in production — the test gateway grants plans without money, so
+     * production never falls back to it by accident.
+     */
     public static function gateway(): string
     {
-        $g = AppSetting::value(self::GATEWAY) ?? (string) config('plans.payment_gateway', 'test');
+        $g = (string) config('plans.payment_gateway', '');
+        if (in_array($g, ['razorpay', 'test'], true)) {
+            return $g;
+        }
 
-        return in_array($g, ['razorpay', 'test'], true) ? $g : 'test';
+        return (self::razorpayKeyId() && self::razorpayKeySecret()) || app()->isProduction()
+            ? 'razorpay'
+            : 'test';
     }
 
     public static function razorpayKeyId(): ?string
     {
-        return AppSetting::value(self::RZP_KEY_ID) ?? (config('services.razorpay.key_id') ?: null);
+        return config('services.razorpay.key_id') ?: null;
     }
 
     public static function razorpayKeySecret(): ?string
     {
-        return AppSetting::value(self::RZP_KEY_SECRET) ?? (config('services.razorpay.key_secret') ?: null);
+        return config('services.razorpay.key_secret') ?: null;
     }
 
     public static function razorpayWebhookSecret(): ?string
     {
-        return AppSetting::value(self::RZP_WEBHOOK_SECRET) ?? (config('services.razorpay.webhook_secret') ?: null);
+        return config('services.razorpay.webhook_secret') ?: null;
     }
 
     /** `live` | `test` | null, from the key id's prefix. */

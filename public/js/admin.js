@@ -267,10 +267,8 @@
 
       // Payments: the gateway is managed here (keys, on/off), and every order.
       payments: { q: '', status: '', gateway: '', data: [], meta: null, summary: null, busy: false, error: false },
-      paySettings: {
-        data: null, busy: false, saving: false, testing: false, test: null, copied: false,
-        form: { gateway: 'test', razorpay_key_id: '', razorpay_key_secret: '', razorpay_webhook_secret: '' },
-      },
+      // Read-only: the gateway and its keys live in the server .env.
+      paySettings: { data: null, busy: false, testing: false, test: null, copied: false },
 
       optionLists: { data: null, busy: false },
       optionListDetail: { data: null, key: '', busy: false },
@@ -1221,35 +1219,14 @@
         }[status] || 'bg-surface-muted text-ink-secondary'
       },
 
-      _applyPaySettings(data) {
-        const ps = this.paySettings
-        ps.data = data
-        ps.form = {
-          gateway: data.gateway,
-          razorpay_key_id: data.razorpay.key_id || '',
-          razorpay_key_secret: '',
-          razorpay_webhook_secret: '',
-        }
-      },
-
       loadPaySettings() {
         const ps = this.paySettings
         ps.busy = true
         ps.test = null
         this.api('/admin/payments/settings')
-          .then((res) => this._applyPaySettings(res.data))
+          .then((res) => { ps.data = res.data })
           .catch((e) => this.showToast(e.message, true))
           .finally(() => { ps.busy = false })
-      },
-
-      savePaySettings() {
-        const ps = this.paySettings
-        if (ps.saving) return
-        ps.saving = true
-        this.api('/admin/payments/settings', { method: 'PUT', body: ps.form })
-          .then((res) => { this._applyPaySettings(res.data); ps.test = null; this.showToast(res.message || 'Saved.') })
-          .catch((e) => this.showToast(e.message, true))
-          .finally(() => { ps.saving = false })
       },
 
       testPaySettings() {
@@ -1257,10 +1234,7 @@
         if (ps.testing) return
         ps.testing = true
         ps.test = null
-        this.api('/admin/payments/settings/test', {
-          method: 'POST',
-          body: { razorpay_key_id: ps.form.razorpay_key_id, razorpay_key_secret: ps.form.razorpay_key_secret },
-        })
+        this.api('/admin/payments/settings/test', { method: 'POST' })
           .then((res) => { ps.test = { ok: !!res.data?.ok, message: res.message } })
           .catch((e) => { ps.test = { ok: false, message: e.message } })
           .finally(() => { ps.testing = false })

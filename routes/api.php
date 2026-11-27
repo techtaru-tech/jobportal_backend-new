@@ -301,7 +301,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('jobs/{jobId}/reject', [Admin\JobPostingController::class, 'reject']);
 
                 Route::put('plans', [Admin\PlanController::class, 'update']);
-                Route::put('payments/settings', [Admin\PaymentController::class, 'updateSettings']);
                 Route::post('payments/settings/test', [Admin\PaymentController::class, 'testConnection']);
 
                 Route::patch('applications/{reference}/status', [Admin\ApplicationController::class, 'updateStatus']);

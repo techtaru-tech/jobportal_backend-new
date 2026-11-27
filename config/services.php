@@ -39,7 +39,9 @@ return [
     | Webhooks (the secret you set there). Test keys start rzp_test_.
     */
     'razorpay' => [
-        'key_id' => env('RAZORPAY_KEY_ID'),
+        // Publishable (it is sent to every browser), so the live one is the
+        // default. The secret is never in git: RAZORPAY_KEY_SECRET in .env.
+        'key_id' => env('RAZORPAY_KEY_ID') ?: 'rzp_live_U55de7hBpFXdWx',
         'key_secret' => env('RAZORPAY_KEY_SECRET'),
         'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
         'business_name' => env('RAZORPAY_BUSINESS_NAME', 'INTHES'),

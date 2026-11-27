@@ -1,12 +1,9 @@
 {{--
-  Payments — the gateway is managed here, not in .env.
+  Payments — whether the gateway is live, and every payment taken.
 
-  Top: which gateway takes payments (Razorpay / Test), and Razorpay's keys.
-  Secrets are write-only: once saved the panel shows only "••••abcd"; typing
-  a new one replaces it, leaving it blank keeps it. "Test connection" checks
-  the keys with a read-only Razorpay call before anything is switched on.
-
-  Below: every payment order — status, gateway reference, amount.
+  The gateway and its keys are set in the server's .env only (see
+  PaymentSettings); this page shows their status and can check them with a
+  read-only Razorpay call, but cannot change them.
 --}}
 <template x-if="view === 'payments'">
   <div class="animate-enter-up" x-init="loadPaySettings(); loadPayments()">
@@ -26,7 +23,7 @@
         <div class="flex flex-wrap items-center justify-between gap-md border-b border-hairline-divider px-lg py-md">
           <div>
             <h2 class="text-h4 text-ink">Payment gateway</h2>
-            <p class="mt-[2px] text-caption text-ink-muted">Used by the website and the app. Keys are stored encrypted; secrets are never shown again after saving.</p>
+            <p class="mt-[2px] text-caption text-ink-muted">Used by the website and the app. Set on the server (.env) — not changeable here.</p>
           </div>
           <template x-if="paySettings.data.gateway === 'razorpay' && paySettings.data.razorpay.mode === 'live'">
             <span class="inline-flex items-center gap-xs rounded-field bg-success-bg px-md py-[5px] text-tag font-semibold text-success">
@@ -42,51 +39,27 @@
         </div>
 
         <div class="space-y-lg px-lg py-lg">
-          {{-- Gateway --}}
-          <div>
-            <span class="mb-xs block text-kicker text-ink-secondary">GATEWAY</span>
-            <div class="grid gap-sm sm:grid-cols-2">
-              <template x-for="g in paySettings.data.gateways" :key="g.id">
-                <button type="button" @click="canWrite && (paySettings.form.gateway = g.id)" :disabled="!canWrite"
-                        :class="paySettings.form.gateway === g.id ? 'border-primary bg-primary-light' : 'border-hairline hover:bg-canvas-alt'"
-                        class="flex items-start gap-md rounded-card border-[1.2px] p-md text-left transition-colors disabled:cursor-default">
-                  <span class="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2"
-                        :class="paySettings.form.gateway === g.id ? 'border-primary' : 'border-ink-muted'">
-                    <span x-show="paySettings.form.gateway === g.id" class="h-2.5 w-2.5 rounded-full bg-primary"></span>
-                  </span>
-                  <span>
-                    <span class="block text-bodysm font-semibold text-ink" x-text="g.label"></span>
-                    <span class="block text-caption text-ink-muted" x-text="g.description"></span>
-                  </span>
-                </button>
-              </template>
+          {{-- Status (read-only) --}}
+          <dl class="grid gap-sm sm:grid-cols-2">
+            <div class="rounded-field bg-canvas-alt px-md py-sm">
+              <dt class="text-kicker text-ink-secondary">GATEWAY</dt>
+              <dd class="mt-xs text-bodysm font-semibold text-ink" x-text="paySettings.data.gateway === 'razorpay' ? 'Razorpay' : 'Test (no money)'"></dd>
             </div>
-          </div>
-
-          {{-- Razorpay keys --}}
-          <div class="grid gap-lg lg:grid-cols-3">
-            <label class="block">
-              <span class="mb-xs block text-kicker text-ink-secondary">RAZORPAY KEY ID</span>
-              <input type="text" x-model="paySettings.form.razorpay_key_id" :disabled="!canWrite" placeholder="rzp_live_… or rzp_test_…" autocomplete="off"
-                     class="h-[46px] w-full rounded-field bg-surface-muted px-md text-input text-ink border-hair border-hairline outline-none focus:border-primary focus:shadow-glow">
-              <span class="mt-xs block text-caption text-ink-muted">Dashboard → Account &amp; Settings → API Keys</span>
-            </label>
-            <label class="block">
-              <span class="mb-xs block text-kicker text-ink-secondary">KEY SECRET</span>
-              <input type="password" x-model="paySettings.form.razorpay_key_secret" :disabled="!canWrite" autocomplete="new-password"
-                     :placeholder="paySettings.data.razorpay.key_secret_set ? 'Saved ' + paySettings.data.razorpay.key_secret_hint + ' — type to replace' : 'Paste the key secret'"
-                     class="h-[46px] w-full rounded-field bg-surface-muted px-md text-input text-ink border-hair border-hairline outline-none focus:border-primary focus:shadow-glow">
-              <span class="mt-xs block text-caption text-ink-muted">Leave blank to keep the saved secret.</span>
-            </label>
-            <label class="block">
-              <span class="mb-xs block text-kicker text-ink-secondary">WEBHOOK SECRET</span>
-              <input type="password" x-model="paySettings.form.razorpay_webhook_secret" :disabled="!canWrite" autocomplete="new-password"
-                     :placeholder="paySettings.data.razorpay.webhook_secret_set ? 'Saved ' + paySettings.data.razorpay.webhook_secret_hint + ' — type to replace' : 'The secret set on the Razorpay webhook'"
-                     class="h-[46px] w-full rounded-field bg-surface-muted px-md text-input text-ink border-hair border-hairline outline-none focus:border-primary focus:shadow-glow">
-              <span class="mt-xs block text-caption" :class="paySettings.data.razorpay.webhook_secret_set ? 'text-ink-muted' : 'text-warning'"
-                    x-text="paySettings.data.razorpay.webhook_secret_set ? 'Leave blank to keep the saved secret.' : 'Not set — payments still work, but closed-tab payments and refunds will not sync.'"></span>
-            </label>
-          </div>
+            <div class="rounded-field bg-canvas-alt px-md py-sm">
+              <dt class="text-kicker text-ink-secondary">KEY ID</dt>
+              <dd class="mt-xs break-all text-bodysm text-ink" x-text="paySettings.data.razorpay.key_id || '—'"></dd>
+            </div>
+            <div class="rounded-field bg-canvas-alt px-md py-sm">
+              <dt class="text-kicker text-ink-secondary">KEY SECRET</dt>
+              <dd class="mt-xs text-bodysm font-semibold" :class="paySettings.data.razorpay.key_secret_set ? 'text-success' : 'text-danger'"
+                  x-text="paySettings.data.razorpay.key_secret_set ? 'Set on the server' : 'Missing — add RAZORPAY_KEY_SECRET to the server .env'"></dd>
+            </div>
+            <div class="rounded-field bg-canvas-alt px-md py-sm">
+              <dt class="text-kicker text-ink-secondary">WEBHOOK SECRET</dt>
+              <dd class="mt-xs text-bodysm font-semibold" :class="paySettings.data.razorpay.webhook_secret_set ? 'text-success' : 'text-warning'"
+                  x-text="paySettings.data.razorpay.webhook_secret_set ? 'Set on the server' : 'Not set — closed-tab payments and refunds will not sync'"></dd>
+            </div>
+          </dl>
 
           {{-- Webhook --}}
           <div class="rounded-field bg-canvas-alt px-md py-sm">
@@ -97,7 +70,7 @@
                       x-text="paySettings.copied ? 'Copied' : 'Copy'"></button>
             </div>
             <p class="mt-xs text-caption text-ink-muted">Add this URL in Razorpay → Webhooks with the events
-              <span x-text="paySettings.data.webhook_events.join(', ')"></span>, and put the same secret above.</p>
+              <span x-text="paySettings.data.webhook_events.join(', ')"></span>; its secret goes in the server .env as RAZORPAY_WEBHOOK_SECRET.</p>
           </div>
 
           <template x-if="paySettings.test">
@@ -108,10 +81,6 @@
             <button type="button" @click="testPaySettings()" :disabled="paySettings.testing"
                     class="inline-flex h-10 items-center gap-xs rounded-button border-hair border-hairline px-lg text-btnghost font-semibold text-ink hover:bg-canvas-alt disabled:opacity-60">
               <span x-show="paySettings.testing" x-html="ICONS.loader" class="animate-spin [&>svg]:h-4 [&>svg]:w-4"></span> Test connection
-            </button>
-            <button type="button" @click="savePaySettings()" :disabled="paySettings.saving"
-                    class="inline-flex h-10 items-center gap-xs rounded-button bg-primary px-lg text-btnghost font-semibold text-white hover:bg-primary-dark disabled:opacity-60">
-              <span x-show="paySettings.saving" x-html="ICONS.loader" class="animate-spin [&>svg]:h-4 [&>svg]:w-4"></span> Save settings
             </button>
           </div>
         </div>
